@@ -44,6 +44,7 @@ const PrintStrukPage = Loadable(lazy(() => import('views/PrintStruk/PrintStrukAw
 const PrintStrukPelunasanPage = Loadable(lazy(() => import('views/PrintStrukPelunasan/PrintStrukPelunasan')));
 const PrintStrukPerpanjanganPage = Loadable(lazy(() => import('views/PrintStrukPerpanjangan/index')));
 const PrintSuratGadaiPage = Loadable(lazy(() => import('views/Print-SBG/index')));
+const PrintSuratGadaiEmasPage = Loadable(lazy(() => import('views/Print-SBGEmas/index')));
 
 
 // ==============================|| MAIN ROUTES ||============================== //
@@ -82,7 +83,8 @@ const MainRoutes = {
     { path: '/print-struk-awal/:id', element: <PrintStrukPage/> },
     { path: '/print-struk-pelunasan/:id', element: <PrintStrukPelunasanPage/> },
     { path: '/print-struk-perpanjangan/:id', element: <PrintStrukPerpanjanganPage/> },
-    { path: '/print-surat-bukti-gadai/:id', element: <PrintSuratGadaiPage/> },
+    { path: '/print-surat-bukti-gadai-hp/:id', element: <PrintSuratGadaiPage/> },
+    { path: '/print-surat-bukti-gadai-emas/:id', element: <PrintSuratGadaiEmasPage/> },
 
 
 

@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   Card,
   CardHeader,
   CardContent,
   Divider,
   Table,
+  TableContainer,
   TableHead,
   TableBody,
   TableRow,
@@ -21,127 +22,121 @@ import {
   Typography,
   Grid,
   Stack,
-} from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import axiosInstance from 'api/axiosInstance';
+  Paper,
+} from "@mui/material";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import axiosInstance from "api/axiosInstance";
 
 const TypePage = () => {
   const [types, setTypes] = useState([]);
+  const [filteredTypes, setFilteredTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
   const [openDialog, setOpenDialog] = useState(false);
   const [editingType, setEditingType] = useState(null);
 
-  const [formNomorType, setFormNomorType] = useState('');
-  const [formNamaType, setFormNamaType] = useState('');
+  const [formNomorType, setFormNomorType] = useState("");
+  const [formNamaType, setFormNamaType] = useState("");
 
   useEffect(() => {
     fetchTypes();
   }, []);
 
-  // Fetch all types
   const fetchTypes = async () => {
     setLoading(true);
     try {
-      const response = await axiosInstance.get('/type');
-      console.log('API response:', response.data); // debug
+      const response = await axiosInstance.get("/type");
       if (response.data.success) {
         setTypes(response.data.data);
+        setFilteredTypes(response.data.data);
       } else {
-        setError(response.data.message || 'Gagal mengambil data');
+        setError(response.data.message || "Gagal mengambil data");
       }
     } catch (err) {
-      console.error(err);
-      setError(err.message || 'Terjadi kesalahan server');
+      setError(err.message || "Terjadi kesalahan server");
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredTypes = types.filter(
-    (type) =>
-      type.nomor_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      type.nama_type.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter real-time
+  useEffect(() => {
+    const filtered = types.filter(
+      (type) =>
+        type.nomor_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        type.nama_type?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredTypes(filtered);
+    setPage(0);
+  }, [searchTerm, types]);
 
-  const handleChangePage = (event, newPage) => setPage(newPage);
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
+  const handleChangePage = (_, newPage) => setPage(newPage);
+  const handleChangeRowsPerPage = (e) => {
+    setRowsPerPage(parseInt(e.target.value, 10));
     setPage(0);
   };
 
   const handleOpenDialog = (type = null) => {
     setEditingType(type);
-    setFormNomorType(type?.nomor_type || '');
-    setFormNamaType(type?.nama_type || '');
+    setFormNomorType(type?.nomor_type || "");
+    setFormNamaType(type?.nama_type || "");
     setOpenDialog(true);
   };
-
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setEditingType(null);
   };
 
-  // Save or update type
   const handleSubmit = async () => {
     if (!formNomorType || !formNamaType) {
-      alert('Harap isi semua field');
+      alert("Harap isi semua field");
       return;
     }
 
+    const payload = { nomor_type: formNomorType, nama_type: formNamaType };
     try {
-      const payload = { nomor_type: formNomorType, nama_type: formNamaType };
-      let response;
-
+      let res;
       if (editingType) {
-        response = await axiosInstance.put(`/type/${editingType.id}`, payload);
+        res = await axiosInstance.put(`/type/${editingType.id}`, payload);
       } else {
-        response = await axiosInstance.post('/type', payload);
+        res = await axiosInstance.post("/type", payload);
       }
 
-      if (response.data.success) {
-        if (editingType) {
-          setTypes((prev) =>
-            prev.map((t) => (t.id === editingType.id ? response.data.data : t))
-          );
-        } else {
-          setTypes((prev) => [response.data.data, ...prev]);
-        }
+      if (res.data.success) {
+        fetchTypes();
         handleCloseDialog();
       } else {
-        alert(response.data.message || 'Gagal menyimpan data');
+        alert(res.data.message || "Gagal menyimpan data");
       }
     } catch (err) {
       console.error(err);
-      alert(err.message || 'Terjadi kesalahan server');
+      alert("Terjadi kesalahan server");
     }
   };
 
-  // Delete type
   const handleDelete = async (id) => {
-    if (!window.confirm('Yakin hapus data ini?')) return;
-
+    if (!window.confirm("Yakin hapus data ini?")) return;
     try {
-      const response = await axiosInstance.delete(`/type/${id}`);
-      if (response.data.success) {
+      const res = await axiosInstance.delete(`/type/${id}`);
+      if (res.data.success) {
         setTypes((prev) => prev.filter((type) => type.id !== id));
       } else {
-        alert(response.data.message || 'Gagal menghapus data');
+        alert(res.data.message || "Gagal menghapus data");
       }
     } catch (err) {
-      console.error(err);
-      alert(err.message || 'Terjadi kesalahan server');
+      alert(err.message || "Terjadi kesalahan server");
     }
   };
 
   if (loading) {
     return (
-      <Grid container justifyContent="center" alignItems="center" style={{ height: '100vh' }}>
+      <Grid container justifyContent="center" alignItems="center" style={{ height: "100vh" }}>
         <CircularProgress />
       </Grid>
     );
@@ -149,7 +144,7 @@ const TypePage = () => {
 
   if (error) {
     return (
-      <Typography color="error" variant="h6" align="center" style={{ marginTop: 20 }}>
+      <Typography color="error" variant="h6" align="center" sx={{ mt: 2 }}>
         Error: {error}
       </Typography>
     );
@@ -157,63 +152,68 @@ const TypePage = () => {
 
   return (
     <>
-      <Card>
+      <Card sx={{ boxShadow: 3, borderRadius: 3 }}>
         <CardHeader
-          title="Data Type"
+          title={<Typography variant="h6">📋 Data Type Barang</Typography>}
           action={
             <Stack direction="row" spacing={1} alignItems="center">
               <TextField
                 variant="outlined"
                 size="small"
-                placeholder="Cari nomor atau nama type..."
+                placeholder="🔍 Cari nomor / nama type..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                sx={{ backgroundColor: "white", borderRadius: 2, width: 200 }}
               />
               <Button variant="contained" color="primary" onClick={() => handleOpenDialog()}>
-                Tambah
+                + Tambah
               </Button>
             </Stack>
           }
         />
         <Divider />
-        <CardContent>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>No</TableCell>
-                <TableCell>Nomor Type</TableCell>
-                <TableCell>Nama Type</TableCell>
-                <TableCell align="center">Aksi</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(rowsPerPage > 0
-                ? filteredTypes.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                : filteredTypes
-              ).map((type, index) => (
-                <TableRow key={type.id}>
-                  <TableCell>{page * rowsPerPage + index + 1}</TableCell>
-                  <TableCell>{type.nomor_type}</TableCell>
-                  <TableCell>{type.nama_type}</TableCell>
-                  <TableCell align="center">
-                    <IconButton color="primary" onClick={() => handleOpenDialog(type)}>
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton color="error" onClick={() => handleDelete(type.id)}>
-                      <DeleteIcon />
-                    </IconButton>
-                  </TableCell>
+        <CardContent sx={{ width: "100%" }}>
+          {/* 🔹 Table container dengan overflow auto untuk mobile */}
+          <TableContainer component={Paper} sx={{ overflowX: "auto" }}>
+            <Table size="small" sx={{ minWidth: 600 }}>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                  <TableCell><strong>No</strong></TableCell>
+                  <TableCell><strong>Nomor Type</strong></TableCell>
+                  <TableCell><strong>Nama Type</strong></TableCell>
+                  <TableCell align="center"><strong>Aksi</strong></TableCell>
                 </TableRow>
-              ))}
-              {filteredTypes.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4} align="center">
-                    Tidak ada data ditemukan.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {(rowsPerPage > 0
+                  ? filteredTypes.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  : filteredTypes
+                ).map((type, index) => (
+                  <TableRow key={type.id} hover>
+                    <TableCell>{page * rowsPerPage + index + 1}</TableCell>
+                    <TableCell>{type.nomor_type}</TableCell>
+                    <TableCell>{type.nama_type}</TableCell>
+                    <TableCell align="center">
+                      <IconButton color="primary" onClick={() => handleOpenDialog(type)}>
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton color="error" onClick={() => handleDelete(type.id)}>
+                        <DeleteIcon />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filteredTypes.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} align="center">
+                      Tidak ada data ditemukan.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
           <TablePagination
             rowsPerPageOptions={[5, 10, 25]}
             component="div"
@@ -226,8 +226,9 @@ const TypePage = () => {
         </CardContent>
       </Card>
 
+      {/* 🔹 Modal Tambah/Edit */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingType ? 'Edit Type' : 'Tambah Type'}</DialogTitle>
+        <DialogTitle>{editingType ? "✏️ Edit Type" : "➕ Tambah Type"}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2}>
             <TextField
@@ -247,7 +248,7 @@ const TypePage = () => {
         <DialogActions>
           <Button onClick={handleCloseDialog}>Batal</Button>
           <Button variant="contained" color="primary" onClick={handleSubmit}>
-            {editingType ? 'Update' : 'Simpan'}
+            {editingType ? "Update" : "Simpan"}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,22 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import {
-    Card,
-    CardHeader,
-    CardContent,
-    Grid,
-    TextField,
-    Button,
-    Stack,
-    CircularProgress,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    Autocomplete,
-    Box,
+    Card, CardHeader, CardContent, Grid, TextField, Button,
+    Stack, CircularProgress, Autocomplete, Box, FormGroup,
+    FormControlLabel, Checkbox, Typography
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from 'api/axiosInstance';
+
+const KELENGKAPAN_LIST = ['Box', 'Charger', 'Kabel Data'];
+const KERUSAKAN_LIST = [
+    'LCD Pecah', 'LCD Kuning/Pink', 'LCD Bercak', 'Baterai Bocor',
+    'Tombol Rusak', 'Layar tidak fungsi', 'Kamera tidak berfungsi/blur',
+    'Tombol volume tidak berfungsi', 'SIM tidak terbaca', 'Tombol power tidak berfungsi',
+    'Face Id/ Finger Print tidak berfungsi', 'IMEI tidak terbaca', 'Display Phone'
+];
+
+const NAMA_BARANG_LIST = ['Android','Samsung','iPhone'];
+
+const DOKUMEN_SOP = {
+    Android: ['body','imei','about','akun','admin','cam_depan','cam_belakang','rusak'],
+    Samsung: ['body','imei','about','samsung_account','admin','cam_depan','cam_belakang','galaxy_store'],
+    iPhone: ['body','imei','about','icloud','battery','3utools','iunlocker','cek_pencurian'],
+};
 
 const EditGadaiHpPage = () => {
     const { id } = useParams();
@@ -24,14 +29,14 @@ const EditGadaiHpPage = () => {
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [nasabahs, setNasabahs] = useState([]);
-    const [types, setTypes] = useState([]);
+    const [detailGadai, setDetailGadai] = useState([]);
+    const [uniqueNasabah, setUniqueNasabah] = useState([]);
     const [selectedNasabah, setSelectedNasabah] = useState(null);
 
     const [form, setForm] = useState({
         nama_barang: '',
-        kelengkapan: '',
-        kerusakan: '',
+        kelengkapan: [],
+        kerusakan: [],
         grade: '',
         imei: '',
         warna: '',
@@ -43,23 +48,40 @@ const EditGadaiHpPage = () => {
         type_hp: '',
         merk: '',
         detail_gadai_id: '',
+        dokumen_pendukung: {},
     });
 
-    // Ambil data awal
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [resGadai, resNasabah, resTypes] = await Promise.all([
+                const [resGadai, resDetailGadai] = await Promise.all([
                     axiosInstance.get(`/gadai-hp/${id}`),
-                    axiosInstance.get('/data-nasabah'),
-                    axiosInstance.get('/type'),
+                    axiosInstance.get('/detail-gadai'),
                 ]);
 
                 const data = resGadai.data.data;
+
+                // =======================
+                // FIX DOKUMEN PENDUKUNG → jadi URL lengkap
+                // =======================
+                const dokumenPendukung = {};
+                if (data.dokumen_pendukung) {
+                    Object.entries(data.dokumen_pendukung).forEach(([key, val]) => {
+                        if (typeof val === 'string' && val) {
+                            dokumenPendukung[key] = { url: val.startsWith('http') ? val : `${window.location.origin}/${val}` };
+                        } else if (Array.isArray(val) && val.length > 0) {
+                            dokumenPendukung[key] = { url: val[0].startsWith('http') ? val[0] : `${window.location.origin}/${val[0]}` };
+                        } else {
+                            dokumenPendukung[key] = null;
+                        }
+                    });
+                }
+
                 setForm({
+                    ...form,
                     nama_barang: data.nama_barang || '',
-                    kelengkapan: data.kelengkapan || '',
-                    kerusakan: data.kerusakan || '',
+                    kelengkapan: Array.isArray(data.kelengkapan) ? data.kelengkapan : [],
+                    kerusakan: Array.isArray(data.kerusakan) ? data.kerusakan : [],
                     grade: data.grade || '',
                     imei: data.imei || '',
                     warna: data.warna || '',
@@ -71,17 +93,23 @@ const EditGadaiHpPage = () => {
                     type_hp: data.type_hp || '',
                     merk: data.merk || '',
                     detail_gadai_id: data.detail_gadai_id || '',
+                    dokumen_pendukung: dokumenPendukung,
                 });
 
-                setNasabahs(resNasabah.data.data || []);
-                setTypes(resTypes.data.data || []);
+                const detailData = resDetailGadai.data.data || [];
+                setDetailGadai(detailData);
 
-                const nasabahFound = resNasabah.data.data.find(
-                    (n) => n.id.toString() === data.detail_gadai_id.toString()
-                );
-                setSelectedNasabah(nasabahFound || null);
+                const nasabahMap = {};
+                detailData.forEach(d => {
+                    if (d.nasabah && !nasabahMap[d.nasabah.id]) {
+                        nasabahMap[d.nasabah.id] = d.nasabah;
+                    }
+                });
+                setUniqueNasabah(Object.values(nasabahMap));
 
-                setSelectedNasabah(nasabahFound || null);
+                const selectedDetail = detailData.find(d => d.id === data.detail_gadai_id);
+                setSelectedNasabah(selectedDetail ? selectedDetail.nasabah : null);
+
             } catch (err) {
                 console.error(err);
                 alert('Gagal mengambil data gadai HP');
@@ -94,20 +122,57 @@ const EditGadaiHpPage = () => {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
+        setForm(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleCheckboxChange = (field, value) => {
+        setForm(prev => {
+            const newArray = prev[field].includes(value)
+                ? prev[field].filter(item => item !== value)
+                : [...prev[field], value];
+            return { ...prev, [field]: newArray };
+        });
+    };
+
+    const handleDokumenChange = (key, file) => {
+        setForm(prev => ({
+            ...prev,
+            dokumen_pendukung: {
+                ...prev.dokumen_pendukung,
+                [key]: file ? { file, url: URL.createObjectURL(file) } : null
+            }
+        }));
     };
 
     const handleSubmit = async () => {
-        for (let key of Object.keys(form)) {
-            if (!form[key]) {
-                alert('Semua field harus diisi!');
-                return;
-            }
+        if (!form.detail_gadai_id) {
+            alert('Silakan pilih Nasabah.');
+            return;
         }
 
         try {
             setSaving(true);
-            const res = await axiosInstance.put(`/gadai-hp/${id}`, form);
+            const data = new FormData();
+            data.append('_method', 'PUT');
+
+            Object.keys(form).forEach(key => {
+                if (key === 'dokumen_pendukung') {
+                    Object.entries(form.dokumen_pendukung).forEach(([k, val]) => {
+                        if (val?.file instanceof File) {
+                            data.append(`dokumen_pendukung[${k}]`, val.file);
+                        }
+                    });
+                } else if (key === 'kelengkapan' || key === 'kerusakan') {
+                    form[key].forEach(value => data.append(`${key}[]`, value));
+                } else {
+                    data.append(key, form[key]);
+                }
+            });
+
+            const res = await axiosInstance.post(`/gadai-hp/${id}`, data, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
             if (res.data.success) {
                 alert('Data berhasil diperbarui!');
                 navigate('/gadai-hp');
@@ -115,8 +180,13 @@ const EditGadaiHpPage = () => {
                 alert(res.data.message || 'Gagal memperbarui data');
             }
         } catch (err) {
-            console.error(err);
-            alert(err.message || 'Terjadi kesalahan server');
+            console.error(err.response?.data || err);
+            if (err.response?.status === 422 && err.response.data.errors) {
+                const messages = Object.values(err.response.data.errors).flat().join('\n');
+                alert(`Validasi gagal:\n${messages}`);
+            } else {
+                alert(err.response?.data?.message || 'Terjadi kesalahan server');
+            }
         } finally {
             setSaving(false);
         }
@@ -130,165 +200,165 @@ const EditGadaiHpPage = () => {
         );
     }
 
+    const dokumenKeys = form.nama_barang ? DOKUMEN_SOP[form.nama_barang] : [];
+
     return (
         <Card sx={{ p: 2 }}>
-            <CardHeader title="Edit Gadai HP" />
+            <CardHeader title="Edit Data Gadai HP" />
             <CardContent>
-                <Grid container spacing={3}>
-                    {/* Kolom kiri */}
-                    <Grid item xs={12} md={6}>
-                        <Stack spacing={2}>
-                            <TextField
-                                label="Nama Barang"
-                                name="nama_barang"
-                                value={form.nama_barang}
-                                onChange={handleInputChange}
-                                fullWidth
-                            />
-                            <TextField
-                                label="IMEI"
-                                name="imei"
-                                value={form.imei}
-                                onChange={handleInputChange}
-                                fullWidth
-                            />
-                            <TextField
-                                label="Merk"
-                                name="merk"
-                                value={form.merk}
-                                onChange={handleInputChange}
-                                fullWidth
-                            />
-                            <FormControl fullWidth>
-                                <InputLabel>Type HP</InputLabel>
-                                <Select
-                                    name="type_hp"
-                                    value={form.type_hp}
-                                    onChange={handleInputChange}
-                                    label="Type HP"
-                                >
-                                    {types.map((t) => (
-                                        <MenuItem key={t.id} value={t.nama_type}>
-                                            {t.nama_type}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                            <TextField
-                                label="Grade"
-                                name="grade"
-                                value={form.grade}
-                                onChange={handleInputChange}
-                                fullWidth
-                            />
-                            <TextField
-                                label="Kelengkapan"
-                                name="kelengkapan"
-                                value={form.kelengkapan}
-                                onChange={handleInputChange}
-                                fullWidth
-                            />
-                            <TextField
-                                label="Kerusakan"
-                                name="kerusakan"
-                                value={form.kerusakan}
-                                onChange={handleInputChange}
-                                fullWidth
-                            />
-                        </Stack>
-                    </Grid>
+                <Grid container spacing={2}>
 
-                    {/* Kolom kanan */}
-                    <Grid item xs={12} md={6}>
-                        <Stack spacing={2}>
-                            <TextField
-                                label="Warna"
-                                name="warna"
-                                value={form.warna}
-                                onChange={handleInputChange}
-                                fullWidth
-                            />
-                            <TextField
-                                label="Kunci Password"
-                                name="kunci_password"
-                                value={form.kunci_password}
-                                onChange={handleInputChange}
-                                fullWidth
-                            />
-                            <TextField
-                                label="Kunci PIN"
-                                name="kunci_pin"
-                                value={form.kunci_pin}
-                                onChange={handleInputChange}
-                                fullWidth
-                            />
-                            <TextField
-                                label="Kunci Pola"
-                                name="kunci_pola"
-                                value={form.kunci_pola}
-                                onChange={handleInputChange}
-                                fullWidth
-                            />
-                            <TextField
-                                label="RAM"
-                                name="ram"
-                                value={form.ram}
-                                onChange={handleInputChange}
-                                fullWidth
-                            />
-                            <TextField
-                                label="ROM"
-                                name="rom"
-                                value={form.rom}
-                                onChange={handleInputChange}
-                                fullWidth
-                            />
-
-                            {/* Autocomplete Nasabah */}
-                            <Autocomplete
-                                options={nasabahs}
-                                getOptionLabel={(option) => option.nama_lengkap || ''}
-                                value={selectedNasabah}
-                                onChange={(e, newValue) => {
-                                    setSelectedNasabah(newValue);
-                                    setForm((prev) => ({
-                                        ...prev,
-                                        detail_gadai_id: newValue ? newValue.id : '',
-                                    }));
-                                }}
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-                                        label="Cari Nasabah"
-                                        placeholder="Ketik nama nasabah..."
-                                        fullWidth
-                                    />
-                                )}
-                            />
-                            {selectedNasabah && (
-                                <Box
-                                    sx={{
-                                        mt: 1,
-                                        p: 1.5,
-                                        border: '1px solid #ddd',
-                                        borderRadius: 1,
-                                        bgcolor: '#fafafa',
-                                    }}
-                                >
-                                    <strong>Detail Nasabah:</strong>
-                                    <div>Nama: {selectedNasabah.nama_lengkap}</div>
-                                    <div>No HP: {selectedNasabah.no_hp}</div>
-                                    <div>Alamat: {selectedNasabah.alamat}</div>
-                                </Box>
+                    {/* Autocomplete Nasabah */}
+                    <Grid item xs={12} sm={6}>
+                        <Autocomplete
+                            options={uniqueNasabah}
+                            getOptionLabel={(option) => option.nama_lengkap || ''}
+                            value={selectedNasabah}
+                            onChange={(event, newValue) => {
+                                setSelectedNasabah(newValue);
+                                const detail = detailGadai.find(d => d.nasabah?.id === newValue?.id);
+                                setForm(prev => ({ ...prev, detail_gadai_id: detail ? detail.id : '' }));
+                            }}
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    label="Nama Nasabah"
+                                    placeholder="Cari nama nasabah..."
+                                    size="small"
+                                    fullWidth
+                                />
                             )}
-                        </Stack>
+                        />
+                        {selectedNasabah && (
+                            <Box sx={{ mt: 1, p: 2, border: '1px solid #ddd', borderRadius: 2, bgcolor: '#fafafa' }}>
+                                <Typography variant="subtitle2">Detail Nasabah:</Typography>
+                                <div>Nama: {selectedNasabah.nama_lengkap}</div>
+                                <div>No HP: {selectedNasabah.no_hp}</div>
+                                <div>Alamat: {selectedNasabah.alamat}</div>
+                            </Box>
+                        )}
                     </Grid>
+
+                    {/* Input Text Fields */}
+                    {['nama_barang','grade','imei','warna','kunci_password','kunci_pin','kunci_pola','ram','rom','type_hp','merk'].map(key => (
+                        <Grid item xs={12} sm={6} key={key}>
+                            <TextField
+                                label={key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                name={key}
+                                value={form[key]}
+                                onChange={handleInputChange}
+                                fullWidth
+                                size="small"
+                            />
+                        </Grid>
+                    ))}
+
+                    {/* Checkbox Kelengkapan */}
+                    <Grid item xs={12} sm={6}>
+                        <Box sx={{ border: '1px dashed #ccc', borderRadius: 2, p: 2, bgcolor: '#fafafa' }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1 }}>Kelengkapan</Typography>
+                            <FormGroup>
+                                {KELENGKAPAN_LIST.map(option => (
+                                    <FormControlLabel
+                                        key={option}
+                                        control={
+                                            <Checkbox
+                                                checked={form.kelengkapan.includes(option)}
+                                                onChange={() => handleCheckboxChange('kelengkapan', option)}
+                                            />
+                                        }
+                                        label={option}
+                                    />
+                                ))}
+                            </FormGroup>
+                        </Box>
+                    </Grid>
+
+                    {/* Checkbox Kerusakan */}
+                    <Grid item xs={12} sm={6}>
+                        <Box sx={{ border: '1px dashed #ccc', borderRadius: 2, p: 2, bgcolor: '#fafafa' }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1 }}>Kerusakan</Typography>
+                            <FormGroup>
+                                {KERUSAKAN_LIST.map(option => (
+                                    <FormControlLabel
+                                        key={option}
+                                        control={
+                                            <Checkbox
+                                                checked={form.kerusakan.includes(option)}
+                                                onChange={() => handleCheckboxChange('kerusakan', option)}
+                                            />
+                                        }
+                                        label={option}
+                                    />
+                                ))}
+                            </FormGroup>
+                        </Box>
+                    </Grid>
+
+                    {/* Dokumen Pendukung */}
+                    {dokumenKeys.length > 0 && (
+                        <Grid item xs={12}>
+                            <Typography variant="subtitle1" sx={{ mb: 1 }}>LENGKAPI DOKUMEN PENDUKUNG:</Typography>
+                        </Grid>
+                    )}
+                    {dokumenKeys.map(key => (
+                        <Grid item xs={12} sm={6} key={key}>
+                            <Typography variant="subtitle2" sx={{ mb: 1 }}>{key.replace(/_/g,' ').toUpperCase()}</Typography>
+                            <Box
+                                sx={{
+                                    p: 2,
+                                    border: '1px dashed #ccc',
+                                    borderRadius: 2,
+                                    bgcolor: '#fafafa',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                }}
+                            >
+                                {form.dokumen_pendukung[key]?.url ? (
+                                    <Box
+                                        component="img"
+                                        src={form.dokumen_pendukung[key].url}
+                                        alt={key}
+                                        sx={{ maxWidth: '150px', maxHeight: '150px', mb: 1, borderRadius: 1, objectFit: 'contain' }}
+                                    />
+                                ) : (
+                                    <Typography variant="body2" sx={{ mb: 1, color: '#888' }}>Belum ada file dipilih</Typography>
+                                )}
+
+                                <Stack direction="row" spacing={1}>
+                                    <Button
+                                        variant="contained"
+                                        component="label"
+                                        size="small"
+                                    >
+                                        Upload
+                                        <input
+                                            type="file"
+                                            hidden
+                                            accept="image/*"
+                                            onChange={(e) => handleDokumenChange(key, e.target.files[0])}
+                                        />
+                                    </Button>
+                                    {form.dokumen_pendukung[key]?.url && (
+                                        <Button
+                                            variant="outlined"
+                                            color="error"
+                                            size="small"
+                                            onClick={() => handleDokumenChange(key, null)}
+                                        >
+                                            Hapus
+                                        </Button>
+                                    )}
+                                </Stack>
+                            </Box>
+                        </Grid>
+                    ))}
+
                 </Grid>
 
                 <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 4 }}>
-                    <Button variant="outlined" color="secondary" onClick={() => navigate('/gadai-hp')}>
-                        Batal
-                    </Button>
+                    <Button variant="outlined" onClick={() => navigate('/gadai-hp')}>Batal</Button>
                     <Button variant="contained" color="primary" onClick={handleSubmit} disabled={saving}>
                         {saving ? 'Menyimpan...' : 'Update'}
                     </Button>

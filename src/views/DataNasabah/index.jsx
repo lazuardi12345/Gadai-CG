@@ -1,12 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Card,
   CardHeader,
   CardContent,
   Divider,
-  Grid,
-  Typography,
   Table,
   TableHead,
   TableBody,
@@ -19,103 +16,97 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  TextField,
   CircularProgress,
   Stack,
-} from '@mui/material';
-
-import PhotoIcon from '@mui/icons-material/Photo';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import AddIcon from '@mui/icons-material/Add';
-
-import Breadcrumb from 'component/Breadcrumb';
-import { gridSpacing } from 'config.js';
-import axiosInstance from 'api/axiosInstance';
+  Box,
+  Backdrop,
+  Grid,
+  Typography,
+  TextField,
+  Paper,
+  TableContainer,
+} from "@mui/material";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import AddIcon from "@mui/icons-material/Add";
+import PhotoIcon from "@mui/icons-material/Photo";
+import axiosInstance from "api/axiosInstance";
 
 const DataNasabahPage = () => {
-  const navigate = useNavigate();
-
-  // State utama
   const [nasabahData, setNasabahData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // Pagination dari backend
   const [pagination, setPagination] = useState({
     total: 0,
     per_page: 10,
     current_page: 1,
     last_page: 1,
   });
-
-  // Modal Foto
+  const [loading, setLoading] = useState(true);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [openModal, setOpenModal] = useState(false);
-  const [modalFotoSrc, setModalFotoSrc] = useState('');
+  const [modalFotoSrc, setModalFotoSrc] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Search
-  const [searchTerm, setSearchTerm] = useState('');
-
-  // Modal Tambah Nasabah
-  const [openAddModal, setOpenAddModal] = useState(false);
-  const [newNasabah, setNewNasabah] = useState({
-    nama_lengkap: '',
-    nik: '',
-    alamat: '',
-    no_hp: '',
+  // Form Tambah Nasabah
+  const [openTambahModal, setOpenTambahModal] = useState(false);
+  const [formData, setFormData] = useState({
+    nama_lengkap: "",
+    nik: "",
+    alamat: "",
+    no_hp: "",
     foto_ktp: null,
-    foto_ktp_preview: null,
   });
-  const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Fetch data saat pertama load
+  const fetchData = useCallback(
+    async (page = 1, perPage = 10, search = "") => {
+      if (page === 1 && !search) setLoading(true);
+      else setTableLoading(true);
+
+      try {
+        const res = await axiosInstance.get("/data-nasabah", {
+          params: { page, per_page: perPage, search },
+        });
+
+        if (res.data.success) {
+          setNasabahData(res.data.data || []);
+          setPagination(
+            res.data.pagination || {
+              total: 0,
+              per_page: perPage,
+              current_page: page,
+              last_page: 1,
+            }
+          );
+        } else {
+          setNasabahData([]);
+          setError(res.data.message || "Gagal mengambil data");
+        }
+      } catch (err) {
+        setError(err.response?.data?.message || err.message);
+      } finally {
+        setLoading(false);
+        setTableLoading(false);
+      }
+    },
+    []
+  );
+
   useEffect(() => {
-    fetchData(pagination.current_page, pagination.per_page);
+    fetchData(1, pagination.per_page);
   }, []);
 
-  // Cleanup URL.createObjectURL
-  useEffect(() => {
-    return () => {
-      if (newNasabah.foto_ktp_preview) {
-        URL.revokeObjectURL(newNasabah.foto_ktp_preview);
-      }
-    };
-  }, [newNasabah.foto_ktp_preview]);
+  // Pagination
+  const handleChangePage = (_, newPage) =>
+    fetchData(newPage + 1, pagination.per_page, searchQuery);
+  const handleChangeRowsPerPage = (event) =>
+    fetchData(1, parseInt(event.target.value, 10), searchQuery);
 
-  // Fetch data nasabah dengan page & per_page
-  const fetchData = async (page = 1, perPage = 10) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await axiosInstance.get(`/data-nasabah?page=${page}&per_page=${perPage}`);
-      if (response.data.success) {
-        setNasabahData(response.data.data || []);
-        setPagination(response.data.pagination || {
-          total: 0,
-          per_page: perPage,
-          current_page: page,
-          last_page: 1,
-        });
-      } else {
-        setNasabahData([]);
-        setError(response.data.message || 'Gagal mengambil data');
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Gagal fetch data');
-      setNasabahData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Pagination handlers
-  const handleChangePage = (_, newPage) => {
-    fetchData(newPage + 1, pagination.per_page); // backend halaman mulai dari 1
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    const newPerPage = parseInt(event.target.value, 10);
-    fetchData(1, newPerPage);
+  // Search
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    fetchData(1, pagination.per_page, value);
   };
 
   // Modal Foto
@@ -123,180 +114,137 @@ const DataNasabahPage = () => {
     setModalFotoSrc(fotoUrl);
     setOpenModal(true);
   };
-  const handleCloseModal = () => {
-    setOpenModal(false);
-    setModalFotoSrc('');
-  };
-
-  // Handlers Edit & Delete
-  const handleEdit = (nasabah) => navigate(`/edit-nasabah/${nasabah.id}`);
-
-  const handleDelete = (nasabah) => {
-    if (window.confirm(`Hapus nasabah ${nasabah.nama_lengkap}?`)) {
-      alert(`Nasabah ${nasabah.nama_lengkap} dihapus (dummy)`);
-      // fetchData(pagination.current_page, pagination.per_page); // uncomment jika API delete tersedia
-    }
-  };
 
   // Modal Tambah Nasabah
-  const handleOpenAddModal = () => {
-    setNewNasabah({
-      nama_lengkap: '',
-      nik: '',
-      alamat: '',
-      no_hp: '',
+  const handleOpenTambahModal = () => {
+    setFormData({
+      nama_lengkap: "",
+      nik: "",
+      alamat: "",
+      no_hp: "",
       foto_ktp: null,
-      foto_ktp_preview: null,
     });
-    setOpenAddModal(true);
-  };
-  const handleCloseAddModal = () => setOpenAddModal(false);
-
-  const handleNewNasabahChange = (e) => {
-    const { name, value } = e.target;
-    setNewNasabah((prev) => ({ ...prev, [name]: value }));
+    setOpenTambahModal(true);
   };
 
-  const handleFotoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setNewNasabah((prev) => ({
-        ...prev,
-        foto_ktp: file,
-        foto_ktp_preview: URL.createObjectURL(file),
-      }));
+  const handleFormChange = (e) => {
+    const { name, value, files } = e.target;
+    if (name === "foto_ktp") {
+      setFormData((prev) => ({ ...prev, foto_ktp: files[0] }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
-  const handleSaveNasabah = async () => {
-    if (!newNasabah.nama_lengkap || !newNasabah.nik) {
-      alert('Nama lengkap dan NIK wajib diisi!');
+  const handleSubmit = async () => {
+    const { nama_lengkap, nik, alamat, no_hp, foto_ktp } = formData;
+    if (!nama_lengkap || !nik || !alamat || !no_hp) {
+      alert("Semua field wajib diisi!");
       return;
     }
 
-    setSaving(true);
+    const fd = new FormData();
+    fd.append("nama_lengkap", nama_lengkap);
+    fd.append("nik", nik);
+    fd.append("alamat", alamat);
+    fd.append("no_hp", no_hp);
+    if (foto_ktp) fd.append("foto_ktp", foto_ktp);
+
     try {
-      const formData = new FormData();
-      formData.append('nama_lengkap', newNasabah.nama_lengkap);
-      formData.append('nik', newNasabah.nik);
-      formData.append('alamat', newNasabah.alamat);
-      formData.append('no_hp', newNasabah.no_hp);
-
-      if (newNasabah.foto_ktp instanceof File) {
-        formData.append('foto_ktp', newNasabah.foto_ktp);
-      }
-
-      const response = await axiosInstance.post('/data-nasabah', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+      setSubmitting(true);
+      const res = await axiosInstance.post("/data-nasabah", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
-
-      if (response.data.success) {
-        alert('Data nasabah berhasil disimpan.');
-        handleCloseAddModal();
-        fetchData(pagination.current_page, pagination.per_page);
+      if (res.data.success) {
+        setOpenTambahModal(false);
+        fetchData(1, pagination.per_page);
       } else {
-        alert(response.data.message || 'Gagal menyimpan data nasabah.');
+        alert(res.data.message || "Gagal menambahkan nasabah");
       }
-    } catch (error) {
-      console.error(error);
-      alert('Terjadi kesalahan saat menyimpan data nasabah.');
+    } catch (err) {
+      alert(err.response?.data?.message || err.message);
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   };
 
-  // Filter search di frontend
-  const filteredData = nasabahData.filter((nasabah) => {
-    const term = searchTerm.toLowerCase();
+  if (loading)
     return (
-      nasabah.nama_lengkap.toLowerCase().includes(term) ||
-      nasabah.nik.toLowerCase().includes(term)
-    );
-  });
-
-  if (loading) {
-    return (
-      <Grid container justifyContent="center" alignItems="center" style={{ height: '100vh' }}>
+      <Grid container justifyContent="center" alignItems="center" sx={{ height: "100vh" }}>
         <CircularProgress />
       </Grid>
     );
-  }
 
-  if (error) {
+  if (error)
     return (
-      <Typography color="error" variant="h6" align="center" style={{ marginTop: 20 }}>
-        Error: {error}
+      <Typography color="error" align="center" sx={{ mt: 3 }}>
+        {error}
       </Typography>
     );
-  }
 
   return (
     <>
-      {/* Breadcrumb */}
-      <Breadcrumb title="Data Nasabah">
-        <Typography variant="subtitle2" color="inherit" className="link-breadcrumb">
-          Home
-        </Typography>
-        <Typography variant="subtitle2" color="primary" className="link-breadcrumb">
-          Daftar Data Nasabah
-        </Typography>
-      </Breadcrumb>
+      <Card sx={{ boxShadow: 3, borderRadius: 3 }}>
+        <CardHeader
+          title={<Typography variant="h6">📋 Data Nasabah</Typography>}
+          action={
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={handleOpenTambahModal}
+            >
+              Tambah
+            </Button>
+          }
+        />
+        <Divider />
 
-      {/* Table Card */}
-      <Grid container spacing={gridSpacing} justifyContent="center" style={{ marginTop: 10 }}>
-        <Grid item xs={12} md={10}>
-          <Card>
-            <CardHeader
-              title="Data Nasabah"
-              action={
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <TextField
-                    variant="outlined"
-                    size="small"
-                    placeholder="Cari nama atau NIK..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    style={{ width: 300 }}
-                  />
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={<AddIcon />}
-                    onClick={handleOpenAddModal}
-                  >
-                    Tambah Nasabah
-                  </Button>
-                </Stack>
-              }
+        <CardContent>
+          {/* Search bar */}
+          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+            <TextField
+              size="small"
+              placeholder="Cari nasabah..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              sx={{ width: 300 }}
             />
-            <Divider />
-            <CardContent>
-              <Table>
+          </Stack>
+
+          {/* Table with horizontal scroll */}
+          <Box sx={{ width: "100%", overflowX: "auto" }}>
+            <TableContainer component={Paper}>
+              <Table sx={{ minWidth: 800 }}>
                 <TableHead>
-                  <TableRow>
-                    <TableCell>No</TableCell>
-                    <TableCell>Nama Lengkap</TableCell>
-                    <TableCell>NIK</TableCell>
-                    <TableCell>Alamat</TableCell>
-                    <TableCell>No HP</TableCell>
-                    <TableCell>Foto</TableCell>
-                    <TableCell>Aksi</TableCell>
+                  <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                    <TableCell><strong>No</strong></TableCell>
+                    <TableCell><strong>Nama Lengkap</strong></TableCell>
+                    <TableCell><strong>NIK</strong></TableCell>
+                    <TableCell><strong>Alamat</strong></TableCell>
+                    <TableCell><strong>No HP</strong></TableCell>
+                    <TableCell><strong>Foto</strong></TableCell>
+                    <TableCell align="center"><strong>Aksi</strong></TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredData.length === 0 ? (
+                  {nasabahData.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} align="center">
-                        Data tidak ditemukan.
+                        Tidak ada data ditemukan.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredData.map((nasabah, index) => (
-                      <TableRow key={nasabah.id}>
-                        <TableCell>{(pagination.current_page - 1) * pagination.per_page + index + 1}</TableCell>
+                    nasabahData.map((nasabah, index) => (
+                      <TableRow key={nasabah.id} hover>
+                        <TableCell>
+                          {(pagination.current_page - 1) * pagination.per_page + index + 1}
+                        </TableCell>
                         <TableCell>{nasabah.nama_lengkap}</TableCell>
                         <TableCell>{nasabah.nik}</TableCell>
-                        <TableCell>{nasabah.alamat}</TableCell>
+                        <TableCell sx={{ maxWidth: 150, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {nasabah.alamat}
+                        </TableCell>
                         <TableCell>{nasabah.no_hp}</TableCell>
                         <TableCell>
                           <IconButton
@@ -308,11 +256,11 @@ const DataNasabahPage = () => {
                             <PhotoIcon />
                           </IconButton>
                         </TableCell>
-                        <TableCell>
-                          <IconButton color="primary" onClick={() => handleEdit(nasabah)} title="Edit">
+                        <TableCell align="center">
+                          <IconButton color="primary" title="Edit" onClick={() => alert("Edit data")}>
                             <EditIcon />
                           </IconButton>
-                          <IconButton color="error" onClick={() => handleDelete(nasabah)} title="Hapus">
+                          <IconButton color="error" title="Hapus" onClick={() => alert("Hapus data")}>
                             <DeleteIcon />
                           </IconButton>
                         </TableCell>
@@ -322,6 +270,7 @@ const DataNasabahPage = () => {
                 </TableBody>
               </Table>
 
+              {/* Pagination */}
               <TablePagination
                 component="div"
                 count={pagination.total}
@@ -332,80 +281,88 @@ const DataNasabahPage = () => {
                 rowsPerPageOptions={[5, 10, 25]}
                 labelRowsPerPage="Baris per halaman"
               />
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+            </TableContainer>
+
+            {/* Loading overlay untuk table */}
+            {tableLoading && (
+              <Backdrop
+                open
+                sx={{
+                  position: "absolute",
+                  zIndex: 2,
+                  backgroundColor: "rgba(255,255,255,0.6)",
+                }}
+              >
+                <CircularProgress size={30} color="primary" />
+              </Backdrop>
+            )}
+          </Box>
+        </CardContent>
+      </Card>
 
       {/* Modal Foto */}
-      <Dialog open={openModal} onClose={handleCloseModal} maxWidth="sm" fullWidth>
+      <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Foto KTP</DialogTitle>
-        <DialogContent dividers style={{ textAlign: 'center' }}>
+        <DialogContent dividers sx={{ textAlign: "center" }}>
           <img
             src={modalFotoSrc}
             alt="Foto KTP"
-            style={{ width: '100%', height: 400, borderRadius: 8, objectFit: 'cover' }}
+            style={{ width: "100%", height: 400, borderRadius: 8, objectFit: "cover" }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseModal} color="primary">
+          <Button onClick={() => setOpenModal(false)} color="primary">
             Tutup
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Modal Tambah Nasabah */}
-      <Dialog open={openAddModal} onClose={handleCloseAddModal} maxWidth="sm" fullWidth>
+      <Dialog open={openTambahModal} onClose={() => setOpenTambahModal(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Tambah Nasabah</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2}>
             <TextField
               label="Nama Lengkap"
               name="nama_lengkap"
-              value={newNasabah.nama_lengkap}
-              onChange={handleNewNasabahChange}
+              value={formData.nama_lengkap}
+              onChange={handleFormChange}
               fullWidth
             />
             <TextField
               label="NIK"
               name="nik"
-              value={newNasabah.nik}
-              onChange={handleNewNasabahChange}
+              value={formData.nik}
+              onChange={handleFormChange}
               fullWidth
             />
             <TextField
               label="Alamat"
               name="alamat"
-              value={newNasabah.alamat}
-              onChange={handleNewNasabahChange}
+              value={formData.alamat}
+              onChange={handleFormChange}
               fullWidth
             />
             <TextField
               label="No HP"
               name="no_hp"
-              value={newNasabah.no_hp}
-              onChange={handleNewNasabahChange}
+              value={formData.no_hp}
+              onChange={handleFormChange}
               fullWidth
             />
             <Button variant="contained" component="label">
               Upload Foto KTP
-              <input type="file" accept="image/*" hidden onChange={handleFotoChange} />
+              <input type="file" hidden name="foto_ktp" onChange={handleFormChange} />
             </Button>
-            {newNasabah.foto_ktp_preview && (
-              <img
-                src={newNasabah.foto_ktp_preview}
-                alt="Preview Foto KTP"
-                style={{ width: 300, height: 200, borderRadius: 8, objectFit: 'cover' }}
-              />
-            )}
+            {formData.foto_ktp && <Typography>{formData.foto_ktp.name}</Typography>}
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseAddModal} color="secondary" disabled={saving}>
+          <Button onClick={() => setOpenTambahModal(false)} color="secondary">
             Batal
           </Button>
-          <Button onClick={handleSaveNasabah} color="primary" disabled={saving}>
-            {saving ? 'Menyimpan...' : 'Simpan'}
+          <Button onClick={handleSubmit} color="primary" disabled={submitting}>
+            {submitting ? <CircularProgress size={24} /> : "Simpan"}
           </Button>
         </DialogActions>
       </Dialog>

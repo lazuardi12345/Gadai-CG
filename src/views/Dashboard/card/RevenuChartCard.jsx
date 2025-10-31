@@ -1,84 +1,81 @@
-import PropTypes from 'prop-types';
-import React from 'react';
-
-// material-ui
-import { useTheme } from '@mui/material/styles';
-import { Box, Card, CardContent, CardHeader, Divider, Grid, Typography, useMediaQuery } from '@mui/material';
-
-// third-party
+import React, { useEffect, useState } from 'react';
+import { Card, CardHeader, CardContent, Divider, CircularProgress, Typography } from '@mui/material';
 import Chart from 'react-apexcharts';
+import axiosInstance from 'api/axiosInstance';
+import dayjs from 'dayjs';
 
-// ==============================|| REVENUE CHART CARD ||============================== //
+const RevenueChartCard = () => {
+  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState([]);
+  const [nasabahData, setNasabahData] = useState([]);
+  const [totalData, setTotalData] = useState([]);
+  const [countData, setCountData] = useState([]);
 
-const RevenuChartCard = ({ chartData }) => {
-  const theme = useTheme();
+  useEffect(() => {
+    const fetchRevenue = async () => {
+      try {
+        const res = await axiosInstance.get('/detail-gadai'); 
+        const data = res.data.data || [];
 
-  const matchDownMd = useMediaQuery(theme.breakpoints.down('md'));
-  const matchDownXs = useMediaQuery(theme.breakpoints.down('sm'));
+        // kelompokkan per bulan
+        const monthlyMap = {};
+        data.forEach(item => {
+          const month = dayjs(item.tanggal_gadai).format('YYYY-MM');
+          if (!monthlyMap[month]) monthlyMap[month] = { nasabah: 0, total: 0, count: 0 };
+          // Sesuaikan field jika beda di API-mu
+          monthlyMap[month].nasabah += Number(item.pendapatan_nasabah || 0);
+          monthlyMap[month].total += Number(item.uang_pinjaman || 0);
+          monthlyMap[month].count += 1;
+        });
+
+        const months = Object.keys(monthlyMap).sort();
+        setCategories(months.map(m => dayjs(m).format('MMM YYYY')));
+        setNasabahData(months.map(m => monthlyMap[m].nasabah));
+        setTotalData(months.map(m => monthlyMap[m].total));
+        setCountData(months.map(m => monthlyMap[m].count));
+
+      } catch (err) {
+        console.error('❌ Error fetching revenue chart:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRevenue();
+  }, []);
+
+  if (loading) return (
+    <Typography align="center" sx={{ py: 6 }}><CircularProgress /> Memuat data chart...</Typography>
+  );
+
+  const chartOptions = (title, color) => ({
+    chart: { id: title, toolbar: { show: false } },
+    xaxis: { categories },
+    dataLabels: { enabled: true },
+    stroke: { curve: 'smooth' },
+    colors: [color],
+  });
 
   return (
-    <Card>
-      <CardHeader
-        title={
-          <Typography t="div" className="card-header">
-            Total Revenue
-          </Typography>
-        }
-      />
-      <Divider />
-      <CardContent>
-        <Grid container spacing={2} direction={matchDownMd && !matchDownXs ? 'row' : 'column'}>
-          <Grid item xs={12} sm={7} md={12}>
-            <Chart {...chartData} />
-          </Grid>
-          <Grid item sx={{ display: { md: 'block', sm: 'none' } }}>
-            <Divider />
-          </Grid>
-          <Grid
-            item
-            container
-            direction={matchDownMd && !matchDownXs ? 'column' : 'row'}
-            justifyContent="space-around"
-            alignItems="center"
-            xs={12}
-            sm={5}
-            md={12}
-          >
-            <Grid item>
-              <Grid container direction="column">
-                <Typography variant="h6">Youtube</Typography>
-                <Typography variant="subtitle1" sx={{ color: theme.palette.primary.main }}>
-                  + 16.85%
-                </Typography>
-              </Grid>
-            </Grid>
-            <Grid item>
-              <Grid container direction="column">
-                <Typography variant="h6">Facebook</Typography>
-                <Box color={theme.palette.success.main}>
-                  <Typography variant="subtitle1" color="inherit">
-                    +45.36%
-                  </Typography>
-                </Box>
-              </Grid>
-            </Grid>
-            <Grid item>
-              <Grid container direction="column">
-                <Typography variant="h6">Twitter</Typography>
-                <Typography variant="subtitle1" sx={{ color: theme.palette.warning.main }}>
-                  - 50.69%
-                </Typography>
-              </Grid>
-            </Grid>
-          </Grid>
-        </Grid>
-      </CardContent>
-    </Card>
+    <>
+
+      <Card sx={{ mb: 2 }}>
+        <CardHeader title="Total Pendapatan Gadai per Bulan" />
+        <Divider />
+        <CardContent>
+          <Chart options={chartOptions('Total Pendapatan Gadai', '#ff9800')} series={[{ name: 'Total Pendapatan Gadai', data: totalData }]} type="line" height={300} />
+        </CardContent>
+      </Card>
+
+      <Card sx={{ mb: 2 }}>
+        <CardHeader title="Jumlah Nasabah per Bulan" />
+        <Divider />
+        <CardContent>
+          <Chart options={chartOptions('Jumlah Nasabah', '#43a047')} series={[{ name: 'Jumlah Nasabah', data: countData }]} type="bar" height={300} />
+        </CardContent>
+      </Card>
+    </>
   );
 };
 
-RevenuChartCard.propTypes = {
-  chartData: PropTypes.object
-};
-
-export default RevenuChartCard;
+export default RevenueChartCard;

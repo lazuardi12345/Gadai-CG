@@ -52,9 +52,9 @@ const PrintStrukPage = () => {
       break;
     }
   }
-
+  
   let persenJasa = 0;
-  let jenisSkema = "Non-HP";
+  let jenisSkema = "";
 
   // === Jika barang HP ===
   if ((typeNama || "").toLowerCase() === "handphone") {
@@ -88,7 +88,7 @@ const PrintStrukPage = () => {
   const formatRupiah = (val) => `Rp. ${Number(val || 0).toLocaleString("id-ID")}`;
 
   // ======================
-  // 🔹 FORMAT TANGGAL
+  // 🔹 FORMAT TANGGAL + JAM
   // ======================
   const formatHariTanggal = (date) => {
     const hari = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
@@ -96,9 +96,13 @@ const PrintStrukPage = () => {
       "Januari", "Februari", "Maret", "April", "Mei", "Juni",
       "Juli", "Agustus", "September", "Oktober", "November", "Desember"
     ];
-    return `${hari[date.getDay()]}, ${date.getDate()} ${bulan[date.getMonth()]} ${date.getFullYear()}`;
+    const tanggalStr = `${hari[date.getDay()]}, ${date.getDate()} ${bulan[date.getMonth()]} ${date.getFullYear()}`;
+    const pad = (n) => n.toString().padStart(2, "0");
+    const jamStr = `Waktu: ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    return { tanggalStr, jamStr };
   };
-  const tanggalCetakStruk = formatHariTanggal(new Date());
+
+  const { tanggalStr, jamStr } = formatHariTanggal(new Date());
 
   // ======================
   // 🔹 DETAIL BARANG
@@ -164,7 +168,8 @@ const PrintStrukPage = () => {
               <div class="bold">${detail?.no_gadai || "-"}</div>
             </div>
 
-            <div class="row"><span class="label">Hari, Tanggal</span><span class="value">${tanggalCetakStruk}</span></div>
+            <div class="row"><span class="label">Hari, Tanggal</span><span class="value">${tanggalStr}</span></div>
+            <div class="row"><span class="label">Waktu</span><span class="value">${jamStr}</span></div>
             <div class="row"><span class="label">Petugas</span><span class="value">${petugas}</span></div>
 
             <div class="center bold" style="margin: 6px 0;">TRANSAKSI GADAI</div>
@@ -214,8 +219,10 @@ const PrintStrukPage = () => {
         <div>No Transaksi</div>
         <div style={{ fontWeight: "bold" }}>{detail?.no_gadai || "-"}</div>
 
-        <div style={{ marginTop: "4px" }}>Hari, Tanggal {tanggalCetakStruk}</div>
+        <div style={{ marginTop: "4px" }}>{tanggalStr}</div>
+        <div style={{ marginBottom: "4px", fontWeight: "bold" }}>{jamStr}</div>
         <div>Petugas {petugas}</div>
+
         <div style={{ marginTop: "6px", fontWeight: "bold" }}>TRANSAKSI GADAI</div>
 
         <div style={{ textAlign: "left", marginTop: "6px" }}>

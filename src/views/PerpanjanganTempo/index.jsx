@@ -1,69 +1,78 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
-  Card, CardHeader, CardContent, Divider, Table, TableContainer,
-  TableHead, TableBody, TableRow, TableCell, TablePagination,
-  IconButton, TextField, Button, CircularProgress, Stack, Chip, Typography
-} from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import axiosInstance from 'api/axiosInstance';
-import { useNavigate } from 'react-router-dom';
+  Card, CardHeader, CardContent, Divider, Table, TableHead,
+  TableBody, TableRow, TableCell, TablePagination, IconButton,
+  TextField, Button, CircularProgress, Stack, Chip, Typography,
+  TableContainer, Paper
+} from "@mui/material";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import axiosInstance from "api/axiosInstance";
+import { useNavigate } from "react-router-dom";
 
 const PerpanjanganTempoPage = () => {
   const navigate = useNavigate();
   const [data, setData] = useState([]);
-  const [pagination, setPagination] = useState({
-    total: 0,
-    per_page: 5,
-    current_page: 1,
-    last_page: 1,
-  });
+  const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const fetchData = async (page = 1, perPage = 5) => {
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+
+  const fetchData = async () => {
     setLoading(true);
-    setError(null);
     try {
-      const res = await axiosInstance.get(`/perpanjangan-tempo?page=${page}&per_page=${perPage}&search=${searchTerm}`);
+      const res = await axiosInstance.get("/perpanjangan-tempo");
       if (res.data.success) {
         setData(res.data.data);
-        setPagination(res.data.pagination);
+        setFilteredData(res.data.data);
       } else {
-        setData([]);
-        setPagination({ total: 0, per_page: perPage, current_page: 1, last_page: 1 });
-        setError(res.data.message || 'Gagal mengambil data');
+        setError(res.data.message || "Gagal mengambil data");
       }
     } catch (err) {
       console.error(err);
-      setError(err.message || 'Terjadi kesalahan server');
-      setData([]);
+      setError(err.message || "Terjadi kesalahan server");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData(pagination.current_page, pagination.per_page);
-  }, [searchTerm]);
+    fetchData();
+  }, []);
 
-  const handleChangePage = (_, newPage) => fetchData(newPage + 1, pagination.per_page);
-  const handleChangeRowsPerPage = (event) => fetchData(1, parseInt(event.target.value, 10));
+  // Filter realtime
+  useEffect(() => {
+    const filtered = data.filter(
+      item =>
+        item.detail_gadai?.no_gadai?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.detail_gadai?.no_nasabah?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.detail_gadai?.nasabah?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredData(filtered);
+    setPage(0);
+  }, [searchTerm, data]);
+
+  const handleChangePage = (_, newPage) => setPage(newPage);
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Yakin ingin menghapus data perpanjangan ini?')) return;
+    if (!window.confirm("Yakin ingin menghapus data perpanjangan ini?")) return;
     try {
       const res = await axiosInstance.delete(`/perpanjangan-tempo/${id}`);
-      if (res.data.success) fetchData(pagination.current_page, pagination.per_page);
-      else alert(res.data.message || 'Gagal menghapus data perpanjangan');
+      if (res.data.success) setData(prev => prev.filter(item => item.id !== id));
+      else alert(res.data.message || "Gagal menghapus data perpanjangan");
     } catch (err) {
-      console.error(err);
-      alert(err.message || 'Terjadi kesalahan server');
+      alert(err.message || "Terjadi kesalahan server");
     }
   };
 
-  if (loading) return <Stack alignItems="center" justifyContent="center" sx={{ height: '80vh' }}><CircularProgress /></Stack>;
+  if (loading) return <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}><CircularProgress /></Stack>;
   if (error) return <Typography color="error" variant="h6" align="center" sx={{ mt: 2 }}>Error: {error}</Typography>;
 
   return (
@@ -71,35 +80,34 @@ const PerpanjanganTempoPage = () => {
       <CardHeader
         title="Data Perpanjangan Tempo"
         action={
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="center">
             <TextField
               variant="outlined"
               size="small"
-              placeholder="Cari no gadai atau no nasabah..."
+              placeholder="Cari no gadai / no nasabah / nama nasabah..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ width: 300 }}
+              sx={{ width: { xs: "100%", sm: 300 }, mb: { xs: 1, sm: 0 } }}
             />
-            <Button variant="contained" color="primary" onClick={() => navigate('/tambah-perpanjangan-tempo')}>Tambah</Button>
+            <Button variant="contained" color="primary" onClick={() => navigate("/tambah-perpanjangan-tempo")}>Tambah</Button>
           </Stack>
         }
       />
       <Divider />
       <CardContent>
-        <TableContainer sx={{ overflowX: 'auto' }}>
-          <Table size="small">
+        <TableContainer component={Paper} sx={{ overflowX: "auto" }}>
+          <Table size="small" sx={{ minWidth: 800 }}>
             <TableHead>
               <TableRow>
-                {[
-                  'No','No Gadai','No Nasabah','Tanggal Gadai','Jatuh Tempo Lama',
-                  'Tanggal Perpanjangan','Jatuh Tempo Baru','Nasabah','Status Gadai','Aksi'
-                ].map(head => <TableCell key={head} align="center">{head}</TableCell>)}
+                {['No','No Gadai','No Nasabah','Tanggal Gadai','Jatuh Tempo Lama','Tanggal Perpanjangan','Jatuh Tempo Baru','Nasabah','Status Gadai','Aksi']
+                  .map(head => <TableCell key={head} align="center">{head}</TableCell>)}
               </TableRow>
             </TableHead>
             <TableBody>
-              {data.length > 0 ? data.map((item, index) => (
+              {(rowsPerPage > 0 ? filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage) : filteredData)
+                .map((item, index) => (
                 <TableRow key={item.id}>
-                  <TableCell align="center">{(pagination.current_page - 1) * pagination.per_page + index + 1}</TableCell>
+                  <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
                   <TableCell>{item.detail_gadai?.no_gadai || '-'}</TableCell>
                   <TableCell>{item.detail_gadai?.no_nasabah || '-'}</TableCell>
                   <TableCell>{item.detail_gadai?.tanggal_gadai || '-'}</TableCell>
@@ -107,7 +115,7 @@ const PerpanjanganTempoPage = () => {
                   <TableCell>{item.tanggal_perpanjangan || '-'}</TableCell>
                   <TableCell>{item.jatuh_tempo_baru || '-'}</TableCell>
                   <TableCell>{item.detail_gadai?.nasabah?.nama_lengkap || '-'}</TableCell>
-                  <TableCell>
+                  <TableCell align="center">
                     <Chip
                       label={item.detail_gadai?.status?.toUpperCase() || '-'}
                       color={
@@ -123,7 +131,8 @@ const PerpanjanganTempoPage = () => {
                     <IconButton color="error" onClick={() => handleDelete(item.id)}><DeleteIcon /></IconButton>
                   </TableCell>
                 </TableRow>
-              )) : (
+              ))}
+              {filteredData.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={10} align="center">Tidak ada data perpanjangan ditemukan.</TableCell>
                 </TableRow>
@@ -131,16 +140,14 @@ const PerpanjanganTempoPage = () => {
             </TableBody>
           </Table>
         </TableContainer>
-
         <TablePagination
+          rowsPerPageOptions={[5, 10, 25]}
           component="div"
-          count={pagination.total}
-          page={pagination.current_page - 1}
+          count={filteredData.length}
+          page={page}
+          rowsPerPage={rowsPerPage}
           onPageChange={handleChangePage}
-          rowsPerPage={pagination.per_page}
           onRowsPerPageChange={handleChangeRowsPerPage}
-          rowsPerPageOptions={[5,10,25]}
-          labelRowsPerPage="Baris per halaman:"
         />
       </CardContent>
     </Card>

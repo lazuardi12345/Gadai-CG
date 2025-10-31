@@ -127,30 +127,5 @@ export default {
 
       ]
     },
-    {
-      id: 'support',
-      title: 'Support',
-      type: 'group',
-      icon: icons.ContactSupportOutlinedIcon,
-      children: [
-        {
-          id: 'disabled-menu',
-          title: 'Disabled Menu',
-          type: 'item',
-          url: '#',
-          icon: icons.BlockOutlinedIcon,
-          disabled: true
-        },
-        {
-          id: 'documentation',
-          title: 'Documentation',
-          type: 'item',
-          url: 'https://codedthemes.gitbook.io/materially-react-material-documentation/',
-          icon: icons.HelpOutlineOutlinedIcon,
-          external: true,
-          target: true
-        }
-      ]
-    }
   ]
 };

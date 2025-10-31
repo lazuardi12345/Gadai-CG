@@ -33,6 +33,7 @@ const ReportCard = ({ primary, secondary, iconPrimary, color, footerData, iconFo
           </Grid>
         </Grid>
       </CardContent>
+      
       <Box sx={{ background: color }}>
         <Grid
           container
