@@ -7,7 +7,7 @@ import {
 } from "@mui/material";
 import axiosInstance from "api/axiosInstance";
 import { useNavigate } from "react-router-dom";
-import { AuthContext } from "AuthContex/AuthContext"; // context untuk role user
+import { AuthContext } from "AuthContex/AuthContext"; 
 
 const KELENGKAPAN_LIST = ["Sertifikat", "Nota", "Dus", "Lainnya"];
 const DOKUMEN_PENDUKUNG_SOP = [
@@ -34,7 +34,7 @@ const TambahGadaiPerhiasanPage = () => {
     potongan_batu: "",
     berat: "",
     detail_gadai_id: "",
-    dokumen_pendukung: {}, // { key: File }
+    dokumen_pendukung: {}, 
   });
 
   const [detailGadai, setDetailGadai] = useState([]);

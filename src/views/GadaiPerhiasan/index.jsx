@@ -25,7 +25,7 @@ const GadaiPerhiasanPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
-  // Semua akses terkait role harus di dalam komponen
+
   const canAdd = ["hm", "checker"].includes(userRole);
   const canEdit = ["hm", "checker"].includes(userRole);
   const canDelete = userRole === "hm";
@@ -35,7 +35,7 @@ const GadaiPerhiasanPage = () => {
     setLoading(true);
     setError(null);
     try {
-      let url = '/gadai-perhiasan'; // default HM
+      let url = '/gadai-perhiasan'; 
       if (userRole === 'checker') url = '/checker/gadai-perhiasan';
       if (userRole === 'petugas') url = '/petugas/gadai-perhiasan';
 
@@ -53,7 +53,7 @@ const GadaiPerhiasanPage = () => {
 
   useEffect(() => {
     fetchData();
-  }, [userRole]); // pastikan refetch jika role berubah
+  }, [userRole]); 
 
   useEffect(() => {
     const filtered = data.filter(item =>

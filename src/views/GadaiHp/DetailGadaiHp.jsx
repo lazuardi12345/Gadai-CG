@@ -17,12 +17,12 @@ import {
 import { ArrowBack, Close } from "@mui/icons-material";
 import { useParams, useNavigate } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
-import { AuthContext } from "AuthContex/AuthContext"; // tambahkan context user
+import { AuthContext } from "AuthContex/AuthContext"; 
 
 const DetailGadaiHpPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useContext(AuthContext); // ambil role user
+  const { user } = useContext(AuthContext); 
   const userRole = (user?.role || '').toLowerCase(); 
 
   const [data, setData] = useState(null);
@@ -34,7 +34,7 @@ const DetailGadaiHpPage = () => {
   const fetchDetail = async () => {
     setLoading(true);
     try {
-      // Tentukan URL berdasarkan role
+
       let url = '';
       if (userRole === 'petugas') url = `/petugas/gadai-hp/${id}`;
       else if (userRole === 'checker') url = `/checker/gadai-hp/${id}`;
@@ -49,7 +49,7 @@ const DetailGadaiHpPage = () => {
       if (res.data.success) {
         const rawData = res.data.data;
 
-        // FIX DOKUMEN PENDUKUNG → jadi URL lengkap
+
         const dokumenPendukung = {};
         if (rawData.dokumen_pendukung) {
           Object.entries(rawData.dokumen_pendukung).forEach(([key, val]) => {

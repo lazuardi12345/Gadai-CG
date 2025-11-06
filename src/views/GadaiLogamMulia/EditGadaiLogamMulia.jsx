@@ -182,7 +182,7 @@ const EditGadaiLogamMuliaPage = () => {
       });
 
       if (res.data.success) {
-        alert("✅ Data berhasil diperbarui!");
+        alert("Data berhasil diperbarui!");
         navigate("/gadai-logam-mulia");
       } else {
         alert(res.data.message || "Gagal memperbarui data.");

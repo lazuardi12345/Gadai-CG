@@ -181,7 +181,7 @@ const TambahPerpanjanganTempoPage = () => {
         </Grid>
 
         <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 4 }}>
-          <Button variant="outlined" onClick={() => navigate(apiBaseUrl)}>
+          <Button variant="outlined" onClick={() => navigate('/perpanjangan-tempo')}>
             Batal
           </Button>
           <Button variant="contained" color="primary" onClick={handleSubmit} disabled={saving}>

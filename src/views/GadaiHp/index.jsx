@@ -25,7 +25,7 @@ const GadaiHpPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
-  const canAdd = userRole === 'petugas' || userRole === 'hm' || userRole === 'checker';
+  const canAdd =  userRole === 'hm' || userRole === 'checker';
   const canView = true; // Semua role bisa lihat
   const canEdit = userRole === 'checker' || userRole === 'hm';
   const canDelete = userRole === 'hm';

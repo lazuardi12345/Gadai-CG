@@ -86,7 +86,7 @@ const Default = () => {
           setSummary(summaryRes.data.data);
         }
       } catch (error) {
-        console.error('❌ Error fetching dashboard data:', error);
+        console.error('Error fetching dashboard data:', error);
       } finally {
         setLoading(false);
       }
@@ -184,7 +184,7 @@ const Default = () => {
               <CardHeader
                 title={
                   <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                    📊 Ringkasan Data Gadai
+                    Ringkasan Data Gadai
                   </Typography>
                 }
               />
@@ -192,10 +192,10 @@ const Default = () => {
               <CardContent sx={{ pt: 2, pb: 3 }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2 }}>
                   {[
-                    { label: '💰 Total Uang Pinjaman Semua Nasabah', value: safeRupiah(summary?.totalPinjaman) },
-                    { label: '🕓 Jumlah Nasabah Selesai (Belum Lunas)', value: `${summary?.jumlahSelesai ?? 0} Orang` },
-                    { label: '✅ Jumlah Nasabah Lunas', value: `${summary?.jumlahLunas ?? 0} Orang` },
-                    { label: '💵 Total Uang Pinjaman Lunas', value: safeRupiah(summary?.totalLunas) }
+                    { label: 'Total Uang Pinjaman Semua Nasabah', value: safeRupiah(summary?.totalPinjaman) },
+                    { label: 'Jumlah Nasabah Selesai (Belum Lunas)', value: `${summary?.jumlahSelesai ?? 0} Orang` },
+                    { label: 'Jumlah Nasabah Lunas', value: `${summary?.jumlahLunas ?? 0} Orang` },
+                    { label: 'Total Uang Pinjaman Lunas', value: safeRupiah(summary?.totalLunas) }
                   ].map((item) => (
                     <Box
                       key={item.label}

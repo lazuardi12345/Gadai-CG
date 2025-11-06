@@ -43,7 +43,7 @@ const TambahGadaiRetroPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // 🔹 Fetch detail gadai & nasabah sesuai role
+  //  Fetch detail gadai & nasabah sesuai role
   useEffect(() => {
     const fetchDetail = async () => {
       setLoading(true);

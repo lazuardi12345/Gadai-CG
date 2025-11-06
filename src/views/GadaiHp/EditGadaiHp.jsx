@@ -31,7 +31,7 @@ const EditGadaiHpPage = () => {
     const userRole = (user?.role || '').toLowerCase();
 
     const canEdit = userRole === 'hm' || userRole === 'checker';
-    const canView = true; // Semua role bisa lihat
+    const canView = true; 
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);

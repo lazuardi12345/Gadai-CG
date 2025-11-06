@@ -73,7 +73,7 @@ const EditNasabahPage = () => {
     setSaving(true);
     try {
       const formData = new FormData();
-      formData.append('_method', 'PUT'); // Laravel PUT
+      formData.append('_method', 'PUT'); 
       formData.append('nama_lengkap', nasabah.nama_lengkap);
       formData.append('nik', nasabah.nik);
       formData.append('alamat', nasabah.alamat || '');

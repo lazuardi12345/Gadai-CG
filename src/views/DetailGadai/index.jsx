@@ -184,13 +184,13 @@ const DetailGadaiPage = () => {
   return (
     <Card sx={{ boxShadow: 3, borderRadius: 3 }}>
       <CardHeader
-        title={<Typography variant="h6">📋 Data Detail Gadai</Typography>}
+        title={<Typography variant="h6">Data Detail Gadai</Typography>}
         action={
           <Stack direction="row" spacing={1} alignItems="center">
             <TextField
               variant="outlined"
               size="small"
-              placeholder="🔍 Cari no gadai / nasabah / status..."
+              placeholder="Cari no gadai / nasabah / status..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               sx={{ backgroundColor: "white", borderRadius: 2, width: 250 }}

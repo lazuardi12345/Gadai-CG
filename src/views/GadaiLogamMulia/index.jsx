@@ -10,7 +10,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import axiosInstance from 'api/axiosInstance';
 import { useNavigate } from 'react-router-dom';
-import { AuthContext } from 'AuthContex/AuthContext'; // pakai context
+import { AuthContext } from 'AuthContex/AuthContext';
 
 const GadaiLogamMuliaPage = () => {
   const navigate = useNavigate();
@@ -25,7 +25,7 @@ const GadaiLogamMuliaPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
-  const canAdd = ["hm", "checker", "petugas"].includes(userRole);
+  const canAdd = ["hm", "checker"].includes(userRole);
   const canEdit = ["hm", "checker"].includes(userRole);
   const canDelete = userRole === "hm";
 
@@ -33,7 +33,7 @@ const GadaiLogamMuliaPage = () => {
     setLoading(true);
     setError(null);
     try {
-      let url = '/gadai-logam-mulia'; // default HM
+      let url = '/gadai-logam-mulia'; 
       if (userRole === 'checker') url = '/checker/gadai-logam-mulia';
       if (userRole === 'petugas') url = '/petugas/gadai-logam-mulia';
 

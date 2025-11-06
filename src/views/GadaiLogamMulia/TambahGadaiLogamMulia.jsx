@@ -34,7 +34,7 @@ const TambahGadaiLogamMuliaPage = () => {
     potongan_batu: "",
     berat: "",
     detail_gadai_id: "",
-    dokumen_pendukung: {}, // { key: File }
+    dokumen_pendukung: {},
   });
 
   const [detailGadai, setDetailGadai] = useState([]);

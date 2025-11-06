@@ -65,8 +65,8 @@ useEffect(() => {
   const fetchData = async () => {
     try {
       const detailUrl = `${getApiUrl('detail-gadai')}/${id}`;
-      const typeUrl = getApiUrl('type'); // type endpoint sesuai role
-      const nasabahUrl = getApiUrl('data-nasabah'); // nasabah endpoint sesuai role
+      const typeUrl = getApiUrl('type'); 
+      const nasabahUrl = getApiUrl('data-nasabah'); 
 
       const [resDetail, resType, resNasabah] = await Promise.all([
         axiosInstance.get(detailUrl),
@@ -104,13 +104,13 @@ useEffect(() => {
   fetchData();
 }, [id, userRole]);
 
-  // 🔹 Input handler
+  //  Input handler
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // 🔹 Fungsi warna status
+  // Fungsi warna status
   const getStatusColor = (status) => {
     switch (status) {
       case 'proses':
@@ -124,7 +124,7 @@ useEffect(() => {
     }
   };
 
-  // 🔹 Submit handler
+  // Submit handler
 const handleSubmit = async () => {
   for (let key of [
     'tanggal_gadai',

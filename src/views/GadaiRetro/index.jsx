@@ -25,7 +25,7 @@ const GadaiRetroPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
-  // Hak akses sesuai role
+
   const canAdd = ["hm","checker"].includes(userRole);
   const canEdit = ["hm","checker"].includes(userRole);
   const canDelete = userRole === "hm";
@@ -35,8 +35,8 @@ const GadaiRetroPage = () => {
     setLoading(true);
     setError(null);
     try {
-      // Pilih endpoint sesuai role
-      let url = '/gadai-retro'; // default HM
+    
+      let url = '/gadai-retro'; 
       if(userRole === 'checker') url = '/checker/gadai-retro';
       if(userRole === 'petugas') url = '/petugas/gadai-retro';
 

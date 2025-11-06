@@ -40,7 +40,7 @@ const TambahDetailGadaiPage = () => {
   const [nasabahs, setNasabahs] = useState([]);
   const [selectedNasabah, setSelectedNasabah] = useState(null);
 
-  // 🔹 Tentukan API otomatis berdasarkan role (petugas tidak termasuk)
+  // Tentukan API otomatis berdasarkan role (petugas tidak termasuk)
   const getApiUrl = (resource) => {
     switch (userRole) {
       case 'checker':
@@ -52,7 +52,7 @@ const TambahDetailGadaiPage = () => {
     }
   };
 
-  // 🔹 Ambil data awal
+  // Ambil data awal
   useEffect(() => {
     const initData = async () => {
       try {
@@ -78,13 +78,13 @@ const TambahDetailGadaiPage = () => {
     }
   }, []);
 
-  // 🔹 Input handler
+  // Input handler
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // 🔹 Submit handler
+  // Submit handler
   const handleSubmit = async () => {
     // Validasi
     const requiredFields = [

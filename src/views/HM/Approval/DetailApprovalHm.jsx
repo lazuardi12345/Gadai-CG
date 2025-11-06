@@ -18,7 +18,7 @@ import {
 import { ArrowBack, Close } from "@mui/icons-material";
 import axiosInstance from "api/axiosInstance";
 
-// Helper: full URL dokumen
+
 const getFullDokumenUrl = (path) => {
   if (!path) return null;
   if (path.startsWith("http")) return path;
@@ -30,12 +30,12 @@ const getFullDokumenUrl = (path) => {
 
 // Helper: warna status
 const getStatusColor = (status) => {
-  if (!status) return "#ccc"; // default abu-abu
+  if (!status) return "#ccc"; 
   const s = status.toLowerCase();
-  if (s.includes("approved")) return "#4caf50"; // hijau
-  if (s.includes("rejected")) return "#f44336"; // merah
-  if (s.includes("pending")) return "#ff9800"; // kuning
-  return "#ccc"; // default abu-abu
+  if (s.includes("approved")) return "#4caf50"; 
+  if (s.includes("rejected")) return "#f44336"; 
+  if (s.includes("pending")) return "#ff9800"; 
+  return "#ccc"; 
 };
 
 const DetailApprovalHMPage = () => {

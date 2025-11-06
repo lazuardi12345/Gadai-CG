@@ -40,7 +40,7 @@ const LABEL_PENDUKUNG = {
   ukuran_batu: "Ukuran Batu (Metmess)",
 };
 
-// Helper untuk menentukan endpoint sesuai role
+
 const getApiUrlById = (resource, role, id) => {
   switch (role) {
     case "petugas":

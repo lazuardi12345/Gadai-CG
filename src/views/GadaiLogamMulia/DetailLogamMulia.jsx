@@ -18,7 +18,7 @@ import {
 import { ArrowBack, Close } from "@mui/icons-material";
 import axiosInstance from "api/axiosInstance";
 import { useParams, useNavigate } from "react-router-dom";
-import { AuthContext } from "AuthContex/AuthContext"; // Ambil role user
+import { AuthContext } from "AuthContex/AuthContext";
 
 const DOKUMEN_PENDUKUNG_KEYS = [
   "emas_timbangan",
@@ -40,7 +40,7 @@ const LABEL_PENDUKUNG = {
   ukuran_batu: "Ukuran Batu (Metmess)",
 };
 
-// Helper untuk menentukan endpoint sesuai role
+
 const getApiUrlById = (resource, role, id) => {
   switch (role) {
     case "petugas":
@@ -74,7 +74,6 @@ const DetailGadaiLogamMuliaPage = () => {
       if (res.data.success) {
         const rawData = res.data.data;
 
-        // Transform dokumen pendukung jadi URL lengkap
         const dokumenPendukung = {};
         if (rawData.dokumen_pendukung) {
           Object.entries(rawData.dokumen_pendukung).forEach(([key, val]) => {

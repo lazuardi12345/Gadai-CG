@@ -20,10 +20,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { AuthContext } from "AuthContex/AuthContext";
 
-// List kelengkapan
 const KELENGKAPAN_LIST = ["Sertifikat", "Nota", "Box", "Lainnya"];
 
-// Dokumen pendukung SOP
+
 const DOKUMEN_PENDUKUNG_SOP = [
   { key: "emas_timbangan", label: "Emas + Timbangan" },
   { key: "gosokan_timer", label: "Gosokan + Timer 1 Menit" },
@@ -57,17 +56,17 @@ const EditGadaiRetroPage = () => {
     dokumen_pendukung: {},
   });
 
-  // Ambil data awal
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // endpoint gadai retro sesuai role
+ 
         const urlGet = userRole === "checker"
           ? `/checker/gadai-retro/${id}`
           : `/gadai-retro/${id}`;
 
-        // endpoint nasabah sesuai role
+
         const urlNasabah = userRole === "checker"
           ? `/checker/data-nasabah`
           : `/data-nasabah`;
@@ -179,7 +178,7 @@ const EditGadaiRetroPage = () => {
       });
 
       if (res.data.success) {
-        alert("✅ Data berhasil diperbarui!");
+        alert("Data berhasil diperbarui!");
         navigate("/gadai-retro");
       } else {
         alert(res.data.message || "Gagal memperbarui data.");

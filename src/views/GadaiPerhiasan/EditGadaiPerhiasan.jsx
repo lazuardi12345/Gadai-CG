@@ -8,9 +8,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { AuthContext } from "AuthContex/AuthContext";
 
-// List kelengkapan
+
 const KELENGKAPAN_LIST = ["Sertifikat", "Nota", "Dus", "Lainnya"];
-// Dokumen pendukung SOP
+
 const DOKUMEN_PENDUKUNG_SOP = [
   { key: "emas_timbangan", label: "Emas + Timbangan" },
   { key: "gosokan_timer", label: "Gosokan + Timer 1 Menit" },
@@ -166,7 +166,7 @@ const EditGadaiPerhiasanPage = () => {
       });
 
       if (res.data.success) {
-        alert("✅ Data berhasil diperbarui!");
+        alert("Data berhasil diperbarui!");
         navigate("/gadai-perhiasan");
       } else {
         alert(res.data.message || "Gagal memperbarui data.");

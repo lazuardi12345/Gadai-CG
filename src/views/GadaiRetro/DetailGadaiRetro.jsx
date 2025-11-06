@@ -40,7 +40,6 @@ const LABEL_PENDUKUNG = {
   ukuran_batu: "Ukuran Batu (Metmess)",
 };
 
-// Helper untuk endpoint sesuai role
 const getApiUrlById = (resource, role, id) => {
   switch (role) {
     case "petugas":
@@ -73,7 +72,7 @@ const DetailGadaiRetroPage = () => {
       if (res.data.success) {
         const rawData = res.data.data;
 
-        // Transform dokumen pendukung jadi URL lengkap
+
         const dokumenPendukung = {};
         if (rawData.dokumen_pendukung) {
           Object.entries(rawData.dokumen_pendukung).forEach(([key, val]) => {
