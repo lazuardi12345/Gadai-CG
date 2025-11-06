@@ -8,22 +8,21 @@ import { Navigate } from 'react-router-dom';
  */
 const ProtectedRoute = ({ children, roles = [] }) => {
     const token = localStorage.getItem('auth_token');
-    const userData = localStorage.getItem('user'); // pastikan user disimpan di localStorage
+    const userData = localStorage.getItem('user'); 
     const user = userData ? JSON.parse(userData) : null;
     const userRole = user?.role;
 
-    // 1️⃣ Cek login
+    // Cek login
+    if (!token) {
+        return <Navigate to="/login" replace />;
+    }
+
+    // 2 Cek role (kalau roles di-set)
     if (roles.length > 0 && !roles.includes(userRole)) {
         return <Navigate to="/unauthorized" replace />;
     }
 
-
-    // 2️⃣ Cek role (kalau roles di-set)
-    if (roles.length > 0 && !roles.includes(userRole)) {
-        return <Navigate to="/unauthorized" replace />;
-    }
-
-    // 3️⃣ Kalau lolos semua
+    // 3Kalau lolos semua
     return children;
 };
 
