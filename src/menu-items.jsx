@@ -28,7 +28,7 @@ const icons = {
   SmartphoneOutlinedIcon,
   DiamondOutlinedIcon,
   InfoOutlinedIcon,
-  PeopleAltOutlinedIcon,
+  PeopleAltOutlinedIcon,  
   CategoryOutlinedIcon
 };
 
@@ -42,13 +42,15 @@ export default {
       caption: 'Dashboard',
       type: 'group',
       icon: icons.NavigationOutlinedIcon,
+      role: ['hm'],
       children: [
         {
           id: 'dashboard',
           title: 'Dashboard',
           type: 'item',
           icon: icons.HomeOutlinedIcon,
-          url: '/dashboard/default'
+          url: '/dashboard/default',
+          role: ['hm']
         }
       ]
     },
@@ -60,34 +62,61 @@ export default {
       icon: icons.AppsOutlinedIcon,
       children: [
         {
+          id: 'add-nasabah',
+          title: 'Add Nasabah',
+          type: 'item',
+          url: '/full-submit',
+          icon: icons.PeopleAltOutlinedIcon,
+          role: ['petugas']
+        },
+        {
           id: 'data-nasabah',
           title: 'Data Nasabah',
           type: 'item',
           url: '/data-nasabah',
-          icon: icons.PeopleAltOutlinedIcon
+          icon: icons.PeopleAltOutlinedIcon,
+          role: ['checker', 'hm', 'petugas'] 
         },
         {
           id: 'type',
           title: 'Type Penggadaian',
           type: 'item',
           url: '/type',
-          icon: icons.CategoryOutlinedIcon
+          icon: icons.CategoryOutlinedIcon,
+          role: ['hm', 'checker']
         },
         {
           id: 'detail-gadai',
           title: 'Detail Penggadaian',
           type: 'item',
           url: '/detail-gadai',
-          icon: icons.InfoOutlinedIcon
+          icon: icons.InfoOutlinedIcon,
+          role: ['checker', 'hm', 'petugas'] 
         },
         {
           id: 'perpanjangan-tempo',
           title: 'Perpanjangan Tempo',
           type: 'item',
           url: '/perpanjangan-tempo',
-          icon: icons.TimerOutlinedIcon 
+          icon: icons.TimerOutlinedIcon,
+          role: ['checker', 'hm', 'petugas']
+        },
+        {
+          id: 'Approvals',
+          title: 'Approval',
+          type: 'item',
+          url: '/approval-gadai',
+          icon: icons.TimerOutlinedIcon,
+          role: ['checker']
+        },
+        {
+          id: 'Approvals',
+          title: 'Approval',
+          type: 'item',
+          url: '/approval-hm-gadai',
+          icon: icons.TimerOutlinedIcon,
+          role: ['hm']
         }
-
       ]
     },
     {
@@ -101,31 +130,35 @@ export default {
           title: 'Gadai HP',
           type: 'item',
           url: '/gadai-hp',
-          icon: icons.SmartphoneOutlinedIcon
+          icon: icons.SmartphoneOutlinedIcon,
+          role: ['checker', 'hm', 'petugas'] 
         },
         {
           id: 'gadai-perhiasan',
           title: 'Gadai Perhiasan',
           type: 'item',
           url: '/gadai-perhiasan',
-          icon: icons.DiamondOutlinedIcon
+          icon: icons.DiamondOutlinedIcon,
+          role: ['checker', 'hm', 'petugas']
         },
         {
           id: 'gadai-logam-mulia',
           title: 'Gadai Logam Mulia',
           type: 'item',
           url: '/gadai-logam-mulia',
-          icon: icons.SecurityOutlinedIcon
+          icon: icons.SecurityOutlinedIcon,
+          role: ['checker', 'hm', 'petugas']
         },
         {
           id: 'gadai-retro',
           title: 'Gadai Retro',
           type: 'item',
           url: '/gadai-retro',
-          icon: icons.MonetizationOnOutlinedIcon
+          icon: icons.MonetizationOnOutlinedIcon,
+          role: ['checker', 'hm', 'petugas']
         }
-
       ]
-    },
+    }
   ]
 };
+

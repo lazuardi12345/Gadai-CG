@@ -17,14 +17,22 @@ const PerpanjanganTempoPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
+
+  const user = JSON.parse(localStorage.getItem("auth_user"));
+  const userRole = user?.role?.toLowerCase() || ""; // "hm", "checker", "petugas"
+
+  const apiBaseUrl = userRole === "checker"
+    ? "/checker/perpanjangan-tempo"
+    : userRole === "petugas"
+    ? "/petugas/perpanjangan-tempo"
+    : "/perpanjangan-tempo";
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await axiosInstance.get("/perpanjangan-tempo");
+      const res = await axiosInstance.get(apiBaseUrl);
       if (res.data.success) {
         setData(res.data.data);
         setFilteredData(res.data.data);
@@ -41,7 +49,7 @@ const PerpanjanganTempoPage = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [userRole]);
 
   // Filter realtime
   useEffect(() => {
@@ -64,7 +72,7 @@ const PerpanjanganTempoPage = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Yakin ingin menghapus data perpanjangan ini?")) return;
     try {
-      const res = await axiosInstance.delete(`/perpanjangan-tempo/${id}`);
+      const res = await axiosInstance.delete(`${apiBaseUrl}/${id}`);
       if (res.data.success) setData(prev => prev.filter(item => item.id !== id));
       else alert(res.data.message || "Gagal menghapus data perpanjangan");
     } catch (err) {
@@ -72,8 +80,17 @@ const PerpanjanganTempoPage = () => {
     }
   };
 
-  if (loading) return <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}><CircularProgress /></Stack>;
-  if (error) return <Typography color="error" variant="h6" align="center" sx={{ mt: 2 }}>Error: {error}</Typography>;
+  if (loading) return (
+    <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}>
+      <CircularProgress />
+    </Stack>
+  );
+
+  if (error) return (
+    <Typography color="error" variant="h6" align="center" sx={{ mt: 2 }}>
+      Error: {error}
+    </Typography>
+  );
 
   return (
     <Card>
@@ -86,10 +103,26 @@ const PerpanjanganTempoPage = () => {
               size="small"
               placeholder="Cari no gadai / no nasabah / nama nasabah..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={e => setSearchTerm(e.target.value)}
               sx={{ width: { xs: "100%", sm: 300 }, mb: { xs: 1, sm: 0 } }}
             />
-            <Button variant="contained" color="primary" onClick={() => navigate("/tambah-perpanjangan-tempo")}>Tambah</Button>
+            {["hm", "checker", "petugas"].includes(userRole) && (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() =>
+                  navigate(
+                    userRole === "checker"
+                      ? "/tambah-perpanjangan-tempo"
+                      : userRole === "petugas"
+                      ? "/tambah-perpanjangan-tempo"
+                      : "/tambah-perpanjangan-tempo"
+                  )
+                }
+              >
+                Tambah
+              </Button>
+            )}
           </Stack>
         }
       />
@@ -99,42 +132,77 @@ const PerpanjanganTempoPage = () => {
           <Table size="small" sx={{ minWidth: 800 }}>
             <TableHead>
               <TableRow>
-                {['No','No Gadai','No Nasabah','Tanggal Gadai','Jatuh Tempo Lama','Tanggal Perpanjangan','Jatuh Tempo Baru','Nasabah','Status Gadai','Aksi']
-                  .map(head => <TableCell key={head} align="center">{head}</TableCell>)}
+                {[
+                  "No",
+                  "No Gadai",
+                  "No Nasabah",
+                  "Tanggal Gadai",
+                  "Jatuh Tempo Lama",
+                  "Tanggal Perpanjangan",
+                  "Jatuh Tempo Baru",
+                  "Nasabah",
+                  "Status Gadai",
+                  "Aksi",
+                ].map(head => (
+                  <TableCell key={head} align="center">{head}</TableCell>
+                ))}
               </TableRow>
             </TableHead>
             <TableBody>
-              {(rowsPerPage > 0 ? filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage) : filteredData)
-                .map((item, index) => (
+              {(rowsPerPage > 0
+                ? filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                : filteredData
+              ).map((item, index) => (
                 <TableRow key={item.id}>
                   <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
-                  <TableCell>{item.detail_gadai?.no_gadai || '-'}</TableCell>
-                  <TableCell>{item.detail_gadai?.no_nasabah || '-'}</TableCell>
-                  <TableCell>{item.detail_gadai?.tanggal_gadai || '-'}</TableCell>
-                  <TableCell>{item.detail_gadai?.jatuh_tempo || '-'}</TableCell>
-                  <TableCell>{item.tanggal_perpanjangan || '-'}</TableCell>
-                  <TableCell>{item.jatuh_tempo_baru || '-'}</TableCell>
-                  <TableCell>{item.detail_gadai?.nasabah?.nama_lengkap || '-'}</TableCell>
+                  <TableCell>{item.detail_gadai?.no_gadai || "-"}</TableCell>
+                  <TableCell>{item.detail_gadai?.no_nasabah || "-"}</TableCell>
+                  <TableCell>{item.detail_gadai?.tanggal_gadai || "-"}</TableCell>
+                  <TableCell>{item.detail_gadai?.jatuh_tempo || "-"}</TableCell>
+                  <TableCell>{item.tanggal_perpanjangan || "-"}</TableCell>
+                  <TableCell>{item.jatuh_tempo_baru || "-"}</TableCell>
+                  <TableCell>{item.detail_gadai?.nasabah?.nama_lengkap || "-"}</TableCell>
                   <TableCell align="center">
                     <Chip
-                      label={item.detail_gadai?.status?.toUpperCase() || '-'}
+                      label={item.detail_gadai?.status?.toUpperCase() || "-"}
                       color={
-                        item.detail_gadai?.status === 'proses' ? 'warning' :
-                        item.detail_gadai?.status === 'selesai' ? 'info' :
-                        item.detail_gadai?.status === 'lunas' ? 'success' : 'default'
+                        item.detail_gadai?.status === "proses" ? "warning" :
+                        item.detail_gadai?.status === "selesai" ? "info" :
+                        item.detail_gadai?.status === "lunas" ? "success" : "default"
                       }
                       size="small"
                     />
                   </TableCell>
                   <TableCell align="center">
-                    <IconButton color="primary" onClick={() => navigate(`/edit-perpanjangan-tempo/${item.id}`)}><EditIcon /></IconButton>
-                    <IconButton color="error" onClick={() => handleDelete(item.id)}><DeleteIcon /></IconButton>
+                    {["hm", "checker"].includes(userRole) && (
+                      <>
+                        <IconButton
+                          color="primary"
+                          onClick={() =>
+                            navigate(
+                              userRole === "checker"
+                                ? `/edit-perpanjangan-tempo/${item.id}`
+                                : userRole === "petugas"
+                                ? `/edit-perpanjangan-tempo/${item.id}`
+                                : `/edit-perpanjangan-tempo/${item.id}`
+                            )
+                          }
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton color="error" onClick={() => handleDelete(item.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      </>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
               {filteredData.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} align="center">Tidak ada data perpanjangan ditemukan.</TableCell>
+                  <TableCell colSpan={10} align="center">
+                    Tidak ada data perpanjangan ditemukan.
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>

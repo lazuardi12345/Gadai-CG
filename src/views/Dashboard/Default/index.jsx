@@ -24,82 +24,69 @@ import SmartphoneIcon from '@mui/icons-material/Smartphone';
 import DiamondIcon from '@mui/icons-material/Diamond';
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 
 const Default = () => {
   const theme = useTheme();
 
   const [loading, setLoading] = useState(true);
-  const [dataCount, setDataCount] = useState({ hp: 0, perhiasan: 0, logam_mulia: 0, retro: 0 });
-  const [summary, setSummary] = useState({ totalPinjaman: 0, jumlahSelesai: 0, jumlahLunas: 0, totalLunas: 0 });
-  const [monthlyCount, setMonthlyCount] = useState({ hp: 0, perhiasan: 0, logam_mulia: 0, retro: 0 });
+  const [dataCount, setDataCount] = useState({
+    hp: 0,
+    perhiasan: 0,
+    retro: 0,
+    logam_mulia: 0,
+    total_global: 0
+  });
+  const [monthlyCount, setMonthlyCount] = useState({
+    hp: 0,
+    perhiasan: 0,
+    retro: 0,
+    logam_mulia: 0,
+    total: 0
+  });
+  const [summary, setSummary] = useState({
+    totalPinjaman: 'Rp 0',
+    jumlahSelesai: 0,
+    jumlahLunas: 0,
+    totalLunas: 'Rp 0'
+  });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // ✅ Ambil semua endpoint langsung
-        const [hpRes, perhiasanRes, logamRes, retroRes, detailRes] = await Promise.all([
-          axiosInstance.get('/gadai-hp'),
-          axiosInstance.get('/gadai-perhiasan'),
-          axiosInstance.get('/gadai-logam-mulia'),
-          axiosInstance.get('/gadai-retro'),
-          axiosInstance.get('/detail-gadai')
+        const [totalRes, summaryRes] = await Promise.all([
+          axiosInstance.get('/total-semua'),
+          axiosInstance.get('/summary')
         ]);
 
-        // ✅ Hitung total semua gadai (dari pagination total)
-        setDataCount({
-          hp: hpRes?.data?.pagination?.total || 0,
-          perhiasan: perhiasanRes?.data?.pagination?.total || 0,
-          logam_mulia: logamRes?.data?.pagination?.total || 0,
-          retro: retroRes?.data?.pagination?.total || 0
-        });
+        if (totalRes?.data?.success) {
+          const totalData = totalRes.data;
+          const jenis = totalData.total_unit_per_jenis || {};
+          const bulanIni = dayjs().month(); // 0 = Jan, 10 = Nov, dst
 
-        // ✅ Hitung bulanan dari created_at di masing-masing endpoint
-        const currentMonth = dayjs().format('YYYY-MM');
+          const dataBulanIni = (totalData.data_bulanan || [])[bulanIni] || {};
 
-        const hpMonth = (hpRes?.data?.data || []).filter(
-          item => item.created_at && dayjs(item.created_at).format('YYYY-MM') === currentMonth
-        ).length;
+          setDataCount({
+            hp: jenis.hp || 0,
+            perhiasan: jenis.perhiasan || 0,
+            retro: jenis.retro || 0,
+            logam_mulia: jenis.logam_mulia || 0,
+            total_global: totalData.total_unit_global || 0
+          });
 
-        const perhiasanMonth = (perhiasanRes?.data?.data || []).filter(
-          item => item.created_at && dayjs(item.created_at).format('YYYY-MM') === currentMonth
-        ).length;
-
-        const logamMonth = (logamRes?.data?.data || []).filter(
-          item => item.created_at && dayjs(item.created_at).format('YYYY-MM') === currentMonth
-        ).length;
-
-        const retroMonth = (retroRes?.data?.data || []).filter(
-          item => item.created_at && dayjs(item.created_at).format('YYYY-MM') === currentMonth
-        ).length;
-
-        setMonthlyCount({
-          hp: hpMonth,
-          perhiasan: perhiasanMonth,
-          logam_mulia: logamMonth,
-          retro: retroMonth
-        });
-
-        // ✅ Data summary dari detail gadai
-        if (detailRes?.data?.success && Array.isArray(detailRes.data.data)) {
-          const allDetail = detailRes.data.data;
-          const totalPinjaman = allDetail.reduce(
-            (sum, item) => sum + (Number(item.uang_pinjaman) || 0),
-            0
-          );
-
-          const dataSelesai = allDetail.filter((item) => (item.status || '').toLowerCase() === 'selesai');
-          const dataLunas = allDetail.filter((item) => (item.status || '').toLowerCase() === 'lunas');
-
-          setSummary({
-            totalPinjaman,
-            jumlahSelesai: dataSelesai.length,
-            jumlahLunas: dataLunas.length,
-            totalLunas: dataLunas.reduce((sum, item) => sum + (Number(item.uang_pinjaman) || 0), 0)
+          setMonthlyCount({
+            hp: dataBulanIni.hp || 0,
+            perhiasan: dataBulanIni.perhiasan || 0,
+            retro: dataBulanIni.retro || 0,
+            logam_mulia: dataBulanIni.logam_mulia || 0,
+            total: dataBulanIni.total_unit_bulan || 0
           });
         }
+
+        if (summaryRes?.data?.success && summaryRes.data.data) {
+          setSummary(summaryRes.data.data);
+        }
       } catch (error) {
-        console.error('❌ Error fetching data:', error);
+        console.error('❌ Error fetching dashboard data:', error);
       } finally {
         setLoading(false);
       }
@@ -115,66 +102,101 @@ const Default = () => {
       </Grid>
     );
 
-  const totalSemua = dataCount.hp + dataCount.perhiasan + dataCount.logam_mulia + dataCount.retro;
+  const safeRupiah = (value) => {
+    if (typeof value === 'string' && value.startsWith('Rp')) return value;
+    if (typeof value === 'number')
+      return value.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
+    return 'Rp 0';
+  };
 
   return (
     <Grid container spacing={gridSpacing}>
-      {/* Summary Cards */}
+      {/* 🔹 Summary Cards */}
       <Grid item xs={12}>
         <Grid container spacing={gridSpacing}>
           <Grid item lg={3} sm={6} xs={12}>
-            <ReportCard primary={dataCount.hp.toString()} secondary="Total Gadai HP" color="#0b06fa" iconPrimary={SmartphoneIcon} />
+            <ReportCard
+              primary={dataCount.hp.toString()}
+              secondary="Total Gadai HP"
+              color="#0b06fa"
+              iconPrimary={SmartphoneIcon}
+            />
           </Grid>
           <Grid item lg={3} sm={6} xs={12}>
-            <ReportCard primary={dataCount.perhiasan.toString()} secondary="Total Gadai Perhiasan" color="#095dcc" iconPrimary={DiamondIcon} />
+            <ReportCard
+              primary={dataCount.perhiasan.toString()}
+              secondary="Total Gadai Perhiasan"
+              color="#095dcc"
+              iconPrimary={DiamondIcon}
+            />
           </Grid>
           <Grid item lg={3} sm={6} xs={12}>
-            <ReportCard primary={dataCount.logam_mulia.toString()} secondary="Total Gadai Logam Mulia" color="#FFC107" iconPrimary={WorkspacePremiumIcon} />
+            <ReportCard
+              primary={dataCount.retro.toString()}
+              secondary="Total Gadai Retro"
+              color="#2E7D32"
+              iconPrimary={AccountBalanceIcon}
+            />
           </Grid>
           <Grid item lg={3} sm={6} xs={12}>
-            <ReportCard primary={dataCount.retro.toString()} secondary="Total Gadai Retro" color="#2E7D32" iconPrimary={AccountBalanceIcon} />
+            <ReportCard
+              primary={dataCount.logam_mulia.toString()}
+              secondary="Total Gadai Logam Mulia"
+              color="#FFC107"
+              iconPrimary={WorkspacePremiumIcon}
+            />
           </Grid>
         </Grid>
       </Grid>
 
-      {/* Charts + Monthly Summary */}
+      {/* 🔹 Charts + Ringkasan */}
       <Grid item xs={12}>
         <Grid container spacing={gridSpacing} justifyContent="center">
-          {/* Left Section */}
+          {/* Kiri: Ringkasan Bulan Ini */}
           <Grid item lg={4} xs={12}>
             <SalesLineCard
-              title="Aktivitas Gadai Harian"
-              percentage="3%"
-              icon={<TrendingDownIcon />}
-              footerData={[{ value: `${totalSemua}`, label: 'Total Semua Gadai' }]}
+              title="Total Seluruh Gadai"
+              footerData={[{ value: `${dataCount.total_global}`, label: 'Total Semua Gadai' }]}
             />
 
             <Box sx={{ mt: 2 }}>
               <SalesLineCard title="HP Bulan Ini" footerData={[{ value: `${monthlyCount.hp}`, label: 'Total HP' }]} />
-              <SalesLineCard title="Logam Mulia Bulan Ini" footerData={[{ value: `${monthlyCount.logam_mulia}`, label: 'Total Logam Mulia' }]} />
-              <SalesLineCard title="Perhiasan Bulan Ini" footerData={[{ value: `${monthlyCount.perhiasan}`, label: 'Total Perhiasan' }]} />
               <SalesLineCard title="Retro Bulan Ini" footerData={[{ value: `${monthlyCount.retro}`, label: 'Total Retro' }]} />
+              <SalesLineCard
+                title="Perhiasan Bulan Ini"
+                footerData={[{ value: `${monthlyCount.perhiasan}`, label: 'Total Perhiasan' }]}
+              />
+              <SalesLineCard
+                title="Logam Mulia Bulan Ini"
+                footerData={[{ value: `${monthlyCount.logam_mulia}`, label: 'Total Logam Mulia' }]}
+              />
             </Box>
           </Grid>
 
-          {/* Middle Section - Chart */}
+          {/* Tengah: Chart Pendapatan */}
           <Grid item lg={4} xs={12}>
             <RevenuChartCard />
           </Grid>
 
-          {/* Right Section - Summary */}
+          {/* Kanan: Summary dari BE */}
           <Grid item lg={4} xs={12}>
             <Card sx={{ borderRadius: 2, boxShadow: '0 2px 10px rgba(0,0,0,0.08)', background: '#fff' }}>
-              <CardHeader title={<Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>📊 Ringkasan Data Gadai</Typography>} />
+              <CardHeader
+                title={
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                    📊 Ringkasan Data Gadai
+                  </Typography>
+                }
+              />
               <Divider />
               <CardContent sx={{ pt: 2, pb: 3 }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2 }}>
                   {[
-                    { label: '💰 Total Uang Pinjaman Semua Nasabah', value: `Rp ${summary.totalPinjaman.toLocaleString('id-ID')}` },
-                    { label: '🕓 Jumlah Nasabah Selesai (Belum Lunas)', value: `${summary.jumlahSelesai} Orang` },
-                    { label: '✅ Jumlah Nasabah Lunas', value: `${summary.jumlahLunas} Orang` },
-                    { label: '💵 Total Uang Pinjaman Lunas', value: `Rp ${summary.totalLunas.toLocaleString('id-ID')}` }
-                  ].map(item => (
+                    { label: '💰 Total Uang Pinjaman Semua Nasabah', value: safeRupiah(summary?.totalPinjaman) },
+                    { label: '🕓 Jumlah Nasabah Selesai (Belum Lunas)', value: `${summary?.jumlahSelesai ?? 0} Orang` },
+                    { label: '✅ Jumlah Nasabah Lunas', value: `${summary?.jumlahLunas ?? 0} Orang` },
+                    { label: '💵 Total Uang Pinjaman Lunas', value: safeRupiah(summary?.totalLunas) }
+                  ].map((item) => (
                     <Box
                       key={item.label}
                       sx={{

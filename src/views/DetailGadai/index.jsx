@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import {
   Card,
   CardHeader,
@@ -26,32 +26,48 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import PrintIcon from "@mui/icons-material/Print";
-import axiosInstance from "api/axiosInstance";
 import { useNavigate } from "react-router-dom";
+import axiosInstance from "api/axiosInstance";
+import { AuthContext } from "AuthContex/AuthContext";
 
 const DetailGadaiPage = () => {
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
+  const userRole = (user?.role || "").toLowerCase();
+
   const [data, setData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Pagination frontend
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
+  // --- Tentukan URL otomatis berdasarkan role ---
+  const getApiUrl = (resource) => {
+    switch (userRole) {
+      case "petugas":
+        return `/petugas/${resource}`;
+      case "checker":
+        return `/checker/${resource}`;
+      case "hm":
+      default:
+        return `/${resource}`;
+    }
+  };
+
+  // --- Fetch Data ---
   const fetchData = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await axiosInstance.get("/detail-gadai");
-      if (res.data.success && Array.isArray(res.data.data)) {
-        const formatted = res.data.data.map((item) => ({
-          ...item,
-          status: item.status || "proses",
-        }));
-        setData(formatted);
-        setFilteredData(formatted);
+      const res = await axiosInstance.get(getApiUrl("detail-gadai"), {
+        params: { per_page: 1000 },
+      });
+      if (res.data.success) {
+        setData(res.data.data);
+        setFilteredData(res.data.data);
       } else {
         setError(res.data.message || "Gagal mengambil data");
       }
@@ -66,7 +82,7 @@ const DetailGadaiPage = () => {
     fetchData();
   }, []);
 
-  // Filter real-time
+  // --- Filter Search ---
   useEffect(() => {
     const filtered = data.filter(
       (item) =>
@@ -79,6 +95,7 @@ const DetailGadaiPage = () => {
     setPage(0);
   }, [searchTerm, data]);
 
+  // --- Handlers ---
   const handleChangePage = (_, newPage) => setPage(newPage);
   const handleChangeRowsPerPage = (e) => {
     setRowsPerPage(parseInt(e.target.value, 10));
@@ -88,7 +105,7 @@ const DetailGadaiPage = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Yakin ingin menghapus data ini?")) return;
     try {
-      const res = await axiosInstance.delete(`/detail-gadai/${id}`);
+      const res = await axiosInstance.delete(`${getApiUrl("detail-gadai")}/${id}`);
       if (res.data.success) {
         setData((prev) => prev.filter((item) => item.id !== id));
       } else {
@@ -99,6 +116,7 @@ const DetailGadaiPage = () => {
     }
   };
 
+  // --- Helpers ---
   const getStatusColor = (status) => {
     switch (status) {
       case "proses":
@@ -112,20 +130,38 @@ const DetailGadaiPage = () => {
     }
   };
 
+  const getApprovalColor = (status) => {
+    switch (status) {
+      case "approved":
+        return "success";
+      case "rejected":
+        return "error";
+      case "pending":
+      default:
+        return "warning";
+    }
+  };
+
   const getPrintSBGRoute = (item) => {
     const typeName = item.type?.nama_type?.toLowerCase();
     if (["retro", "logam_mulia", "perhiasan"].includes(typeName))
       return `/print-surat-bukti-gadai-emas/${item.id}`;
-    if (typeName === "handphone") return `/print-surat-bukti-gadai-hp/${item.id}`;
+    if (typeName === "handphone")
+      return `/print-surat-bukti-gadai-hp/${item.id}`;
     return `/print-surat-bukti-gadai-emas/${item.id}`;
   };
 
-  const cellStyle = {
-    whiteSpace: "nowrap",
-    padding: "8px 16px",
-    height: 52,
+  const getJatuhTempoTerbaru = (item) => {
+    if (item.perpanjangan_tempos && item.perpanjangan_tempos.length > 0) {
+      const last = item.perpanjangan_tempos[item.perpanjangan_tempos.length - 1];
+      return last.jatuh_tempo_baru || last.tanggal_perpanjangan;
+    }
+    return item.jatuh_tempo || "-";
   };
 
+  const cellStyle = { whiteSpace: "nowrap", padding: "8px 16px", height: 52 };
+
+  // --- Render ---
   if (loading) {
     return (
       <Grid container justifyContent="center" alignItems="center" sx={{ height: "100vh" }}>
@@ -142,6 +178,9 @@ const DetailGadaiPage = () => {
     );
   }
 
+  const canEdit = ["hm", "checker"].includes(userRole);
+  const canDelete = userRole === "hm";
+
   return (
     <Card sx={{ boxShadow: 3, borderRadius: 3 }}>
       <CardHeader
@@ -156,9 +195,18 @@ const DetailGadaiPage = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               sx={{ backgroundColor: "white", borderRadius: 2, width: 250 }}
             />
-            <Button variant="contained" color="primary" onClick={() => navigate("/tambah-detail-gadai")}>
-              + Tambah
+            <Button variant="contained" color="primary" onClick={() => setPage(0)}>
+              Cari
             </Button>
+            {canEdit && (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => navigate("/tambah-detail-gadai")}
+              >
+                + Tambah
+              </Button>
+            )}
           </Stack>
         }
       />
@@ -182,6 +230,8 @@ const DetailGadaiPage = () => {
                     "Type",
                     "Nasabah",
                     "Status",
+                    "Status Checker",
+                    "Status HM",
                     "Print Struk",
                     "Aksi",
                   ].map((headCell) => (
@@ -196,103 +246,158 @@ const DetailGadaiPage = () => {
                 {(rowsPerPage > 0
                   ? filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                   : filteredData
-                ).map((item, index) => (
-                  <TableRow key={item.id} hover>
-                    <TableCell align="center" sx={cellStyle}>
-                      {page * rowsPerPage + index + 1}
-                    </TableCell>
-                    <TableCell sx={cellStyle}>{item.no_gadai}</TableCell>
-                    <TableCell sx={cellStyle}>{item.no_nasabah}</TableCell>
-                    <TableCell sx={cellStyle}>{item.tanggal_gadai}</TableCell>
-                    <TableCell sx={cellStyle}>{item.jatuh_tempo}</TableCell>
-                    <TableCell sx={cellStyle}>{item.perpanjangan_tempos?.length || 0}x</TableCell>
-                    <TableCell align="right" sx={cellStyle}>
-                      {item.taksiran ? `Rp ${Number(item.taksiran).toLocaleString("id-ID")}` : "-"}
-                    </TableCell>
-                    <TableCell align="right" sx={cellStyle}>
-                      {item.uang_pinjaman ? `Rp ${Number(item.uang_pinjaman).toLocaleString("id-ID")}` : "-"}
-                    </TableCell>
-                    <TableCell sx={cellStyle}>{item.type?.nama_type || "-"}</TableCell>
-                    <TableCell sx={cellStyle}>{item.nasabah?.nama_lengkap || "-"}</TableCell>
-                    <TableCell align="center" sx={cellStyle}>
-                      <Chip label={item.status.toUpperCase()} color={getStatusColor(item.status)} size="small" />
-                    </TableCell>
+                ).map((item, index) => {
+                  const checkerApproval = item.approvals?.find((a) => a.role === "checker");
+                  const hmApproval = item.approvals?.find((a) => a.role === "hm");
 
-                    {/* Tombol print */}
-                    <TableCell align="center" sx={cellStyle}>
-                      <Stack direction="row" spacing={0.5} justifyContent="center">
-                        <Tooltip title="Print SBG">
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            color="primary"
-                            startIcon={<PrintIcon />}
-                            onClick={() => navigate(getPrintSBGRoute(item))}
-                          >
-                            SBG
-                          </Button>
+                  const checkerStatus = checkerApproval?.status || "pending";
+                  const hmStatus = hmApproval?.status || "pending";
+
+                  return (
+                    <TableRow key={item.id} hover>
+                      <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
+                      <TableCell sx={cellStyle}>{item.no_gadai}</TableCell>
+                      <TableCell sx={cellStyle}>{item.no_nasabah}</TableCell>
+                      <TableCell sx={cellStyle}>{item.tanggal_gadai}</TableCell>
+                      <TableCell sx={cellStyle}>
+                        <Tooltip
+                          title={
+                            item.perpanjangan_tempos?.length > 0
+                              ? item.perpanjangan_tempos
+                                  .map((p) => `Perpanjangan: ${p.jatuh_tempo_baru}`)
+                                  .join("\n")
+                              : ""
+                          }
+                        >
+                          <span>{getJatuhTempoTerbaru(item)}</span>
                         </Tooltip>
+                      </TableCell>
+                      <TableCell sx={cellStyle}>{item.perpanjangan_tempos?.length || 0}x</TableCell>
+                      <TableCell align="right" sx={cellStyle}>
+                        {item.taksiran
+                          ? `Rp ${Number(item.taksiran).toLocaleString("id-ID")}`
+                          : "-"}
+                      </TableCell>
+                      <TableCell align="right" sx={cellStyle}>
+                        {item.uang_pinjaman
+                          ? `Rp ${Number(item.uang_pinjaman).toLocaleString("id-ID")}`
+                          : "-"}
+                      </TableCell>
+                      <TableCell sx={cellStyle}>{item.type?.nama_type || "-"}</TableCell>
+                      <TableCell sx={cellStyle}>{item.nasabah?.nama_lengkap || "-"}</TableCell>
+                      <TableCell align="center" sx={cellStyle}>
+                        <Chip
+                          label={item.status.toUpperCase()}
+                          color={getStatusColor(item.status)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="center" sx={cellStyle}>
+                        <Chip
+                          label={checkerStatus.toUpperCase()}
+                          color={getApprovalColor(checkerStatus)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="center" sx={cellStyle}>
+                        <Chip
+                          label={hmStatus.toUpperCase()}
+                          color={getApprovalColor(hmStatus)}
+                          size="small"
+                        />
+                      </TableCell>
 
-                        {item.status === "selesai" && (
-                          <>
-                            <Tooltip title="Struk Awal">
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                color="secondary"
-                                startIcon={<PrintIcon />}
-                                onClick={() => navigate(`/print-struk-awal/${item.id}`)}
-                              >
-                                Awal
-                              </Button>
-                            </Tooltip>
+                      {/* --- Print Buttons --- */}
+                      <TableCell align="center" sx={cellStyle}>
+                        <Stack direction="row" spacing={0.5} justifyContent="center">
+                          {/* Semua role bisa print SBG */}
+                          <Tooltip title="Print SBG">
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="primary"
+                              startIcon={<PrintIcon />}
+                              onClick={() => navigate(getPrintSBGRoute(item))}
+                            >
+                              SBG
+                            </Button>
+                          </Tooltip>
 
-                            <Tooltip title="Struk Lunas">
+                          {/* Status selesai → tampilkan struk awal & perpanjangan */}
+                          {item.status === "selesai" && (
+                            <>
+                              <Tooltip title="Struk Awal">
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="secondary"
+                                  startIcon={<PrintIcon />}
+                                  onClick={() => navigate(`/print-struk-awal/${item.id}`)}
+                                >
+                                  Awal
+                                </Button>
+                              </Tooltip>
+                              {item.perpanjangan_tempos?.length > 0 && (
+                                <Tooltip title="Struk Perpanjangan">
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="warning"
+                                    startIcon={<PrintIcon />}
+                                    onClick={() =>
+                                      navigate(`/print-struk-perpanjangan/${item.id}`)
+                                    }
+                                  >
+                                    Ppjg
+                                  </Button>
+                                </Tooltip>
+                              )}
+                            </>
+                          )}
+
+                          {/* Status lunas → tampilkan SBG + struk pelunasan */}
+                          {item.status === "lunas" && (
+                            <Tooltip title="Struk Pelunasan">
                               <Button
                                 size="small"
                                 variant="outlined"
                                 color="success"
                                 startIcon={<PrintIcon />}
-                                onClick={() => navigate(`/print-struk-pelunasan/${item.id}`)}
+                                onClick={() =>
+                                  navigate(`/print-struk-pelunasan/${item.id}`)
+                                }
                               >
                                 Lunas
                               </Button>
                             </Tooltip>
-                          </>
-                        )}
+                          )}
+                        </Stack>
+                      </TableCell>
 
-                        {item.perpanjangan_tempos?.length > 0 && (
-                          <Tooltip title="Struk Perpanjangan">
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              color="warning"
-                              startIcon={<PrintIcon />}
-                              onClick={() => navigate(`/print-struk-perpanjangan/${item.id}`)}
+                      {/* --- Aksi Edit/Delete --- */}
+                      <TableCell align="center" sx={cellStyle}>
+                        <Stack direction="row" spacing={0.5} justifyContent="center">
+                          {canEdit && (
+                            <IconButton
+                              color="primary"
+                              onClick={() => navigate(`/edit-detail-gadai/${item.id}`)}
                             >
-                              Ppjg
-                            </Button>
-                          </Tooltip>
-                        )}
-                      </Stack>
-                    </TableCell>
-
-                    {/* Aksi */}
-                    <TableCell align="center" sx={cellStyle}>
-                      <Stack direction="row" spacing={0.5} justifyContent="center">
-                        <IconButton color="primary" onClick={() => navigate(`/edit-detail-gadai/${item.id}`)}>
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton color="error" onClick={() => handleDelete(item.id)}>
-                          <DeleteIcon />
-                        </IconButton>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                              <EditIcon />
+                            </IconButton>
+                          )}
+                          {canDelete && (
+                            <IconButton color="error" onClick={() => handleDelete(item.id)}>
+                              <DeleteIcon />
+                            </IconButton>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
                 {filteredData.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={13} align="center">
+                    <TableCell colSpan={15} align="center">
                       Tidak ada data ditemukan.
                     </TableCell>
                   </TableRow>

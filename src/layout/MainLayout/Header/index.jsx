@@ -31,8 +31,8 @@ const Header = ({ drawerToggle }) => {
                   src={logo}
                   alt="Logo"
                   style={{
-                    height: '45px', // tinggi pas untuk header
-                    width: 'auto',  // lebar otomatis agar proporsional
+                    height: '45px', 
+                    width: 'auto',  
                   }}
                 />
               </Box>

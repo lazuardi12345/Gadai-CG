@@ -17,6 +17,26 @@ const EditPerpanjanganTempoPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  const user = JSON.parse(localStorage.getItem('auth_user'));
+  const userRole = user?.role?.toLowerCase() || '';
+
+  // Batasi akses hanya HM & Checker
+  if (!['hm', 'checker'].includes(userRole)) {
+    alert('Anda tidak memiliki akses ke halaman ini');
+    navigate('/perpanjangan-tempo'); // redirect ke halaman list umum
+    return null;
+  }
+
+  const apiBaseUrl =
+    userRole === 'checker'
+      ? '/checker/perpanjangan-tempo'
+      : '/perpanjangan-tempo'; // HM default
+
+  const detailGadaiUrl =
+    userRole === 'checker'
+      ? '/checker/detail-gadai'
+      : '/detail-gadai';
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [detailGadai, setDetailGadai] = useState([]);
@@ -34,8 +54,8 @@ const EditPerpanjanganTempoPage = () => {
     const fetchData = async () => {
       try {
         const [resPerpanjangan, resDetailGadai] = await Promise.all([
-          axiosInstance.get(`/perpanjangan-tempo/${id}`),
-          axiosInstance.get('/detail-gadai')
+          axiosInstance.get(`${apiBaseUrl}/${id}`),
+          axiosInstance.get(detailGadaiUrl)
         ]);
 
         const perpanjangan = resPerpanjangan.data.data;
@@ -72,49 +92,48 @@ const EditPerpanjanganTempoPage = () => {
       }
     };
     fetchData();
-  }, [id]);
+  }, [id, apiBaseUrl, detailGadaiUrl]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async () => {
-    // Validasi semua field wajib
-    for (let key in form) {
-      if (!form[key]) {
-        alert('Semua field harus diisi!');
-        return;
-      }
+const handleSubmit = async () => {
+  // Validasi semua field wajib
+  for (let key in form) {
+    if (!form[key]) {
+      alert('Semua field harus diisi!');
+      return;
     }
+  }
 
-    try {
-      setSaving(true);
+  try {
+    setSaving(true);
 
-      // Konversi detail_gadai_id ke number
-      const payload = {
-        detail_gadai_id: Number(form.detail_gadai_id),
-        tanggal_perpanjangan: form.tanggal_perpanjangan,
-        jatuh_tempo_baru: form.jatuh_tempo_baru
-      };
+    const payload = {
+      detail_gadai_id: Number(form.detail_gadai_id),
+      tanggal_perpanjangan: form.tanggal_perpanjangan,
+      jatuh_tempo_baru: form.jatuh_tempo_baru
+    };
 
-      console.log('Payload dikirim:', payload);
+    const res = await axiosInstance.put(`${apiBaseUrl}/${id}`, payload);
 
-      const res = await axiosInstance.put(`/perpanjangan-tempo/${id}`, payload);
-
-      if (res.data.success) {
-        alert('Perpanjangan berhasil diperbarui');
-        navigate('/perpanjangan-tempo');
-      } else {
-        alert(res.data.message || 'Gagal memperbarui perpanjangan');
-      }
-    } catch (err) {
-      console.error(err.response?.data || err.message);
-      alert(err.response?.data?.message || 'Terjadi kesalahan server');
-    } finally {
-      setSaving(false);
+    if (res.data.success) {
+      alert('Perpanjangan berhasil diperbarui');
+      // Navigasi tetap ke /perpanjangan-tempo
+      navigate('/perpanjangan-tempo');
+    } else {
+      alert(res.data.message || 'Gagal memperbarui perpanjangan');
     }
-  };
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    alert(err.response?.data?.message || 'Terjadi kesalahan server');
+  } finally {
+    setSaving(false);
+  }
+};
+
 
   if (loading) {
     return <CircularProgress sx={{ display: 'block', mx: 'auto', mt: 10 }} />;

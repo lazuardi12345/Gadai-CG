@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Typography,
   TextField,
   Button,
   Stack,
@@ -10,6 +9,7 @@ import {
   CardContent,
   CardHeader,
   Grid,
+  Typography,
 } from '@mui/material';
 import PhotoIcon from '@mui/icons-material/Photo';
 import axiosInstance from 'api/axiosInstance';
@@ -21,31 +21,32 @@ const EditNasabahPage = () => {
   const [nasabah, setNasabah] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetchNasabah();
-  }, [id]);
+  const [error, setError] = useState(null);
 
   // Fetch data nasabah
-  const fetchNasabah = async () => {
-    try {
-      const response = await axiosInstance.get(`/data-nasabah/${id}`);
-      if (response.data.success) {
-        setNasabah({
-          ...response.data.data,
-          foto_ktp_preview: response.data.data.foto_ktp || null,
-          foto_ktp_file: null,
-        });
-      } else {
-        alert(response.data.message || 'Gagal mengambil data nasabah');
+  useEffect(() => {
+    const fetchNasabah = async () => {
+      try {
+        const response = await axiosInstance.get(`/data-nasabah/${id}`);
+        if (response.data.success) {
+          const data = response.data.data;
+          setNasabah({
+            ...data,
+            foto_ktp_file: null,
+            foto_ktp_preview: data.foto_ktp || null,
+          });
+        } else {
+          setError('Data nasabah tidak ditemukan.');
+        }
+      } catch (err) {
+        setError('Gagal mengambil data nasabah.');
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error(error);
-      alert('Terjadi kesalahan saat fetch data');
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    fetchNasabah();
+  }, [id]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -63,48 +64,62 @@ const EditNasabahPage = () => {
     }
   };
 
-const handleSave = async () => {
-  if (!nasabah.nama_lengkap || !nasabah.nik) {
-    alert('Nama lengkap dan NIK wajib diisi!');
-    return;
-  }
-
-  setSaving(true);
-  try {
-    const formData = new FormData();
-    formData.append('_method', 'PUT'); // <- ini tambahan supaya Laravel menganggap PUT
-    formData.append('nama_lengkap', nasabah.nama_lengkap);
-    formData.append('nik', nasabah.nik);
-    formData.append('alamat', nasabah.alamat);
-    formData.append('no_hp', nasabah.no_hp);
-    if (nasabah.foto_ktp_file instanceof File) {
-      formData.append('foto_ktp', nasabah.foto_ktp_file);
+  const handleSave = async () => {
+    if (!nasabah.nama_lengkap || !nasabah.nik) {
+      alert('Nama dan NIK wajib diisi!');
+      return;
     }
 
-    // gunakan POST tapi Laravel akan menganggap PUT
-    const response = await axiosInstance.post(`/data-nasabah/${id}`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    setSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append('_method', 'PUT'); // Laravel PUT
+      formData.append('nama_lengkap', nasabah.nama_lengkap);
+      formData.append('nik', nasabah.nik);
+      formData.append('alamat', nasabah.alamat || '');
+      formData.append('no_hp', nasabah.no_hp || '');
+      if (nasabah.foto_ktp_file instanceof File) {
+        formData.append('foto_ktp', nasabah.foto_ktp_file);
+      }
 
-    if (response.data.success) {
-      alert('Data nasabah berhasil diperbarui.');
-      navigate('/data-nasabah');
-    } else {
-      alert(response.data.message || 'Gagal menyimpan data');
+      const response = await axiosInstance.post(`/data-nasabah/${id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      if (response.data.success) {
+        alert('Data berhasil diperbarui!');
+        navigate('/data-nasabah');
+      } else {
+        alert(response.data.message || 'Gagal menyimpan data.');
+      }
+    } catch (err) {
+      console.log(err.response?.data);
+      alert(err.response?.data?.message || 'Terjadi kesalahan saat menyimpan.');
+    } finally {
+      setSaving(false);
     }
-  } catch (error) {
-    console.error(error);
-    alert('Terjadi kesalahan saat menyimpan data nasabah');
-  } finally {
-    setSaving(false);
-  }
-};
-
+  };
 
   if (loading) {
     return (
       <Grid container justifyContent="center" alignItems="center" style={{ height: '80vh' }}>
         <CircularProgress />
+      </Grid>
+    );
+  }
+
+  if (error) {
+    return (
+      <Grid container justifyContent="center" alignItems="center" style={{ height: '80vh' }}>
+        <Typography color="error">{error}</Typography>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={() => navigate('/data-nasabah')}
+          sx={{ mt: 2 }}
+        >
+          Kembali
+        </Button>
       </Grid>
     );
   }
@@ -162,7 +177,12 @@ const handleSave = async () => {
               </Stack>
 
               <Stack direction="row" spacing={2} justifyContent="flex-end">
-                <Button variant="outlined" color="secondary" onClick={() => navigate('/data-nasabah')} disabled={saving}>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={() => navigate('/data-nasabah')}
+                  disabled={saving}
+                >
                   Batal
                 </Button>
                 <Button variant="contained" color="primary" onClick={handleSave} disabled={saving}>

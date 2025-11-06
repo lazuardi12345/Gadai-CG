@@ -70,7 +70,7 @@ const MainLayout = () => {
         <Box sx={theme.mixins.toolbar} />
         <OutletDiv>
           <Outlet />
-                <Box sx={{mt:5}} > Distributed by <a href='https://themewagon.com' target='_blank'>ThemeWagon</a></Box>
+                <Box sx={{mt:5}} > Distributed by <a href='https://cashgampang.com/' target='_blank'>Cash Gampang</a></Box>
 
         </OutletDiv>
       </Main>

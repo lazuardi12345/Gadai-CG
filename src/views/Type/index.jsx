@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import {
   Card,
   CardHeader,
@@ -27,8 +27,10 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import axiosInstance from "api/axiosInstance";
+import { AuthContext } from "AuthContex/AuthContext"; // pastikan path benar
 
 const TypePage = () => {
+  const { user } = useContext(AuthContext); // ambil role user
   const [types, setTypes] = useState([]);
   const [filteredTypes, setFilteredTypes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,22 +50,25 @@ const TypePage = () => {
     fetchTypes();
   }, []);
 
-  const fetchTypes = async () => {
-    setLoading(true);
-    try {
-      const response = await axiosInstance.get("/type");
-      if (response.data.success) {
-        setTypes(response.data.data);
-        setFilteredTypes(response.data.data);
-      } else {
-        setError(response.data.message || "Gagal mengambil data");
-      }
-    } catch (err) {
-      setError(err.message || "Terjadi kesalahan server");
-    } finally {
-      setLoading(false);
+const fetchTypes = async () => {
+  setLoading(true);
+  try {
+    // endpoint berbeda untuk checker dan hm
+    const endpoint = user?.role === "checker" ? "/checker/type" : "/type";
+
+    const response = await axiosInstance.get(endpoint);
+    if (response.data.success) {
+      setTypes(response.data.data);
+      setFilteredTypes(response.data.data);
+    } else {
+      setError(response.data.message || "Gagal mengambil data");
     }
-  };
+  } catch (err) {
+    setError(err.message || "Terjadi kesalahan server");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Filter real-time
   useEffect(() => {
@@ -150,6 +155,10 @@ const TypePage = () => {
     );
   }
 
+  // role checks
+  const canEdit = ["hm", "checker"].includes(user?.role);
+  const canDelete = user?.role === "hm";
+
   return (
     <>
       <Card sx={{ boxShadow: 3, borderRadius: 3 }}>
@@ -165,15 +174,16 @@ const TypePage = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 sx={{ backgroundColor: "white", borderRadius: 2, width: 200 }}
               />
-              <Button variant="contained" color="primary" onClick={() => handleOpenDialog()}>
-                + Tambah
-              </Button>
+              {canEdit && (
+                <Button variant="contained" color="primary" onClick={() => handleOpenDialog()}>
+                  + Tambah
+                </Button>
+              )}
             </Stack>
           }
         />
         <Divider />
         <CardContent sx={{ width: "100%" }}>
-          {/* 🔹 Table container dengan overflow auto untuk mobile */}
           <TableContainer component={Paper} sx={{ overflowX: "auto" }}>
             <Table size="small" sx={{ minWidth: 600 }}>
               <TableHead>
@@ -181,7 +191,7 @@ const TypePage = () => {
                   <TableCell><strong>No</strong></TableCell>
                   <TableCell><strong>Nomor Type</strong></TableCell>
                   <TableCell><strong>Nama Type</strong></TableCell>
-                  <TableCell align="center"><strong>Aksi</strong></TableCell>
+                  {(canEdit || canDelete) && <TableCell align="center"><strong>Aksi</strong></TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -193,19 +203,25 @@ const TypePage = () => {
                     <TableCell>{page * rowsPerPage + index + 1}</TableCell>
                     <TableCell>{type.nomor_type}</TableCell>
                     <TableCell>{type.nama_type}</TableCell>
-                    <TableCell align="center">
-                      <IconButton color="primary" onClick={() => handleOpenDialog(type)}>
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton color="error" onClick={() => handleDelete(type.id)}>
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
+                    {(canEdit || canDelete) && (
+                      <TableCell align="center">
+                        {canEdit && (
+                          <IconButton color="primary" onClick={() => handleOpenDialog(type)}>
+                            <EditIcon />
+                          </IconButton>
+                        )}
+                        {canDelete && (
+                          <IconButton color="error" onClick={() => handleDelete(type.id)}>
+                            <DeleteIcon />
+                          </IconButton>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
                 {filteredTypes.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} align="center">
+                    <TableCell colSpan={(canEdit || canDelete) ? 4 : 3} align="center">
                       Tidak ada data ditemukan.
                     </TableCell>
                   </TableRow>
@@ -226,32 +242,34 @@ const TypePage = () => {
         </CardContent>
       </Card>
 
-      {/* 🔹 Modal Tambah/Edit */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingType ? "✏️ Edit Type" : "➕ Tambah Type"}</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2}>
-            <TextField
-              label="Nomor Type"
-              fullWidth
-              value={formNomorType}
-              onChange={(e) => setFormNomorType(e.target.value)}
-            />
-            <TextField
-              label="Nama Type"
-              fullWidth
-              value={formNamaType}
-              onChange={(e) => setFormNamaType(e.target.value)}
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Batal</Button>
-          <Button variant="contained" color="primary" onClick={handleSubmit}>
-            {editingType ? "Update" : "Simpan"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Modal Tambah/Edit */}
+      {canEdit && (
+        <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+          <DialogTitle>{editingType ? "✏️ Edit Type" : "➕ Tambah Type"}</DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2}>
+              <TextField
+                label="Nomor Type"
+                fullWidth
+                value={formNomorType}
+                onChange={(e) => setFormNomorType(e.target.value)}
+              />
+              <TextField
+                label="Nama Type"
+                fullWidth
+                value={formNamaType}
+                onChange={(e) => setFormNamaType(e.target.value)}
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseDialog}>Batal</Button>
+            <Button variant="contained" color="primary" onClick={handleSubmit}>
+              {editingType ? "Update" : "Simpan"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </>
   );
 };

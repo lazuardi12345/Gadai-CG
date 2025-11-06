@@ -9,6 +9,14 @@ import { Box, Card, CardContent, Grid, Typography } from '@mui/material';
 
 const ReportCard = ({ primary, secondary, iconPrimary, color, footerData, iconFooter }) => {
   const theme = useTheme();
+
+  // Ambil user dari localStorage
+  const user = JSON.parse(localStorage.getItem('auth_user'));
+  const userRole = user?.role?.toLowerCase() || '';
+
+  // Render hanya untuk HM dan Checker
+  if (!['hm', 'checker'].includes(userRole)) return null;
+
   const IconPrimary = iconPrimary;
   const primaryIcon = iconPrimary ? <IconPrimary fontSize="large" /> : null;
   const IconFooter = iconFooter;
@@ -33,7 +41,7 @@ const ReportCard = ({ primary, secondary, iconPrimary, color, footerData, iconFo
           </Grid>
         </Grid>
       </CardContent>
-      
+
       <Box sx={{ background: color }}>
         <Grid
           container

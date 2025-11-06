@@ -1,19 +1,36 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useContext } from "react";
 import { useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { CircularProgress, Button, Box } from "@mui/material";
 import logo from "assets/images/CGadai.png";
+import { AuthContext } from "AuthContex/AuthContext";
 
 const PrintStrukPerpanjanganPage = () => {
   const { id } = useParams();
+  const { user } = useContext(AuthContext);
+  const userRole = (user?.role || "").toLowerCase();
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const printRef = useRef();
 
+  // 🔹 Tentukan endpoint sesuai role
+  const getApiUrl = () => {
+    switch (userRole) {
+      case "petugas":
+        return `/petugas/detail-gadai/${id}`;
+      case "checker":
+        return `/checker/detail-gadai/${id}`;
+      case "hm":
+      default:
+        return `/detail-gadai/${id}`;
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await axiosInstance.get(`/detail-gadai/${id}`);
+        const res = await axiosInstance.get(getApiUrl());
         if (res.data?.success) setData(res.data.data);
         else setData(null);
       } catch (err) {
@@ -24,7 +41,7 @@ const PrintStrukPerpanjanganPage = () => {
       }
     };
     fetchData();
-  }, [id]);
+  }, [id, userRole]);
 
   if (loading)
     return <CircularProgress sx={{ display: "block", mx: "auto", mt: 10 }} />;
@@ -33,121 +50,141 @@ const PrintStrukPerpanjanganPage = () => {
   const detail = data;
   const nasabah = detail?.nasabah || {};
   const petugas = nasabah?.user?.name || "-";
-  const typeNama = detail?.type?.nama_type || "-";
+  const typeNama = detail?.type?.nama_type?.toLowerCase() || "-";
   const pokok = Number(detail?.uang_pinjaman || 0);
 
   const perpanjanganTerbaru = detail?.perpanjangan_tempos?.length
     ? detail.perpanjangan_tempos[detail.perpanjangan_tempos.length - 1]
     : null;
 
+  const jatuhTempoBaru =
+    perpanjanganTerbaru?.jatuh_tempo_baru || detail?.jatuh_tempo;
   const tanggalPerpanjangan =
     perpanjanganTerbaru?.tanggal_perpanjangan || new Date().toISOString();
-  const jatuhTempoBaru = perpanjanganTerbaru?.jatuh_tempo_baru || null;
-  const periodeBaru = perpanjanganTerbaru?.periode_baru || 0;
   const jatuhTempoLama = detail.jatuh_tempo;
 
-  // ===== FORMAT HARI, TANGGAL DAN WAKTU CETAK =====
-  const formatHariTanggal = () => {
-    const date = new Date();
-    const hari = date.toLocaleDateString("id-ID", { weekday: "long" });
-    const tanggal = date.toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-    const jam = date.getHours().toString().padStart(2, "0");
-    const menit = date.getMinutes().toString().padStart(2, "0");
-    return { tanggalStr: `${hari}, ${tanggal}`, waktuStr: `${jam}:${menit}` };
+  const today = new Date();
+
+  const formatHariTanggal = (date) => {
+    const hari = [
+      "Minggu",
+      "Senin",
+      "Selasa",
+      "Rabu",
+      "Kamis",
+      "Jumat",
+      "Sabtu",
+    ];
+    const bulan = [
+      "Januari",
+      "Februari",
+      "Maret",
+      "April",
+      "Mei",
+      "Juni",
+      "Juli",
+      "Agustus",
+      "September",
+      "Oktober",
+      "November",
+      "Desember",
+    ];
+    const pad = (n) => n.toString().padStart(2, "0");
+    const tanggalStr = `${hari[date.getDay()]}, ${date.getDate()} ${
+      bulan[date.getMonth()]
+    } ${date.getFullYear()}`;
+    const jamStr = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    return { tanggalStr, jamStr };
   };
 
-  const { tanggalStr, waktuStr } = formatHariTanggal();
+  const { tanggalStr, jamStr } = formatHariTanggal(today);
 
-  const hitungJasaDanDenda = (
-    pokok,
-    jatuhTempoLama,
-    typeNama,
-    tanggalPerpanjangan,
-    jatuhTempoBaru,
-    periodeBaru
-  ) => {
-    const msPerDay = 1000 * 60 * 60 * 24;
-    const tglTempoLama = new Date(jatuhTempoLama);
-    const tglPerpanjangan = new Date(tanggalPerpanjangan);
-    const tglJatuhTempoBaru = jatuhTempoBaru ? new Date(jatuhTempoBaru) : null;
-    const type = (typeNama || "").toLowerCase();
-
-    const totalTelat = Math.max(0, Math.ceil((tglPerpanjangan - tglTempoLama) / msPerDay));
-    const periodeBaruDays = tglJatuhTempoBaru
-      ? Math.ceil((tglJatuhTempoBaru - tglPerpanjangan) / msPerDay)
-      : periodeBaru || 0;
-
-    const blok = ["emas", "perhiasan", "logam mulia", "retro"].includes(type)
-      ? [
-          { start: 1, end: 15, rate: 0.015 },
-          { start: 16, end: 30, rate: 0.025 },
-          { start: 31, end: 45, rate: 0.015 },
-          { start: 46, end: 60, rate: 0.025 },
-        ]
-      : [
-          { start: 1, end: 15, rate: 0.045 },
-          { start: 16, end: 30, rate: 0.095 },
-          { start: 31, end: 45, rate: 0.045 },
-          { start: 46, end: 60, rate: 0.095 },
-        ];
-
-    let jasaLama = 0;
-    if (totalTelat > 0) {
-      const blokTempoLama = blok.filter((b) => b.end <= 30).pop();
-      if (blokTempoLama) jasaLama = pokok * blokTempoLama.rate;
-    }
-
-    const sisaHari = totalTelat > 30 ? totalTelat - 30 : 0;
-    const totalHariBaru = periodeBaruDays + sisaHari;
-    let jasaBaru = 0;
-    if (totalHariBaru > 0) {
-      const blokBaru =
-        blok.find((b) => totalHariBaru >= b.start && totalHariBaru <= b.end) || blok[blok.length - 1];
-      jasaBaru = pokok * blokBaru.rate;
-    }
-
-    const isEmas = ["emas", "perhiasan", "logam mulia", "retro"].includes(type);
-    const denda = totalTelat > 0 ? pokok * (isEmas ? 0.015 : 0.045) : 0;
-    const penalty = totalTelat > 15 ? 180000 : 0;
-    const admin = isEmas ? 10000 : 0;
-
-    return {
-      jasaLama,
-      jasaBaru,
-      denda,
-      admin,
-      penalty,
-      overdueDays: totalTelat,
-      newPeriodDays: totalHariBaru,
-    };
-  };
-
-  const { jasaLama, jasaBaru, denda, admin, penalty, overdueDays, newPeriodDays } =
-    hitungJasaDanDenda(pokok, jatuhTempoLama, typeNama, tanggalPerpanjangan, jatuhTempoBaru, periodeBaru);
-
-  const totalBayar = jasaLama + jasaBaru + denda + admin + penalty;
-
+  // 🔹 Fungsi bantu format rupiah
   const formatRupiah = (val) => `Rp. ${Number(val || 0).toLocaleString("id-ID")}`;
-  const formatTanggal = (date) => {
-    if (!date) return "-";
-    const d = new Date(date);
-    const month = (d.getMonth() + 1).toString().padStart(2, "0");
-    const day = d.getDate().toString().padStart(2, "0");
-    return `${d.getFullYear()}-${month}-${day}`;
+
+  // 🔹 Fungsi hitung jasa lama
+  const hitungJasaLama = (pokok, jenisBarang, telatHari) => {
+    if (telatHari <= 0) return 0;
+    let jasa = 0;
+    if (["handphone", "elektronik"].includes(jenisBarang)) {
+      const periode30 = Math.floor(telatHari / 30);
+      const sisa = telatHari % 30;
+      jasa += periode30 * pokok * 0.095;
+      if (sisa > 0) jasa += pokok * 0.045;
+    } else {
+      const periode30 = Math.floor(telatHari / 30);
+      const sisa = telatHari % 30;
+      jasa += periode30 * pokok * 0.025;
+      if (sisa > 0) jasa += pokok * 0.015;
+    }
+    return jasa;
   };
 
-  // info barang
-  let barangNama = "-", barangDetail = "-", labelBarangDetail = "-";
-  switch ((typeNama || "").toLowerCase()) {
+  // 🔹 Fungsi hitung jasa baru
+  const hitungJasaBaru = (pokok, jenisBarang, periodeHari) => {
+    if (periodeHari <= 0) return 0;
+    let jasa = 0;
+    if (["handphone", "elektronik"].includes(jenisBarang)) {
+      const periode30 = Math.floor(periodeHari / 30);
+      const sisa = periodeHari % 30;
+      jasa += periode30 * pokok * 0.095;
+      if (sisa > 0) jasa += pokok * 0.045;
+    } else {
+      const periode30 = Math.floor(periodeHari / 30);
+      const sisa = periodeHari % 30;
+      jasa += periode30 * pokok * 0.025;
+      if (sisa > 0) jasa += pokok * 0.015;
+    }
+    return jasa;
+  };
+
+  // 🔹 Fungsi hitung denda
+  const hitungDenda = (pokok, jenisBarang, telatHari) => {
+    if (telatHari <= 0) return 0;
+    if (["handphone", "elektronik"].includes(jenisBarang))
+      return pokok * 0.003 * telatHari;
+    return pokok * 0.001 * telatHari;
+  };
+
+  // 🔹 Hitung total
+  const totalTelat = Math.max(
+    0,
+    Math.ceil(
+      (new Date(tanggalPerpanjangan) - new Date(jatuhTempoLama)) /
+        (1000 * 60 * 60 * 24)
+    )
+  );
+  const periodeBaruHari = Math.max(
+    0,
+    Math.ceil(
+      (new Date(jatuhTempoBaru) - new Date(tanggalPerpanjangan)) /
+        (1000 * 60 * 60 * 24)
+    )
+  );
+
+  const jasaLama = hitungJasaLama(pokok, typeNama, totalTelat);
+  const jasaBaru = hitungJasaBaru(pokok, typeNama, periodeBaruHari);
+  const denda = hitungDenda(pokok, typeNama, totalTelat);
+  const admin = ["emas", "perhiasan", "logam mulia", "retro"].includes(typeNama)
+    ? 10000
+    : 0;
+  const totalBayar = jasaLama + jasaBaru + denda + admin;
+
+  // 🔹 Bersihkan nama barang
+  const cleanText = (val) =>
+    (val || "").replace(/,|\/+/g, "").replace(/\s+/g, " ").trim();
+
+  let barangNama = "-",
+    barangDetail = "-",
+    labelBarangDetail = "-";
+  switch (typeNama) {
     case "handphone":
     case "elektronik":
       if (detail.hp) {
-        barangNama = detail.hp.nama_barang || "-";
-        barangDetail = `${detail.hp.merk || "-"} / ${detail.hp.type_hp || "-"}`;
+        barangNama = cleanText(detail.hp.nama_barang);
+        const merk = cleanText(detail.hp.merk);
+        const typeHp = cleanText(detail.hp.type_hp);
+        barangDetail = `${merk} / ${typeHp}`;
         labelBarangDetail = "Merk / Type";
       }
       break;
@@ -157,13 +194,16 @@ const PrintStrukPerpanjanganPage = () => {
     case "emas":
       const obj = detail.perhiasan || detail.logam_mulia || detail.retro;
       if (obj) {
-        barangNama = obj.nama_barang || "-";
-        barangDetail = `${obj.karat || "-"} / ${obj.berat || "-"}`;
+        barangNama = cleanText(obj.nama_barang);
+        const karat = cleanText(obj.karat);
+        const berat = cleanText(obj.berat);
+        barangDetail = `${karat} / ${berat}`;
         labelBarangDetail = "Karat / Berat";
       }
       break;
   }
 
+  // 🔹 Fungsi print
   const handlePrint = () => {
     const printWindow = window.open("", "", "width=400,height=600");
     printWindow.document.write(printHTML());
@@ -175,14 +215,14 @@ const PrintStrukPerpanjanganPage = () => {
       <head>
         <title>Struk Perpanjangan</title>
         <style>
-          @page { size: 80mm auto; margin: 0; }
-          body { font-family: monospace; font-size: 11px; margin:0; padding:0; }
-          .print-box { width: 80mm; margin:0 auto; padding:6px; }
-          .center { text-align: center; }
-          .bold { font-weight: bold; }
-          img { display: block; margin: 0 auto 6px auto; width: 150px; }
-          .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
-          hr { border: none; border-top: 1px dashed #000; margin: 5px 0; }
+          @page { size: 80mm auto; margin:0; }
+          body { font-family: monospace; font-size:11px; margin:0; padding:0; }
+          .print-box { width:80mm; margin:0 auto; padding:6px; }
+          .center { text-align:center; }
+          .bold { font-weight:bold; }
+          img { display:block; margin:0 auto 6px auto; width:150px; }
+          .row { display:flex; justify-content:space-between; margin-bottom:2px; }
+          hr { border:none; border-top:1px dashed #000; margin:5px 0; }
         </style>
       </head>
       <body>
@@ -191,10 +231,12 @@ const PrintStrukPerpanjanganPage = () => {
             <img src="${logo}" alt="Logo" />
             <div>No Transaksi</div>
             <div class="bold">${detail?.no_gadai || "-"}</div>
-            <div style="margin-top:2px;">Hari, Tanggal: ${tanggalStr}</div>
-            <div style="margin-top:2px;">Waktu: ${waktuStr}</div>
           </div>
+
+          <div class="row"><span>Hari, Tanggal</span><span>${tanggalStr}</span></div>
+          <div class="row"><span>Waktu</span><span>${jamStr}</span></div>
           <div class="row"><span>Petugas</span><span>${petugas}</span></div>
+
           <div class="center bold" style="margin:6px 0;">PERPANJANGAN GADAI</div>
           <div class="row"><span>Nama Barang</span><span>${barangNama}</span></div>
           <div class="row"><span>${labelBarangDetail}</span><span>${barangDetail}</span></div>
@@ -202,18 +244,17 @@ const PrintStrukPerpanjanganPage = () => {
           <div class="row"><span>Pokok Pinjaman</span><span>${formatRupiah(pokok)}</span></div>
           <div class="row"><span>Jasa Lama</span><span>${formatRupiah(jasaLama)}</span></div>
           <div class="row"><span>Jasa Baru</span><span>${formatRupiah(jasaBaru)}</span></div>
-          ${denda > 0 ? `<div class="row"><span>Denda</span><span>${formatRupiah(denda)}</span></div>` : ""}
-          ${admin > 0 ? `<div class="row"><span>Admin</span><span>${formatRupiah(admin)}</span></div>` : ""}
-          ${penalty > 0 ? `<div class="row"><span>Penalty</span><span>${formatRupiah(penalty)}</span></div>` : ""}
+          <div class="row"><span>Denda</span><span>${formatRupiah(denda)}</span></div>
+          <div class="row"><span>Admin</span><span>${formatRupiah(admin)}</span></div>
           <hr />
           <div class="row bold"><span>Total Bayar</span><span>${formatRupiah(totalBayar)}</span></div>
           <hr />
-          <div class="row"><span>Telat</span><span>${overdueDays} hari</span></div>
-          <div class="row"><span>Periode Baru</span><span>${newPeriodDays} hari</span></div>
-          <div class="row"><span>Tanggal Gadai</span><span>${formatTanggal(detail?.tanggal_gadai)}</span></div>
-          <div class="row"><span>Jatuh Tempo Lama</span><span>${formatTanggal(jatuhTempoLama)}</span></div>
-          <div class="row"><span>Tanggal Perpanjangan</span><span>${formatTanggal(tanggalPerpanjangan)}</span></div>
-          <div class="row"><span>Jatuh Tempo Baru</span><span>${formatTanggal(jatuhTempoBaru)}</span></div>
+          <div class="row"><span>Telat</span><span>${totalTelat} hari</span></div>
+          <div class="row"><span>Periode Baru</span><span>${periodeBaruHari} hari</span></div>
+          <div class="row"><span>Tanggal Gadai</span><span>${detail?.tanggal_gadai}</span></div>
+          <div class="row"><span>Jatuh Tempo Lama</span><span>${jatuhTempoLama}</span></div>
+          <div class="row"><span>Tanggal Perpanjangan</span><span>${tanggalPerpanjangan}</span></div>
+          <div class="row"><span>Jatuh Tempo Baru</span><span>${jatuhTempoBaru}</span></div>
           <hr />
           <div class="center">
             <div>Terima kasih atas kepercayaan Anda!</div>
@@ -221,7 +262,7 @@ const PrintStrukPerpanjanganPage = () => {
             <div class="bold">CG GADAI.</div>
           </div>
         </div>
-        <script>window.onload = function() { window.print(); window.close(); }</script>
+        <script>window.onload = function(){window.print(); window.close();}</script>
       </body>
     </html>
   `;
@@ -232,8 +273,9 @@ const PrintStrukPerpanjanganPage = () => {
         <img src={logo} alt="Logo" style={{ width: "120px", margin: "0 auto 8px auto" }} />
         <div>No Transaksi: <b>{detail?.no_gadai || "-"}</b></div>
         <div>Hari, Tanggal: {tanggalStr}</div>
-        <div>Waktu: {waktuStr}</div>
+        <div>Waktu: {jamStr}</div>
         <div>Petugas: {petugas}</div>
+
         <div style={{ marginTop: "6px", fontWeight: "bold" }}>PERPANJANGAN GADAI</div>
         <div style={{ textAlign: "left", marginTop: "6px" }}>
           <div>Nama Barang: {barangNama}</div>
@@ -242,20 +284,25 @@ const PrintStrukPerpanjanganPage = () => {
           <div>Pokok Pinjaman: {formatRupiah(pokok)}</div>
           <div>Jasa Lama: {formatRupiah(jasaLama)}</div>
           <div>Jasa Baru: {formatRupiah(jasaBaru)}</div>
-          {denda > 0 && <div>Denda: {formatRupiah(denda)}</div>}
-          {admin > 0 && <div>Admin: {formatRupiah(admin)}</div>}
-          {penalty > 0 && <div>Penalty: {formatRupiah(penalty)}</div>}
+          <div>Denda: {formatRupiah(denda)}</div>
+          <div>Admin: {formatRupiah(admin)}</div>
           <hr />
+          <div>Telat: {totalTelat} hari</div>
+          <div>Periode Baru: {periodeBaruHari} hari</div>
           <div><b>Total Bayar: {formatRupiah(totalBayar)}</b></div>
-          <div>Telat: {overdueDays} hari</div>
-          <div>Periode Baru: {newPeriodDays} hari</div>
-          <div>Tanggal Gadai: {formatTanggal(detail?.tanggal_gadai)}</div>
-          <div>Jatuh Tempo Lama: {formatTanggal(jatuhTempoLama)}</div>
-          <div>Tanggal Perpanjangan: {formatTanggal(tanggalPerpanjangan)}</div>
-          <div>Jatuh Tempo Baru: {formatTanggal(jatuhTempoBaru)}</div>
-          <hr />
+          <div>Tanggal Gadai: {detail?.tanggal_gadai}</div>
+          <div>Jatuh Tempo Lama: {jatuhTempoLama}</div>
+          <div>Tanggal Perpanjangan: {tanggalPerpanjangan}</div>
+          <div>Jatuh Tempo Baru: {jatuhTempoBaru}</div>
+        </div>
+
+        <div style={{ marginTop: "8px", fontSize: "12px" }}>
+          <p>Terima kasih atas kepercayaan Anda!</p>
+          <p>Gadai cepat, aman, dan terpercaya di</p>
+          <p><b>CG GADAI.</b></p>
         </div>
       </div>
+
       <Button variant="contained" color="primary" onClick={handlePrint}>
         Cetak Struk Perpanjangan
       </Button>

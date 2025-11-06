@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import {
   Card,
   CardHeader,
@@ -18,11 +18,10 @@ import {
 } from "@mui/material";
 import { useNavigate, useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
+import { AuthContext } from "AuthContex/AuthContext";
 
-// ✅ List kelengkapan
 const KELENGKAPAN_LIST = ["Sertifikat", "Nota", "Dus", "Lainnya"];
 
-// ✅ Dokumen pendukung SOP
 const DOKUMEN_PENDUKUNG_SOP = [
   { key: "emas_timbangan", label: "Emas + Timbangan" },
   { key: "gosokan_timer", label: "Gosokan + Timer 1 Menit" },
@@ -36,6 +35,8 @@ const DOKUMEN_PENDUKUNG_SOP = [
 const EditGadaiLogamMuliaPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
+  const userRole = (user?.role || "").toLowerCase();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -51,28 +52,35 @@ const EditGadaiLogamMuliaPage = () => {
     potongan_batu: "",
     berat: "",
     detail_gadai_id: "",
-    dokumen_pendukung: {}, // { key: File }
+    dokumen_pendukung: {},
   });
 
   // Ambil data awal
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
+        const urlGet =
+          userRole === "checker"
+            ? `/checker/gadai-logam-mulia/${id}`
+            : `/gadai-logam-mulia/${id}`;
+
+        const urlNasabah =
+          userRole === "checker" ? "/checker/data-nasabah" : "/data-nasabah";
+
         const [resLogam, resNasabah] = await Promise.all([
-          axiosInstance.get(`/gadai-logam-mulia/${id}`),
-          axiosInstance.get("/data-nasabah"),
+          axiosInstance.get(urlGet),
+          axiosInstance.get(urlNasabah),
         ]);
 
         const data = resLogam.data.data;
 
-        // kelengkapan array
         const kelengkapan = Array.isArray(data.kelengkapan)
           ? data.kelengkapan
           : data.kelengkapan
           ? [data.kelengkapan]
           : [];
 
-        // dokumen pendukung
         const dokumenPendukung = {};
         if (data.dokumen_pendukung) {
           Object.entries(data.dokumen_pendukung).forEach(([key, val]) => {
@@ -106,8 +114,9 @@ const EditGadaiLogamMuliaPage = () => {
         setLoading(false);
       }
     };
+
     fetchData();
-  }, [id]);
+  }, [id, userRole]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -147,7 +156,6 @@ const EditGadaiLogamMuliaPage = () => {
       const data = new FormData();
       data.append("_method", "PUT");
 
-      // field biasa
       [
         "nama_barang",
         "type_logam_mulia",
@@ -158,19 +166,18 @@ const EditGadaiLogamMuliaPage = () => {
         "detail_gadai_id",
       ].forEach((key) => data.append(key, form[key]));
 
-      // kelengkapan array
-      form.kelengkapan.forEach((item, i) => {
-        data.append(`kelengkapan[${i}]`, item);
-      });
+      form.kelengkapan.forEach((item, i) => data.append(`kelengkapan[${i}]`, item));
 
-      // dokumen pendukung
       Object.entries(form.dokumen_pendukung).forEach(([k, val]) => {
-        if (val?.file instanceof File) {
-          data.append(`dokumen_pendukung[${k}]`, val.file);
-        }
+        if (val?.file instanceof File) data.append(`dokumen_pendukung[${k}]`, val.file);
       });
 
-      const res = await axiosInstance.post(`/gadai-logam-mulia/${id}`, data, {
+      const urlSubmit =
+        userRole === "checker"
+          ? `/checker/gadai-logam-mulia/${id}`
+          : `/gadai-logam-mulia/${id}`;
+
+      const res = await axiosInstance.post(urlSubmit, data, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -223,7 +230,6 @@ const EditGadaiLogamMuliaPage = () => {
                 onChange={handleInputChange}
                 fullWidth
               />
-              {/* Kelengkapan dipindahkan di bawah Kode Cap */}
               <Typography variant="subtitle1">Kelengkapan:</Typography>
               <FormGroup row>
                 {KELENGKAPAN_LIST.map((item) => (
@@ -304,7 +310,6 @@ const EditGadaiLogamMuliaPage = () => {
             </Stack>
           </Grid>
 
-          {/* Dokumen Pendukung */}
           <Grid item xs={12}>
             <Alert severity="info" sx={{ mb: 2 }}>
               Upload file dokumen pendukung pemeriksaan logam mulia.
@@ -372,7 +377,6 @@ const EditGadaiLogamMuliaPage = () => {
           ))}
         </Grid>
 
-        {/* Tombol aksi */}
         <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 4 }}>
           <Button
             variant="outlined"

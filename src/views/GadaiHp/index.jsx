@@ -1,17 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import {
   Card, CardHeader, CardContent, Divider, Table, TableContainer,
   TableHead, TableBody, TableRow, TableCell, TablePagination,
   IconButton, TextField, Button, Stack, Box, CircularProgress, Typography,
   Paper
 } from '@mui/material';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import axiosInstance from 'api/axiosInstance';
 import { useNavigate } from 'react-router-dom';
+import { AuthContext } from 'AuthContex/AuthContext';
 
 const GadaiHpPage = () => {
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
+  const userRole = (user?.role || '').toLowerCase();
+
   const [data, setData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,11 +25,26 @@ const GadaiHpPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
+  const canAdd = userRole === 'petugas' || userRole === 'hm' || userRole === 'checker';
+  const canView = true; // Semua role bisa lihat
+  const canEdit = userRole === 'checker' || userRole === 'hm';
+  const canDelete = userRole === 'hm';
+
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axiosInstance.get('/gadai-hp', { params: { per_page: 1000 } });
+      let url = '';
+      if (userRole === 'checker') url = '/checker/gadai-hp';
+      else if (userRole === 'petugas') url = '/petugas/gadai-hp';
+      else if (userRole === 'hm') url = '/gadai-hp';
+      else {
+        setError('Role tidak diizinkan');
+        setLoading(false);
+        return;
+      }
+
+      const res = await axiosInstance.get(url, { params: { per_page: 1000 } });
       if (res.data.success) {
         setData(res.data.data);
         setFilteredData(res.data.data);
@@ -36,50 +56,44 @@ const GadaiHpPage = () => {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   useEffect(() => {
     const filtered = data.filter(item =>
       (item.nama_barang?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.imei?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.merk?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.type_hp?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.detail_gadai?.nasabah?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase()))
+       item.imei?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+       item.merk?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+       item.type_hp?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+       item.detail_gadai?.nasabah?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase()))
     );
     setFilteredData(filtered);
     setPage(0);
   }, [searchTerm, data]);
 
   const handleChangePage = (_, newPage) => setPage(newPage);
-  const handleChangeRowsPerPage = (e) => {
-    setRowsPerPage(parseInt(e.target.value, 10));
-    setPage(0);
-  };
+  const handleChangeRowsPerPage = (e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Yakin ingin menghapus data ini?')) return;
+    if (!window.confirm('Apakah yakin ingin menghapus data ini?')) return;
     try {
-      const res = await axiosInstance.delete(`/gadai-hp/${id}`);
-      if (res.data.success) {
-        const newData = data.filter(item => item.id !== id);
-        setData(newData);
-        setFilteredData(newData.filter(item =>
-          (item.nama_barang?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.imei?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.merk?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.type_hp?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.detail_gadai?.nasabah?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase()))
-        ));
-      } else alert(res.data.message || 'Gagal menghapus data');
+      await axiosInstance.delete(`/gadai-hp/${id}`);
+      fetchData();
     } catch (err) {
-      alert(err.message || 'Terjadi kesalahan server');
+      alert('Gagal menghapus data: ' + err.message);
     }
   };
 
-  if (loading) return <Stack alignItems="center" justifyContent="center" sx={{ height: '80vh' }}><CircularProgress /></Stack>;
-  if (error) return <Typography color="error" variant="h6" align="center" sx={{ mt: 2 }}>Error: {error}</Typography>;
+  if (loading) return (
+    <Stack alignItems="center" justifyContent="center" sx={{ height: '80vh' }}>
+      <CircularProgress />
+    </Stack>
+  );
+
+  if (error) return (
+    <Typography color="error" variant="h6" align="center" sx={{ mt: 2 }}>
+      Error: {error}
+    </Typography>
+  );
 
   return (
     <Card>
@@ -95,9 +109,11 @@ const GadaiHpPage = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               sx={{ width: { xs: '100%', sm: 300 }, mb: { xs: 1, sm: 0 } }}
             />
-            <Button variant="contained" color="primary" onClick={() => navigate('/tambah-gadai-hp')}>
-              Tambah
-            </Button>
+            {canAdd && (
+              <Button variant="contained" color="primary" onClick={() => navigate('/tambah-gadai-hp')}>
+                Tambah
+              </Button>
+            )}
           </Stack>
         }
       />
@@ -113,8 +129,10 @@ const GadaiHpPage = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {(rowsPerPage > 0 ? filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage) : filteredData)
-                  .map((item, index) => (
+                {(rowsPerPage > 0
+                  ? filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  : filteredData
+                ).map((item, index) => (
                   <TableRow key={item.id}>
                     <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
                     <TableCell>{item.nama_barang || '-'}</TableCell>
@@ -133,12 +151,26 @@ const GadaiHpPage = () => {
                     <TableCell>{item.detail_gadai?.nasabah?.nama_lengkap || '-'}</TableCell>
                     <TableCell align="center">
                       <Stack direction="row" spacing={1} justifyContent="center">
-                        <IconButton color="primary" onClick={() => navigate(`/edit-gadai-hp/${item.id}`)}>
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton color="error" onClick={() => handleDelete(item.id)}>
-                          <DeleteIcon />
-                        </IconButton>
+                        {/* Semua role bisa lihat */}
+                        {canView && (
+                          <IconButton color="info" onClick={() => navigate(`/detail-gadai-hp/${item.id}`)}>
+                            <VisibilityIcon />
+                          </IconButton>
+                        )}
+
+                        {/* HM & Checker bisa edit */}
+                        {canEdit && (
+                          <IconButton color="primary" onClick={() => navigate(`/edit-gadai-hp/${item.id}`)}>
+                            <EditIcon />
+                          </IconButton>
+                        )}
+
+                        {/* Hapus hanya HM */}
+                        {canDelete && (
+                          <IconButton color="error" onClick={() => handleDelete(item.id)}>
+                            <DeleteIcon />
+                          </IconButton>
+                        )}
                       </Stack>
                     </TableCell>
                   </TableRow>

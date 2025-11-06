@@ -1,19 +1,37 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useContext } from "react";
 import { useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { CircularProgress, Button, Box } from "@mui/material";
+import { AuthContext } from "AuthContex/AuthContext";
 import logo from "assets/images/CGadai.png";
 
 const PrintStrukPelunasanPage = () => {
   const { id } = useParams();
+  const { user } = useContext(AuthContext);
+  const userRole = (user?.role || "").toLowerCase();
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const printRef = useRef();
 
+  // 🔹 Tentukan endpoint API berdasarkan role
+  const getApiUrl = () => {
+    switch (userRole) {
+      case "petugas":
+        return `/petugas/detail-gadai/${id}`;
+      case "checker":
+        return `/checker/detail-gadai/${id}`;
+      case "hm":
+      default:
+        return `/detail-gadai/${id}`;
+    }
+  };
+
+  // 🔹 Ambil data
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await axiosInstance.get(`/detail-gadai/${id}`);
+        const res = await axiosInstance.get(getApiUrl());
         if (res.data?.success) setData(res.data.data);
         else setData(null);
       } catch (err) {
@@ -24,7 +42,7 @@ const PrintStrukPelunasanPage = () => {
       }
     };
     fetchData();
-  }, [id]);
+  }, [id, userRole]);
 
   if (loading)
     return <CircularProgress sx={{ display: "block", mx: "auto", mt: 10 }} />;
@@ -36,71 +54,37 @@ const PrintStrukPelunasanPage = () => {
   const typeNama = detail?.type?.nama_type?.toLowerCase() || "-";
   const pokok = Number(detail?.uang_pinjaman || 0);
 
+  // 🔹 Ambil jatuh tempo terbaru jika diperpanjang
   const perpanjanganTerbaru = detail?.perpanjangan_tempos?.length
     ? detail.perpanjangan_tempos[detail.perpanjangan_tempos.length - 1]
     : null;
-
   const jatuhTempoTerbaru =
     perpanjanganTerbaru?.jatuh_tempo_baru || detail?.jatuh_tempo;
 
+  // 🔹 Hitung denda dan penalty
   const today = new Date();
   const jatuhTempoDate = new Date(jatuhTempoTerbaru);
-  let selisihHari = Math.ceil(
-    (today - jatuhTempoDate) / (1000 * 60 * 60 * 24)
-  );
-  if (selisihHari < 0) selisihHari = 0;
 
-  const hitungPersenJasa = (hari, jenis) => {
-    const blokHari = [15, 30, 45, 60, 75, 90, 105, 120];
-    for (let i = 0; i < blokHari.length; i++) {
-      if (hari === blokHari[i] + 1) {
-        hari = blokHari[i];
-        break;
-      }
-    }
-    let persen = 0;
-    if (jenis === "hp") {
-      if (hari <= 15) persen = 0.045;
-      else if (hari <= 30) persen = 0.095;
-      else if (hari <= 45) persen = 0.145;
-      else if (hari <= 60) persen = 0.195;
-      else {
-        const extraBlocks = Math.ceil((hari - 60) / 15);
-        persen = 0.195 + extraBlocks * 0.05;
-      }
-    } else {
-      if (hari <= 15) persen = 0.015;
-      else if (hari <= 30) persen = 0.025;
-      else if (hari <= 45) persen = 0.04;
-      else if (hari <= 60) persen = 0.05;
-      else {
-        const extraBlocks = Math.ceil((hari - 60) / 15);
-        persen = 0.05 + extraBlocks * 0.01;
-      }
-    }
-    return persen;
-  };
+  let selisihHari = Math.ceil((today - jatuhTempoDate) / (1000 * 60 * 60 * 24));
+  const toleransi = 1;
+  if (selisihHari <= toleransi) selisihHari = 0;
+  else selisihHari -= toleransi;
 
   let jenisSkema = ["handphone", "elektronik"].includes(typeNama)
     ? "hp"
     : "non-hp";
-
-  let jasa = 0,
-    denda = 0,
+  let denda = 0,
     penalty = 0;
 
   if (selisihHari > 0) {
-    const persenJasa = hitungPersenJasa(selisihHari, jenisSkema);
-    jasa = pokok * persenJasa;
-
-    if (selisihHari > 15) {
-      denda = pokok * (jenisSkema === "hp" ? 0.045 : 0.015);
-      penalty = 180000;
-    }
+    const persenDendaPerHari = jenisSkema === "hp" ? 0.003 : 0.001; // 0.3% hp / 0.1% emas
+    denda = pokok * persenDendaPerHari * selisihHari;
+    if (selisihHari > 15) penalty = 180000;
   }
 
-  const totalBayar = pokok + jasa + denda + penalty;
+  const totalBayar = pokok + denda + penalty;
 
+  // 🔹 Helper format
   const formatRupiah = (val) =>
     `Rp. ${Number(val || 0).toLocaleString("id-ID")}`;
 
@@ -138,128 +122,130 @@ const PrintStrukPelunasanPage = () => {
 
   const { tanggalStr, jamStr } = formatHariTanggal(today);
 
+  // 🔹 Detail barang
   let barangNama = "-",
     barangDetail = "-",
     labelBarangDetail = "-";
+
+  const cleanText = (val) =>
+    (val || "").replace(/,|\/+/g, "").replace(/\s+/g, " ").trim();
 
   switch (typeNama) {
     case "handphone":
     case "elektronik":
       if (detail.hp) {
-        barangNama = detail.hp.nama_barang || "-";
-        barangDetail = `${detail.hp.merk || "-"} / ${detail.hp.type_hp || "-"}`;
-        labelBarangDetail = "Merk / Type";
+        barangNama = cleanText(detail.hp.nama_barang);
+        const merk = cleanText(detail.hp.merk);
+        const typeHp = cleanText(detail.hp.type_hp);
+        const ram = cleanText(detail.hp.ram);
+        const rom = cleanText(detail.hp.rom);
+        barangDetail = `${merk} / ${typeHp}\n${ram} / ${rom}`;
+        labelBarangDetail = "Merk / Type | RAM / ROM";
       }
       break;
     case "perhiasan":
-      if (detail.perhiasan) {
-        barangNama = detail.perhiasan.nama_barang || "-";
-        barangDetail = `${detail.perhiasan.karat || "-"} / ${detail.perhiasan.berat || "-"}`;
-        labelBarangDetail = "Karat / Berat";
-      }
-      break;
     case "logam mulia":
-      if (detail.logam_mulia) {
-        barangNama = detail.logam_mulia.nama_barang || "-";
-        barangDetail = `${detail.logam_mulia.karat || "-"} / ${detail.logam_mulia.berat || "-"}`;
-        labelBarangDetail = "Karat / Berat";
-      }
-      break;
     case "retro":
-      if (detail.retro) {
-        barangNama = detail.retro.nama_barang || "-";
-        barangDetail = `${detail.retro.karat || "-"} / ${detail.retro.berat || "-"}`;
+      const item = detail.perhiasan || detail.logam_mulia || detail.retro;
+      if (item) {
+        barangNama = cleanText(item.nama_barang);
+        const karat = cleanText(item.karat);
+        const berat = cleanText(item.berat);
+        barangDetail = `${karat} / ${berat}`;
         labelBarangDetail = "Karat / Berat";
       }
       break;
+    default:
+      barangNama = "-";
+      barangDetail = "-";
   }
 
+  // 🔹 Fungsi cetak struk
   const handlePrint = () => {
     const printWindow = window.open("", "", "width=400,height=600");
-    printWindow.document.write(printHTML());
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Struk Pelunasan</title>
+          <style>
+            @page { size: 80mm auto; margin:0; }
+            body { font-family: monospace; font-size:11px; margin:0; padding:0; }
+            .print-box { width:80mm; margin:0 auto; padding:6px; }
+            .center { text-align:center; }
+            .bold { font-weight:bold; }
+            img { display:block; margin:0 auto 6px auto; width:150px; }
+            .row { display:flex; justify-content:space-between; margin-bottom:2px; }
+            hr { border:none; border-top:1px dashed #000; margin:5px 0; }
+            pre { white-space: pre-wrap; word-break: break-word; margin:0; }
+          </style>
+        </head>
+        <body>
+          <div class="print-box">
+            <div class="center">
+              <img src="${logo}" alt="Logo" />
+              <div>No Transaksi</div>
+              <div class="bold">${detail?.no_gadai || "-"}</div>
+            </div>
+
+            <div class="row"><span>Hari, Tanggal</span><span>${tanggalStr}</span></div>
+            <div class="row"><span>Waktu</span><span>${jamStr}</span></div>
+            <div class="row"><span>Petugas</span><span>${petugas}</span></div>
+
+            <div class="center bold" style="margin:6px 0;">PEMBAYARAN LUNAS</div>
+
+            <div class="row"><span>Nama Barang</span><span>${barangNama}</span></div>
+            <div class="row"><span>${labelBarangDetail}</span><span><pre>${barangDetail}</pre></span></div>
+            <hr />
+
+            <div class="row"><span>Pokok Pinjaman</span><span>${formatRupiah(pokok)}</span></div>
+            ${denda > 0 ? `<div class="row"><span>Denda</span><span>${formatRupiah(denda)}</span></div>` : ""}
+            ${penalty > 0 ? `<div class="row"><span>Penalty</span><span>${formatRupiah(penalty)}</span></div>` : ""}
+            <div class="row"><span>Telat</span><span>${selisihHari} hari</span></div>
+            <div class="row bold"><span>Total Bayar</span><span>${formatRupiah(totalBayar)}</span></div>
+            <hr />
+
+            <div class="row"><span>Tanggal Gadai</span><span>${detail?.tanggal_gadai || "-"}</span></div>
+            <div class="row"><span>Jatuh Tempo</span><span>${jatuhTempoTerbaru}</span></div>
+            <hr />
+
+            <div class="center">
+              <div>Terima kasih atas kepercayaan Anda!</div>
+              <div>Gadai cepat, aman, dan terpercaya di</div>
+              <div class="bold">CG GADAI.</div>
+            </div>
+          </div>
+          <script>window.onload = function(){window.print(); window.close();}</script>
+        </body>
+      </html>
+    `);
     printWindow.document.close();
   };
 
-  const printHTML = () => `
-    <html>
-      <head>
-        <title>Struk Pelunasan</title>
-        <style>
-          @page { size: 80mm auto; margin:0; }
-          body { font-family: monospace; font-size:11px; margin:0; padding:0; }
-          .print-box { width:80mm; margin:0 auto; padding:6px; }
-          .center { text-align:center; }
-          .bold { font-weight:bold; }
-          img { display:block; margin:0 auto 6px auto; width:150px; }
-          .row { display:flex; justify-content:space-between; margin-bottom:2px; }
-          hr { border:none; border-top:1px dashed #000; margin:5px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="print-box">
-          <div class="center">
-            <img src="${logo}" alt="Logo" />
-            <div>No Transaksi</div>
-            <div class="bold">${detail?.no_gadai || "-"}</div>
-          </div>
-
-          <div class="row"><span>Hari, Tanggal</span><span>${tanggalStr}</span></div>
-          <div class="row"><span>Waktu</span><span>${jamStr}</span></div>
-          <div class="row"><span>Petugas</span><span>${petugas}</span></div>
-
-          <div class="center bold" style="margin:6px 0;">PEMBAYARAN LUNAS</div>
-
-          <div class="row"><span>Nama Barang</span><span>${barangNama}</span></div>
-          <div class="row"><span>${labelBarangDetail}</span><span>${barangDetail}</span></div>
-          <hr />
-
-          <div class="row"><span>Pokok Pinjaman</span><span>${formatRupiah(pokok)}</span></div>
-          <div class="row"><span>Jasa</span><span>${formatRupiah(jasa)}</span></div>
-          ${denda > 0 ? `<div class="row"><span>Denda</span><span>${formatRupiah(denda)}</span></div>` : ""}
-          ${penalty > 0 ? `<div class="row"><span>Penalty</span><span>${formatRupiah(penalty)}</span></div>` : ""}
-          <div class="row bold"><span>Total Bayar</span><span>${formatRupiah(totalBayar)}</span></div>
-          <hr />
-
-          <div class="row"><span>Tanggal Gadai</span><span>${detail?.tanggal_gadai || "-"}</span></div>
-          <div class="row"><span>Jatuh Tempo</span><span>${jatuhTempoTerbaru}</span></div>
-          <hr />
-
-          <div class="center">
-            <div>Terima kasih atas kepercayaan Anda!</div>
-            <div>Gadai cepat, aman, dan terpercaya di</div>
-            <div class="bold">CG GADAI.</div>
-          </div>
-        </div>
-        <script>window.onload = function(){window.print(); window.close();}</script>
-      </body>
-    </html>
-  `;
-
   return (
-    <Box sx={{ maxWidth:400, mx:"auto", p:2, textAlign:"center", fontFamily:"monospace" }}>
-      <div ref={printRef} style={{ border:"1px dashed #ccc", padding:"12px", marginBottom:"12px" }}>
-        <img src={logo} alt="Logo" style={{ width:"120px", margin:"0 auto 8px auto" }} />
+    <Box sx={{ maxWidth: 400, mx: "auto", p: 2, textAlign: "center", fontFamily: "monospace" }}>
+      <div ref={printRef} style={{ border: "1px dashed #ccc", padding: "12px", marginBottom: "12px" }}>
+        <img src={logo} alt="Logo" style={{ width: "120px", margin: "0 auto 8px auto" }} />
         <div>No Transaksi: <b>{detail?.no_gadai || "-"}</b></div>
         <div>Hari, Tanggal: {tanggalStr}</div>
         <div>Waktu: {jamStr}</div>
         <div>Petugas: {petugas}</div>
 
-        <div style={{ marginTop:"6px", fontWeight:"bold" }}>PEMBAYARAN LUNAS</div>
+        <div style={{ marginTop: "6px", fontWeight: "bold" }}>PEMBAYARAN LUNAS</div>
 
-        <div style={{ textAlign:"left", marginTop:"6px" }}>
+        <div style={{ textAlign: "left", marginTop: "6px" }}>
           <div>Nama Barang: {barangNama}</div>
-          <div>{labelBarangDetail}: {barangDetail}</div>
+          <pre>{labelBarangDetail}: {barangDetail}</pre>
           <hr />
           <div>Pokok Pinjaman: {formatRupiah(pokok)}</div>
-          <div>Jasa: {formatRupiah(jasa)}</div>
           {denda > 0 && <div>Denda: {formatRupiah(denda)}</div>}
           {penalty > 0 && <div>Penalty: {formatRupiah(penalty)}</div>}
+          <div>Telat: {selisihHari} hari</div>
           <div><b>Total Bayar: {formatRupiah(totalBayar)}</b></div>
           <div>Tanggal Gadai: {detail?.tanggal_gadai || "-"}</div>
           <div>Jatuh Tempo: {jatuhTempoTerbaru}</div>
         </div>
 
-        <div style={{ marginTop:"8px", fontSize:"12px" }}>
+        <div style={{ marginTop: "8px", fontSize: "12px" }}>
           <p>Terima kasih atas kepercayaan Anda!</p>
           <p>Gadai cepat, aman, dan terpercaya di</p>
           <p><b>CG GADAI.</b></p>

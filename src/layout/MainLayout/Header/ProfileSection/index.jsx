@@ -1,39 +1,40 @@
-import React from 'react';
+import React, { useContext, useState, useRef } from 'react';
 import { Button, Popper, Fade, Paper, ClickAwayListener, List, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import axiosInstance from 'api/axiosInstance'; // Pastikan path ini benar
 import AccountCircleTwoToneIcon from '@mui/icons-material/AccountCircleTwoTone';
 import MeetingRoomTwoToneIcon from '@mui/icons-material/MeetingRoomTwoTone';
+import axiosInstance from 'api/axiosInstance';
+import { AuthContext } from 'AuthContex/AuthContext';
 
 const ProfileSection = () => {
   const navigate = useNavigate();
-  const [open, setOpen] = React.useState(false);
-  const anchorRef = React.useRef(null);
+  const { user, logout } = useContext(AuthContext); // Ambil user dan logout dari context
+  const [open, setOpen] = useState(false);
+  const anchorRef = useRef(null);
 
-  const handleToggle = () => setOpen((prev) => !prev);
+  const handleToggle = () => setOpen(prev => !prev);
   const handleClose = (event) => {
     if (anchorRef.current && anchorRef.current.contains(event.target)) return;
     setOpen(false);
   };
 
-const handleLogout = async () => {
-  try {
-    const token = localStorage.getItem('auth_token');
-    await axiosInstance.post(
-      '/logout',
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-  } catch (err) {
-    console.error('Logout failed:', err.response?.data || err);
-  } finally {
-    localStorage.removeItem('auth_user');
-    localStorage.removeItem('auth_token');
-    localStorage.setItem('isAuthenticated', 'false');
-    delete axiosInstance.defaults.headers.common['Authorization'];
-    navigate('/login');
-  }
-};
+  const handleLogout = async () => {
+    try {
+      // Opsional: logout ke server
+      const token = localStorage.getItem('auth_token');
+      await axiosInstance.post(
+        '/logout',
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (err) {
+      console.error('Logout failed:', err.response?.data || err);
+    } finally {
+      // Pakai logout dari AuthContext supaya bersih
+      logout();
+      navigate('/login', { replace: true });
+    }
+  };
 
   return (
     <>
@@ -53,6 +54,12 @@ const handleLogout = async () => {
             <Paper>
               <ClickAwayListener onClickAway={handleClose}>
                 <List>
+                  <ListItemButton disabled>
+                    <ListItemIcon>
+                      <AccountCircleTwoToneIcon />
+                    </ListItemIcon>
+                    <ListItemText primary={user?.name || 'User'} secondary={user?.role || '-'} />
+                  </ListItemButton>
                   <ListItemButton onClick={handleLogout}>
                     <ListItemIcon>
                       <MeetingRoomTwoToneIcon />

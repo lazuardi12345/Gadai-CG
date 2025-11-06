@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Card,
   CardHeader,
@@ -18,10 +18,13 @@ import {
 } from '@mui/material';
 import axiosInstance from 'api/axiosInstance';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AuthContext } from 'AuthContex/AuthContext';
 
 const EditDetailGadaiPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { user } = useContext(AuthContext);
+  const userRole = (user?.role || '').toLowerCase();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,44 +43,66 @@ const EditDetailGadaiPage = () => {
   const [nasabahs, setNasabahs] = useState([]);
   const [selectedNasabah, setSelectedNasabah] = useState(null);
 
+  // 🔹 Tentukan API otomatis berdasarkan role
+const getApiUrl = (resource) => {
+  switch (userRole) {
+    case 'checker':
+      return `/checker/${resource}`;
+    case 'hm':
+      return `/${resource}`;
+    default:
+      return null; // role lain tidak boleh
+  }
+};
   // 🔹 Ambil data awal
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [resDetail, resType, resNasabah] = await Promise.all([
-          axiosInstance.get(`/detail-gadai/${id}`),
-          axiosInstance.get('/type'),
-          axiosInstance.get('/data-nasabah'),
-        ]);
+useEffect(() => {
+  if (!['checker', 'hm'].includes(userRole)) {
+    alert('Role tidak diizinkan mengedit data!');
+    navigate('/detail-gadai');
+    return;
+  }
 
-        const detail = resDetail.data.data;
-        setForm({
-          tanggal_gadai: detail.tanggal_gadai || '',
-          jatuh_tempo: detail.jatuh_tempo || '',
-          taksiran: detail.taksiran || '',
-          uang_pinjaman: detail.uang_pinjaman || '',
-          type_id: detail.type_id || '',
-          nasabah_id: detail.nasabah_id || '',
-          status: detail.status || 'proses',
-        });
+  const fetchData = async () => {
+    try {
+      const detailUrl = `${getApiUrl('detail-gadai')}/${id}`;
+      const typeUrl = getApiUrl('type'); // type endpoint sesuai role
+      const nasabahUrl = getApiUrl('data-nasabah'); // nasabah endpoint sesuai role
 
-        setTypes(resType.data.data || []);
-        setNasabahs(resNasabah.data.data || []);
+      const [resDetail, resType, resNasabah] = await Promise.all([
+        axiosInstance.get(detailUrl),
+        axiosInstance.get(typeUrl),
+        axiosInstance.get(nasabahUrl),
+      ]);
 
-        const nasabahFound = resNasabah.data.data.find(
-          (n) => n.id === detail.nasabah_id
-        );
-        setSelectedNasabah(nasabahFound || null);
-      } catch (err) {
-        console.error(err);
-        alert('Gagal mengambil data detail gadai.');
-      } finally {
-        setLoading(false);
-      }
-    };
+      const detail = resDetail.data.data;
+      setForm({
+        tanggal_gadai: detail.tanggal_gadai || '',
+        jatuh_tempo: detail.jatuh_tempo || '',
+        taksiran: detail.taksiran || '',
+        uang_pinjaman: detail.uang_pinjaman || '',
+        type_id: detail.type_id || '',
+        nasabah_id: detail.nasabah_id || '',
+        status: detail.status || 'proses',
+      });
 
-    fetchData();
-  }, [id]);
+      setTypes(resType.data.data || []);
+      setNasabahs(resNasabah.data.data || []);
+
+      const nasabahFound = resNasabah.data.data.find(
+        (n) => n.id === detail.nasabah_id
+      );
+      setSelectedNasabah(nasabahFound || null);
+    } catch (err) {
+      console.error(err);
+      alert('Gagal mengambil data detail gadai.');
+      navigate('/detail-gadai');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, [id, userRole]);
 
   // 🔹 Input handler
   const handleInputChange = (e) => {
@@ -100,39 +125,44 @@ const EditDetailGadaiPage = () => {
   };
 
   // 🔹 Submit handler
-  const handleSubmit = async () => {
-    for (let key of [
-      'tanggal_gadai',
-      'jatuh_tempo',
-      'taksiran',
-      'uang_pinjaman',
-      'type_id',
-      'nasabah_id',
-      'status',
-    ]) {
-      if (!form[key]) {
-        alert('Harap isi semua field!');
-        return;
-      }
+const handleSubmit = async () => {
+  for (let key of [
+    'tanggal_gadai',
+    'jatuh_tempo',
+    'taksiran',
+    'uang_pinjaman',
+    'type_id',
+    'nasabah_id',
+    'status',
+  ]) {
+    if (!form[key]) {
+      alert('Harap isi semua field!');
+      return;
+    }
+  }
+
+  try {
+    setSaving(true);
+    const apiUrl = `${getApiUrl('detail-gadai')}/${id}`;
+    if (!apiUrl) {
+      alert('Role tidak diizinkan mengedit data!');
+      return;
     }
 
-    try {
-      setSaving(true);
-      const res = await axiosInstance.put(`/detail-gadai/${id}`, form);
-      if (res.data.success) {
-        alert('Data berhasil diperbarui!');
-        navigate('/detail-gadai');
-      } else {
-        alert(res.data.message || 'Gagal memperbarui data');
-      }
-    } catch (err) {
-      console.error(err);
-      alert(err.message || 'Terjadi kesalahan server');
-    } finally {
-      setSaving(false);
+    const res = await axiosInstance.put(apiUrl, form);
+    if (res.data.success) {
+      alert('Data berhasil diperbarui!');
+      navigate('/detail-gadai');
+    } else {
+      alert(res.data.message || 'Gagal memperbarui data');
     }
-  };
-
+  } catch (err) {
+    console.error(err);
+    alert(err.message || 'Terjadi kesalahan server');
+  } finally {
+    setSaving(false);
+  }
+};
   if (loading) {
     return (
       <Stack alignItems="center" justifyContent="center" sx={{ height: '80vh' }}>
@@ -182,6 +212,7 @@ const EditDetailGadaiPage = () => {
                   ))}
                 </Select>
               </FormControl>
+
               {/* Status dropdown */}
               <FormControl fullWidth>
                 <InputLabel>Status</InputLabel>
@@ -196,6 +227,7 @@ const EditDetailGadaiPage = () => {
                   <MenuItem value="lunas">Lunas</MenuItem>
                 </Select>
               </FormControl>
+
               {/* Preview warna status */}
               <Chip
                 label={form.status.toUpperCase()}
@@ -269,7 +301,11 @@ const EditDetailGadaiPage = () => {
 
         {/* Tombol aksi */}
         <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 4 }}>
-          <Button variant="outlined" color="secondary" onClick={() => navigate('/detail-gadai')}>
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={() => navigate('/detail-gadai')}
+          >
             Batal
           </Button>
           <Button

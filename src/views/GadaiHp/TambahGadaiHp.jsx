@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
     Card, CardHeader, CardContent, TextField, Button,
     Grid, Stack, CircularProgress, Autocomplete,
@@ -7,8 +7,8 @@ import {
 } from '@mui/material';
 import axiosInstance from 'api/axiosInstance';
 import { useNavigate } from 'react-router-dom';
+import { AuthContext } from 'AuthContex/AuthContext'; // pastikan path sesuai
 
-// Daftar enum kelengkapan & kerusakan
 const KELENGKAPAN_LIST = ['Box', 'Charger', 'Kabel Data'];
 const KERUSAKAN_LIST = [
     'LCD Pecah', 'LCD Kuning/Pink', 'LCD Bercak', 'Baterai Bocor', 'Tombol Rusak',
@@ -17,10 +17,8 @@ const KERUSAKAN_LIST = [
     'IMEI tidak terbaca', 'Display Phone'
 ];
 
-// Nama Barang enum
 const NAMA_BARANG_LIST = ['Android','Samsung','iPhone'];
 
-// Dokumen SOP singkat
 const DOKUMEN_SOP = {
     Android: ['body','imei','about','akun','admin','cam_depan','cam_belakang','rusak'],
     Samsung: ['body','imei','about','samsung_account','admin','cam_depan','cam_belakang','galaxy_store'],
@@ -29,6 +27,9 @@ const DOKUMEN_SOP = {
 
 const TambahGadaiHpPage = () => {
     const navigate = useNavigate();
+    const { user } = useContext(AuthContext);
+    const userRole = (user?.role || '').toLowerCase();
+    const canEdit = userRole === 'hm' || userRole === 'checker';
 
     const [form, setForm] = useState({
         nama_barang: '',
@@ -54,29 +55,34 @@ const TambahGadaiHpPage = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
-    // Ambil detail gadai & nasabah
-    useEffect(() => {
-        const fetchDetail = async () => {
-            try {
-                const res = await axiosInstance.get('/detail-gadai');
-                const data = res.data.data || [];
-                setDetailGadai(data);
-
-                const nasabahMap = {};
-                data.forEach(d => {
-                    if (d.nasabah && !nasabahMap[d.nasabah.id]) {
-                        nasabahMap[d.nasabah.id] = d.nasabah;
-                    }
-                });
-                setUniqueNasabah(Object.values(nasabahMap));
-            } catch (err) {
-                alert('Gagal memuat data detail gadai');
-            } finally {
-                setLoading(false);
+useEffect(() => {
+    const fetchDetail = async () => {
+        try {
+            let url = '/detail-gadai';
+            if(userRole === 'checker') {
+                url = '/checker/detail-gadai';
             }
-        };
-        fetchDetail();
-    }, []);
+
+            const res = await axiosInstance.get(url);
+            const data = res.data.data || [];
+            setDetailGadai(data);
+
+            const nasabahMap = {};
+            data.forEach(d => {
+                if (d.nasabah && !nasabahMap[d.nasabah.id]) {
+                    nasabahMap[d.nasabah.id] = d.nasabah;
+                }
+            });
+            setUniqueNasabah(Object.values(nasabahMap));
+        } catch (err) {
+            alert('Gagal memuat data detail gadai');
+        } finally {
+            setLoading(false);
+        }
+    };
+    fetchDetail();
+}, [userRole]);
+
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -84,6 +90,7 @@ const TambahGadaiHpPage = () => {
     };
 
     const handleCheckboxChange = (field, value) => {
+        if (!canEdit) return;
         setForm(prev => {
             const current = prev[field];
             if (current.includes(value)) {
@@ -95,6 +102,7 @@ const TambahGadaiHpPage = () => {
     };
 
     const handleDokumenChange = (key, file) => {
+        if (!canEdit) return;
         setForm(prev => ({
             ...prev,
             dokumen_pendukung: {
@@ -105,6 +113,7 @@ const TambahGadaiHpPage = () => {
     };
 
     const handleSubmit = async () => {
+        if (!canEdit) return;
         if (!form.nama_barang || !form.detail_gadai_id) {
             alert('Nama Barang dan Nasabah harus diisi!');
             return;
@@ -112,21 +121,14 @@ const TambahGadaiHpPage = () => {
 
         try {
             setSaving(true);
-
             const data = new FormData();
-
-            // Field biasa
             ['nama_barang','grade','imei','warna','kunci_password','kunci_pin','kunci_pola','ram','rom','type_hp','merk','detail_gadai_id'].forEach(key => {
                 if(form[key] !== undefined && form[key] !== null){
                     data.append(key, form[key]);
                 }
             });
-
-            // Kirim kelengkapan & kerusakan sebagai array
             form.kelengkapan.forEach((item, index) => data.append(`kelengkapan[${index}]`, item));
             form.kerusakan.forEach((item, index) => data.append(`kerusakan[${index}]`, item));
-
-            // Dokumen pendukung optional
             Object.entries(form.dokumen_pendukung).forEach(([k, file]) => {
                 if(file) data.append(`dokumen_pendukung[${k}]`, file);
             });
@@ -179,6 +181,7 @@ const TambahGadaiHpPage = () => {
                                 name="nama_barang"
                                 label="Nama Barang"
                                 onChange={(e) => {
+                                    if (!canEdit) return;
                                     const nama = e.target.value;
                                     setForm(prev => ({
                                         ...prev,
@@ -186,6 +189,7 @@ const TambahGadaiHpPage = () => {
                                         dokumen_pendukung: DOKUMEN_SOP[nama].reduce((acc, k) => ({ ...acc, [k]: null }), {})
                                     }));
                                 }}
+                                disabled={!canEdit}
                             >
                                 {NAMA_BARANG_LIST.map(item => (
                                     <MenuItem key={item} value={item}>{item}</MenuItem>
@@ -201,6 +205,7 @@ const TambahGadaiHpPage = () => {
                             getOptionLabel={(option) => option.nama_lengkap || ''}
                             value={selectedNasabah}
                             onChange={(event, newValue) => {
+                                if (!canEdit) return;
                                 setSelectedNasabah(newValue);
                                 const detail = detailGadai.find(d => d.nasabah?.id === newValue?.id);
                                 setForm(prev => ({ ...prev, detail_gadai_id: detail ? detail.id : '' }));
@@ -212,6 +217,7 @@ const TambahGadaiHpPage = () => {
                                     placeholder="Cari nama nasabah..."
                                     size="small"
                                     fullWidth
+                                    disabled={!canEdit}
                                 />
                             )}
                         />
@@ -235,6 +241,7 @@ const TambahGadaiHpPage = () => {
                                 onChange={handleChange}
                                 fullWidth
                                 size="small"
+                                disabled={!canEdit}
                             />
                         </Grid>
                     ))}
@@ -250,6 +257,7 @@ const TambahGadaiHpPage = () => {
                                         <Checkbox
                                             checked={form.kelengkapan.includes(item)}
                                             onChange={() => handleCheckboxChange('kelengkapan', item)}
+                                            disabled={!canEdit}
                                         />
                                     }
                                     label={item}
@@ -269,6 +277,7 @@ const TambahGadaiHpPage = () => {
                                         <Checkbox
                                             checked={form.kerusakan.includes(item)}
                                             onChange={() => handleCheckboxChange('kerusakan', item)}
+                                            disabled={!canEdit}
                                         />
                                     }
                                     label={item}
@@ -310,6 +319,7 @@ const TambahGadaiHpPage = () => {
                                         variant="contained"
                                         component="label"
                                         size="small"
+                                        disabled={!canEdit}
                                     >
                                         Upload
                                         <input
@@ -324,6 +334,7 @@ const TambahGadaiHpPage = () => {
                                             color="error"
                                             size="small"
                                             onClick={() => handleDokumenChange(key, null)}
+                                            disabled={!canEdit}
                                         >
                                             Hapus
                                         </Button>
@@ -335,12 +346,14 @@ const TambahGadaiHpPage = () => {
                 </Grid>
 
                 {/* Buttons */}
-                <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 4 }}>
-                    <Button variant="outlined" onClick={() => navigate('/gadai-hp')}>Batal</Button>
-                    <Button variant="contained" color="primary" onClick={handleSubmit} disabled={saving}>
-                        {saving ? 'Menyimpan...' : 'Simpan'}
-                    </Button>
-                </Stack>
+                {canEdit && (
+                    <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 4 }}>
+                        <Button variant="outlined" onClick={() => navigate('/gadai-hp')}>Batal</Button>
+                        <Button variant="contained" color="primary" onClick={handleSubmit} disabled={saving}>
+                            {saving ? 'Menyimpan...' : 'Simpan'}
+                        </Button>
+                    </Stack>
+                )}
             </CardContent>
         </Card>
     );

@@ -1,19 +1,37 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useContext } from "react";
 import { useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { CircularProgress, Button, Box } from "@mui/material";
+import { AuthContext } from "AuthContex/AuthContext";
 import logo from "assets/images/CGadai.png";
 
 const PrintStrukPage = () => {
   const { id } = useParams();
+  const { user } = useContext(AuthContext);
+  const userRole = (user?.role || "").toLowerCase();
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const printRef = useRef();
 
+  // 🔹 Tentukan endpoint API sesuai role
+  const getApiUrl = () => {
+    switch (userRole) {
+      case "petugas":
+        return `/petugas/detail-gadai/${id}`;
+      case "checker":
+        return `/checker/detail-gadai/${id}`;
+      case "hm":
+      default:
+        return `/detail-gadai/${id}`;
+    }
+  };
+
+  // 🔹 Fetch Data
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await axiosInstance.get(`/detail-gadai/${id}`);
+        const res = await axiosInstance.get(getApiUrl());
         if (res.data?.success) setData(res.data.data);
         else setData(null);
       } catch (err) {
@@ -24,7 +42,7 @@ const PrintStrukPage = () => {
       }
     };
     fetchData();
-  }, [id]);
+  }, [id, userRole]);
 
   if (loading) return <CircularProgress />;
   if (!data) return <p>Tidak ada data.</p>;
@@ -52,7 +70,7 @@ const PrintStrukPage = () => {
       break;
     }
   }
-  
+
   let persenJasa = 0;
   let jenisSkema = "";
 
@@ -67,9 +85,8 @@ const PrintStrukPage = () => {
       const extraBlocks = Math.ceil((selisihHari - 60) / 15);
       persenJasa = 0.195 + extraBlocks * 0.05;
     }
-  }
-  // === Barang selain HP ===
-  else {
+  } else {
+    // === Barang selain HP ===
     if (selisihHari <= 15) persenJasa = 0.015;
     else if (selisihHari <= 30) persenJasa = 0.025;
     else if (selisihHari <= 45) persenJasa = 0.04;
@@ -81,7 +98,7 @@ const PrintStrukPage = () => {
   }
 
   const jasaSewa = pinjaman * persenJasa;
-  const admin = pinjaman * 0.01; // 1%
+  const admin = pinjaman * 0.01;
   const asuransi = 10000;
   const totalDiterima = pinjaman - jasaSewa - admin - asuransi;
 
@@ -115,8 +132,13 @@ const PrintStrukPage = () => {
     case "handphone":
       if (detail.hp) {
         barangNama = detail.hp.nama_barang || "-";
-        barangDetail = `${detail.hp.merk || "-"} / ${detail.hp.type_hp || "-"}`;
-        labelBarangDetail = "Merk / Type";
+        // Hilangkan koma & format rapi
+        const merk = (detail.hp.merk || "").replace(/,|\/+/g, "").trim();
+        const type_hp = (detail.hp.type_hp || "").replace(/,|\/+/g, "").trim();
+        const ram = (detail.hp.ram || "").replace(/,|\/+/g, "").trim();
+        const rom = (detail.hp.rom || "").replace(/,|\/+/g, "").trim();
+        barangDetail = `${merk} / ${type_hp}\n${ram} / ${rom}`;
+        labelBarangDetail = "Merk / Type | RAM / ROM";
       }
       break;
     case "perhiasan":
@@ -130,12 +152,9 @@ const PrintStrukPage = () => {
       }
       break;
     default:
-      if (detail.hp) {
-        barangNama = detail.hp.nama_barang || "-";
-        barangDetail = `${detail.hp.merk || "-"} / ${detail.hp.type_hp || "-"}`;
-        labelBarangDetail = "Merk / Type";
-      }
-      break;
+      barangNama = "-";
+      barangDetail = "-";
+      labelBarangDetail = "-";
   }
 
   // ======================
@@ -158,6 +177,7 @@ const PrintStrukPage = () => {
             .label { text-align: left; }
             .value { text-align: right; }
             .bold { font-weight: bold; }
+            pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
           </style>
         </head>
         <body>
@@ -180,7 +200,7 @@ const PrintStrukPage = () => {
             <hr />
 
             <div class="row"><span class="label">Nama Barang</span><span class="value">${barangNama}</span></div>
-            <div class="row"><span class="label">${labelBarangDetail}</span><span class="value">${barangDetail}</span></div>
+            <div class="row"><span class="label">${labelBarangDetail}</span><span class="value"><pre>${barangDetail}</pre></span></div>
             <hr />
 
             <div class="row"><span class="label">Pokok Pinjaman</span><span class="value">${formatRupiah(pinjaman)}</span></div>
@@ -231,7 +251,7 @@ const PrintStrukPage = () => {
           <div>Barang Gadai {typeNama}</div>
           <hr />
           <div>Nama Barang: {barangNama}</div>
-          <div>{labelBarangDetail}: {barangDetail}</div>
+          <pre>{labelBarangDetail}: {barangDetail}</pre>
           <hr />
           <div>Pokok Pinjaman {formatRupiah(pinjaman)}</div>
           <div>Jasa Sewa ({jenisSkema} {(persenJasa * 100).toFixed(1)}%) {formatRupiah(jasaSewa)}</div>

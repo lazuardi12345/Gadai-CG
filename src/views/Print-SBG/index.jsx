@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { CircularProgress, Button, Box, Typography } from "@mui/material";
@@ -13,8 +13,9 @@ import {
   pdf,
 } from "@react-pdf/renderer";
 import templateBg from "assets/images/SBG-HP.jpg";
+import { AuthContext } from "AuthContex/AuthContext";
 
-// ✅ Daftarkan font Roboto
+// ===== REGISTER FONT =====
 Font.register({
   family: "Roboto",
   fonts: [
@@ -28,22 +29,24 @@ Font.register({
   ],
 });
 
-// ✅ Komponen aman untuk render teks
+// ===== HELPER FUNCTIONS =====
+const cleanText = (text) => {
+  if (!text) return "-";
+  return String(text)
+    .replace(/,/g, "") // hilangkan koma
+    .replace(/\s{2,}/g, " ") // hilangkan spasi ganda
+    .replace(/\/\s*\//g, "/") // hilangkan slash ganda
+    .trim();
+};
+
 const SafeText = ({ children, style }) => {
-  let content = "-";
-  if (children !== null && children !== undefined && children !== "") {
-    content = String(children);
-  }
+  const content =
+    children !== null && children !== undefined && children !== ""
+      ? cleanText(children)
+      : "-";
   return <Text style={style}>{content}</Text>;
 };
 
-// ✅ Konversi ukuran mm → pt
-const DESIGN_WIDTH_MM = 187;
-const DESIGN_HEIGHT_MM = 263;
-const DESIGN_WIDTH_PT = DESIGN_WIDTH_MM * 2.83465;
-const DESIGN_HEIGHT_PT = DESIGN_HEIGHT_MM * 2.83465;
-
-// ✅ Utility
 const formatRupiah = (number) => {
   if (!number) return "-";
   return new Intl.NumberFormat("id-ID", {
@@ -76,7 +79,9 @@ const terbilang = (angka) => {
     return terbilang(Math.floor(angka / 10)) + " Puluh " + terbilang(angka % 10);
   if (angka < 200) return "Seratus " + terbilang(angka - 100);
   if (angka < 1000)
-    return terbilang(Math.floor(angka / 100)) + " Ratus " + terbilang(angka % 100);
+    return (
+      terbilang(Math.floor(angka / 100)) + " Ratus " + terbilang(angka % 100)
+    );
   if (angka < 2000) return "Seribu " + terbilang(angka - 1000);
   if (angka < 1000000)
     return (
@@ -93,7 +98,7 @@ const terbilang = (angka) => {
   return "Angka terlalu besar";
 };
 
-// ✅ Komponen PDF
+// ===== PDF TEMPLATE =====
 const SuratBuktiGadaiPDF = ({ data }) => {
   const nasabah = data?.nasabah || {};
   const hp = data?.hp || {};
@@ -101,8 +106,8 @@ const SuratBuktiGadaiPDF = ({ data }) => {
   return (
     <Document>
       <Page
-        size={[DESIGN_WIDTH_PT, DESIGN_HEIGHT_PT]}
-        style={{ position: "relative", padding: 0, fontFamily: "Roboto" }}
+        size={[187 * 2.83465, 263 * 2.83465]}
+        style={{ position: "relative", fontFamily: "Roboto" }}
       >
         {/* Background */}
         <Image
@@ -116,7 +121,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
           }}
         />
 
-        {/* Overlay */}
+        {/* Overlay Data */}
         <View
           style={{
             position: "absolute",
@@ -126,6 +131,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
             height: "100%",
           }}
         >
+          {/* Data Nasabah */}
           <SafeText style={{ position: "absolute", top: 68, left: 190, fontSize: 13, fontWeight: "bold" }}>
             {data.no_gadai}
           </SafeText>
@@ -144,6 +150,8 @@ const SuratBuktiGadaiPDF = ({ data }) => {
           <SafeText style={{ position: "absolute", top: 130, left: 100, fontSize: 7 }}>
             {nasabah.no_hp}
           </SafeText>
+
+          {/* Tanggal */}
           <SafeText style={{ position: "absolute", top: 105, left: 303, fontSize: 7, fontWeight: "bold" }}>
             {data.tanggal_gadai}
           </SafeText>
@@ -151,38 +159,33 @@ const SuratBuktiGadaiPDF = ({ data }) => {
             {data.jatuh_tempo}
           </SafeText>
 
-          {/* Data HP */}
+          {/* Barang HP */}
           <SafeText style={{ position: "absolute", top: 156, left: 93, fontSize: 7 }}>
-            {hp.nama_barang}
+            {cleanText(hp.nama_barang)}
           </SafeText>
           <SafeText style={{ position: "absolute", top: 156, left: 178, fontSize: 7 }}>
-            {hp.grade}/{hp.imei}
+            {`${cleanText(hp.grade)}/${cleanText(hp.imei)}`}
           </SafeText>
           <SafeText style={{ position: "absolute", top: 167, left: 93, fontSize: 6 }}>
-            {hp.merk}/ {hp.type_hp}
+            {`${cleanText(hp.merk)}/${cleanText(hp.type_hp)}`}
+          </SafeText>
+           <SafeText style={{ position: "absolute", top: 167, left: 178, fontSize: 6 }}>
+            {`${cleanText(hp.warna)}`}
+          </SafeText>
+          <SafeText style={{ position: "absolute", top: 178, left: 178, fontSize: 6 }}>
+            {`${cleanText(hp.password)}`}
           </SafeText>
           <SafeText style={{ position: "absolute", top: 178, left: 93, fontSize: 7 }}>
-            {hp.ram}/{hp.rom}
+            {`${cleanText(hp.ram)}/${cleanText(hp.rom)}`}
           </SafeText>
           <SafeText style={{ position: "absolute", top: 188, left: 93, fontSize: 7 }}>
-            {hp.kelengkapan}
+            {cleanText(hp.kelengkapan)}
           </SafeText>
           <SafeText style={{ position: "absolute", top: 195, left: 93, fontSize: 7 }}>
-            {hp.kerusakan}
-          </SafeText>
-          <SafeText style={{ position: "absolute", top: 167, left: 178, fontSize: 7 }}>
-            {hp.warna}
-          </SafeText>
-          <SafeText style={{ position: "absolute", top: 178, left: 178, fontSize: 7 }}>
-            {hp.kunci_password}
-          </SafeText>
-          <SafeText style={{ position: "absolute", top: 178, left: 178, fontSize: 7 }}>
-            {hp.kunci_pin}
-          </SafeText>
-          <SafeText style={{ position: "absolute", top: 178, left: 178, fontSize: 7 }}>
-            {hp.kunci_pola}
+            {cleanText(hp.kerusakan)}
           </SafeText>
 
+          {/* Nilai Pinjaman */}
           <SafeText style={{ position: "absolute", top: 145, left: 320, fontSize: 7, fontWeight: "bold" }}>
             {formatRupiah(data.taksiran)}
           </SafeText>
@@ -202,23 +205,17 @@ const SuratBuktiGadaiPDF = ({ data }) => {
           >
             {`${terbilang(data.uang_pinjaman)} Rupiah`}
           </SafeText>
-          <SafeText style={{ position: "absolute", top: 239, left: 60, fontSize: 9 }}>
-            {nasabah.nama_lengkap}
-          </SafeText>
-          <SafeText style={{ position: "absolute", top: 110, left: 425, fontSize: 8, fontWeight: "bold" }}>
+
+
+            <SafeText style={{ position: "absolute", top: 110, left: 430, fontSize: 8, fontWeight: "bold" }}>
             {data.no_gadai}
           </SafeText>
-          <SafeText
-            style={{
-              position: "absolute",
-              top: 142,
-              left: 425,
-              fontSize: 6,
-              width: 100,
-              lineHeight: 1.2,
-            }}
-          >
-            {`${hp.nama_barang}, ${hp.merk}/${hp.type_hp}, ${hp.ram}/${hp.rom}, ${hp.kelengkapan}/${hp.kerusakan}, ${hp.grade}/${hp.imei}, ${hp.warna}, ${hp.kunci_password}`}
+          <SafeText style={{ position: "absolute", top: 145, left: 425, fontSize: 6, fontWeight: "bold",  width: 100, lineHeight: 1.2, }}>
+            {hp.nama_barang}, {hp.merk}/{hp.type_hp}, {hp.grade}/{hp.imei}, {hp.ram}/{hp.rom}, {hp.warna}, {hp.kelengkapan}/{hp.kerusakan}, {hp.password}
+          </SafeText>
+          {/* Tanda tangan */}
+          <SafeText style={{ position: "absolute", top: 239, left: 60, fontSize: 9 }}>
+            {nasabah.nama_lengkap}
           </SafeText>
         </View>
       </Page>
@@ -226,36 +223,44 @@ const SuratBuktiGadaiPDF = ({ data }) => {
   );
 };
 
+// ===== MAIN PAGE =====
 const PrintSuratGadaiPage = () => {
   const { id } = useParams();
+  const { user } = useContext(AuthContext);
+  const userRole = (user?.role || "").toLowerCase();
+
   const [dataGadai, setDataGadai] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const fetchData = async () => {
+    setLoading(true);
+    setErrorMsg("");
+
+    try {
+      let url = "";
+      if (userRole === "checker") url = `/checker/detail-gadai/${id}`;
+      else if (userRole === "petugas") url = `/petugas/detail-gadai/${id}`;
+      else if (userRole === "hm") url = `/hm/detail-gadai/${id}`;
+      else url = `/detail-gadai/${id}`;
+
+      const res = await axiosInstance.get(url);
+      setDataGadai(res.data.data);
+    } catch (err) {
+      console.error("❌ Gagal memuat data gadai:", err);
+      setErrorMsg(err.response?.data?.message || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await axiosInstance.get("/detail-gadai");
-        if (res.data?.success && Array.isArray(res.data.data)) {
-          const found = res.data.data.find((item) => item.id === Number(id));
-          setDataGadai(found || null);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
-  }, [id]);
+  }, [id, userRole]);
 
   const handlePrintPDF = async () => {
     if (!dataGadai) return;
-    const safeData = {
-      ...dataGadai,
-      nasabah: dataGadai.nasabah || {},
-      hp: dataGadai.hp || {},
-    };
-    const blob = await pdf(<SuratBuktiGadaiPDF data={safeData} />).toBlob();
+    const blob = await pdf(<SuratBuktiGadaiPDF data={dataGadai} />).toBlob();
     const url = URL.createObjectURL(blob);
     const iframe = document.createElement("iframe");
     iframe.style.display = "none";
@@ -266,46 +271,34 @@ const PrintSuratGadaiPage = () => {
 
   if (loading)
     return <CircularProgress sx={{ display: "block", mx: "auto", mt: 10 }} />;
+
+  if (errorMsg)
+    return (
+      <Box textAlign="center" mt={4}>
+        <Typography color="error">{errorMsg}</Typography>
+        <Button onClick={fetchData} sx={{ mt: 2 }}>
+          Coba Lagi
+        </Button>
+      </Box>
+    );
+
   if (!dataGadai) return <p>Data gadai tidak ditemukan.</p>;
 
   return (
     <Box sx={{ p: 3, textAlign: "center" }}>
-      <Box
-        sx={{
-          width: 600,
-          height: 430,
-          margin: "0 auto",
-          border: "1px solid #ccc",
-          position: "relative",
-          backgroundImage: `url(${templateBg})`,
-          backgroundSize: "contain",
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "center",
-        }}
-      >
-        <Box sx={{ position: "absolute", top: 20, left: 20 }}>
-          <Typography variant="body2">No. Gadai: {dataGadai.no_gadai}</Typography>
-          <Typography variant="body2">
-            Nama: {dataGadai.nasabah?.nama_lengkap}
-          </Typography>
-        </Box>
-      </Box>
+      <Button variant="contained" color="primary" onClick={handlePrintPDF}>
+        🖨️ Cetak / Download Surat Bukti Gadai
+      </Button>
 
       <Box mt={2}>
-        <Button variant="contained" color="primary" onClick={handlePrintPDF}>
-          Cetak / Download PDF
-        </Button>
-
-        <Box mt={2}>
-          <PDFDownloadLink
-            document={<SuratBuktiGadaiPDF data={dataGadai} />}
-            fileName={`Surat-Bukti-Gadai-${dataGadai.no_gadai}.pdf`}
-          >
-            {({ loading }) =>
-              loading ? "Menyiapkan file..." : "Download Surat Bukti Gadai"
-            }
-          </PDFDownloadLink>
-        </Box>
+        <PDFDownloadLink
+          document={<SuratBuktiGadaiPDF data={dataGadai} />}
+          fileName={`Surat-Bukti-Gadai-${dataGadai.no_gadai}.pdf`}
+        >
+          {({ loading }) =>
+            loading ? "Menyiapkan file..." : "⬇️ Download Surat Bukti Gadai"
+          }
+        </PDFDownloadLink>
       </Box>
     </Box>
   );

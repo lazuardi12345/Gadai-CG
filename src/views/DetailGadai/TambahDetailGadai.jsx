@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Card,
   CardHeader,
@@ -17,9 +17,13 @@ import {
 } from '@mui/material';
 import axiosInstance from 'api/axiosInstance';
 import { useNavigate } from 'react-router-dom';
+import { AuthContext } from 'AuthContex/AuthContext';
 
 const TambahDetailGadaiPage = () => {
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
+  const userRole = (user?.role || '').toLowerCase();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -36,13 +40,25 @@ const TambahDetailGadaiPage = () => {
   const [nasabahs, setNasabahs] = useState([]);
   const [selectedNasabah, setSelectedNasabah] = useState(null);
 
+  // 🔹 Tentukan API otomatis berdasarkan role (petugas tidak termasuk)
+  const getApiUrl = (resource) => {
+    switch (userRole) {
+      case 'checker':
+        return `/checker/${resource}`;
+      case 'hm':
+        return `/${resource}`;
+      default:
+        return null; // petugas tidak boleh
+    }
+  };
+
   // 🔹 Ambil data awal
   useEffect(() => {
     const initData = async () => {
       try {
         const [resType, resNasabah] = await Promise.all([
           axiosInstance.get('/type'),
-          axiosInstance.get('/data-nasabah'),
+          axiosInstance.get(getApiUrl('data-nasabah')),
         ]);
         setTypes(resType.data?.data || []);
         setNasabahs(resNasabah.data?.data || []);
@@ -54,7 +70,12 @@ const TambahDetailGadaiPage = () => {
       }
     };
 
-    initData();
+    if (getApiUrl('data-nasabah')) {
+      initData();
+    } else {
+      alert('Role tidak diizinkan untuk menambahkan data!');
+      navigate('/detail-gadai');
+    }
   }, []);
 
   // 🔹 Input handler
@@ -83,7 +104,13 @@ const TambahDetailGadaiPage = () => {
 
     try {
       setSaving(true);
-      const res = await axiosInstance.post('/detail-gadai', form);
+      const apiUrl = getApiUrl('detail-gadai');
+      if (!apiUrl) {
+        alert('Role tidak diizinkan untuk menambahkan data!');
+        return;
+      }
+
+      const res = await axiosInstance.post(apiUrl, form);
       if (res.data?.success) {
         alert('Data berhasil disimpan!');
         navigate('/detail-gadai');

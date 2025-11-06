@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   Card, CardHeader, CardContent, TextField, Button,
   Grid, Stack, CircularProgress, Autocomplete,
@@ -7,11 +7,9 @@ import {
 } from "@mui/material";
 import axiosInstance from "api/axiosInstance";
 import { useNavigate } from "react-router-dom";
+import { AuthContext } from "AuthContex/AuthContext";
 
-// ✅ List kelengkapan sesuai model
 const KELENGKAPAN_LIST = ["Sertifikat", "Nota", "Kartu Garansi", "Box"];
-
-// ✅ Dokumen pendukung SOP sesuai model Laravel
 const DOKUMEN_PENDUKUNG_SOP = [
   { key: "emas_timbangan", label: "Emas + Timbangan" },
   { key: "gosokan_timer", label: "Gosokan + Timer 1 Menit" },
@@ -24,6 +22,8 @@ const DOKUMEN_PENDUKUNG_SOP = [
 
 const TambahGadaiLogamMuliaPage = () => {
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
+  const userRole = (user?.role || "").toLowerCase();
 
   const [form, setForm] = useState({
     nama_barang: "",
@@ -43,14 +43,16 @@ const TambahGadaiLogamMuliaPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // 🔹 Fetch detail gadai & nasabah
   useEffect(() => {
     const fetchDetail = async () => {
+      setLoading(true);
       try {
-        const res = await axiosInstance.get("/detail-gadai");
+        const urlDetailGadai = userRole === "checker" ? "/checker/detail-gadai" : "/detail-gadai";
+        const res = await axiosInstance.get(urlDetailGadai);
         const data = res.data.data || [];
         setDetailGadai(data);
 
+        // ambil nasabah unik
         const nasabahMap = {};
         data.forEach(d => {
           if (d.nasabah && !nasabahMap[d.nasabah.id]) {
@@ -58,14 +60,15 @@ const TambahGadaiLogamMuliaPage = () => {
           }
         });
         setUniqueNasabah(Object.values(nasabahMap));
-      } catch {
+      } catch (err) {
+        console.error(err);
         alert("Gagal memuat data nasabah.");
       } finally {
         setLoading(false);
       }
     };
     fetchDetail();
-  }, []);
+  }, [userRole]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -75,11 +78,8 @@ const TambahGadaiLogamMuliaPage = () => {
   const handleCheckboxChange = (value) => {
     setForm(prev => {
       const current = prev.kelengkapan;
-      if (current.includes(value)) {
-        return { ...prev, kelengkapan: current.filter(v => v !== value) };
-      } else {
-        return { ...prev, kelengkapan: [...current, value] };
-      }
+      if (current.includes(value)) return { ...prev, kelengkapan: current.filter(v => v !== value) };
+      return { ...prev, kelengkapan: [...current, value] };
     });
   };
 
@@ -105,11 +105,16 @@ const TambahGadaiLogamMuliaPage = () => {
       });
 
       form.kelengkapan.forEach((item, i) => data.append(`kelengkapan[${i}]`, item));
+
       Object.entries(form.dokumen_pendukung).forEach(([key, file]) => {
-        if (file) data.append(`dokumen_pendukung[${key}]`, file);
+        if (file instanceof File) {
+          data.append(`dokumen_pendukung[${key}]`, file);
+        }
       });
 
-      const res = await axiosInstance.post("/gadai-logam-mulia", data, {
+      const urlSubmit = userRole === "checker" ? "/checker/gadai-logam-mulia" : "/gadai-logam-mulia";
+
+      const res = await axiosInstance.post(urlSubmit, data, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -159,7 +164,6 @@ const TambahGadaiLogamMuliaPage = () => {
             <TextField label="Jenis Logam Mulia" name="type_logam_mulia" value={form.type_logam_mulia} onChange={handleChange} fullWidth size="small" />
           </Grid>
 
-          {/* Detail Barang */}
           {["kode_cap","karat","potongan_batu","berat"].map(key => (
             <Grid item xs={12} sm={6} key={key}>
               <TextField

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import {
   Card,
   CardHeader,
@@ -18,11 +18,12 @@ import {
 } from "@mui/material";
 import { useNavigate, useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
+import { AuthContext } from "AuthContex/AuthContext";
 
-// ✅ List kelengkapan untuk retro
+// List kelengkapan
 const KELENGKAPAN_LIST = ["Sertifikat", "Nota", "Box", "Lainnya"];
 
-// ✅ Dokumen pendukung SOP
+// Dokumen pendukung SOP
 const DOKUMEN_PENDUKUNG_SOP = [
   { key: "emas_timbangan", label: "Emas + Timbangan" },
   { key: "gosokan_timer", label: "Gosokan + Timer 1 Menit" },
@@ -36,6 +37,8 @@ const DOKUMEN_PENDUKUNG_SOP = [
 const EditGadaiRetroPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
+  const userRole = (user?.role || "").toLowerCase();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -54,25 +57,34 @@ const EditGadaiRetroPage = () => {
     dokumen_pendukung: {},
   });
 
-  // 🔹 Ambil data awal
+  // Ambil data awal
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
+        // endpoint gadai retro sesuai role
+        const urlGet = userRole === "checker"
+          ? `/checker/gadai-retro/${id}`
+          : `/gadai-retro/${id}`;
+
+        // endpoint nasabah sesuai role
+        const urlNasabah = userRole === "checker"
+          ? `/checker/data-nasabah`
+          : `/data-nasabah`;
+
         const [resRetro, resNasabah] = await Promise.all([
-          axiosInstance.get(`/gadai-retro/${id}`),
-          axiosInstance.get("/data-nasabah"),
+          axiosInstance.get(urlGet),
+          axiosInstance.get(urlNasabah),
         ]);
 
         const data = resRetro.data.data;
 
-        // pastikan kelengkapan array
         const kelengkapan = Array.isArray(data.kelengkapan)
           ? data.kelengkapan
           : data.kelengkapan
           ? [data.kelengkapan]
           : [];
 
-        // dokumen pendukung bentuk objek { key: { url } }
         const dokumenPendukung = {};
         if (data.dokumen_pendukung) {
           Object.entries(data.dokumen_pendukung).forEach(([key, val]) => {
@@ -96,9 +108,10 @@ const EditGadaiRetroPage = () => {
 
         setNasabahs(resNasabah.data.data || []);
         const nasabahFound = resNasabah.data.data.find(
-          (n) => n.id.toString() === data.detail_gadai_id?.toString()
+          (n) => n.id === data.detail_gadai?.nasabah?.id
         );
         setSelectedNasabah(nasabahFound || null);
+
       } catch (err) {
         console.error(err);
         alert("Gagal mengambil data gadai retro");
@@ -106,28 +119,29 @@ const EditGadaiRetroPage = () => {
         setLoading(false);
       }
     };
+
     fetchData();
-  }, [id]);
+  }, [id, userRole]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
   const handleCheckboxChange = (value) => {
-    setForm((prev) => {
+    setForm(prev => {
       const exists = prev.kelengkapan.includes(value);
       return {
         ...prev,
         kelengkapan: exists
-          ? prev.kelengkapan.filter((v) => v !== value)
+          ? prev.kelengkapan.filter(v => v !== value)
           : [...prev.kelengkapan, value],
       };
     });
   };
 
   const handleDokumenChange = (key, file) => {
-    setForm((prev) => ({
+    setForm(prev => ({
       ...prev,
       dokumen_pendukung: {
         ...prev.dokumen_pendukung,
@@ -147,26 +161,20 @@ const EditGadaiRetroPage = () => {
       const data = new FormData();
       data.append("_method", "PUT");
 
-      // field biasa
-      ["nama_barang", "type_retro", "kode_cap", "karat", "potongan_batu", "berat", "detail_gadai_id"].forEach(
-        (key) => {
-          data.append(key, form[key]);
-        }
-      );
+      ["nama_barang", "type_retro", "kode_cap", "karat", "potongan_batu", "berat", "detail_gadai_id"]
+        .forEach(key => data.append(key, form[key]));
 
-      // kelengkapan
-      form.kelengkapan.forEach((item, i) => {
-        data.append(`kelengkapan[${i}]`, item);
-      });
+      form.kelengkapan.forEach((item, i) => data.append(`kelengkapan[${i}]`, item));
 
-      // dokumen pendukung
       Object.entries(form.dokumen_pendukung).forEach(([k, val]) => {
-        if (val?.file instanceof File) {
-          data.append(`dokumen_pendukung[${k}]`, val.file);
-        }
+        if (val?.file instanceof File) data.append(`dokumen_pendukung[${k}]`, val.file);
       });
 
-      const res = await axiosInstance.post(`/gadai-retro/${id}`, data, {
+      const urlSubmit = userRole === "checker"
+        ? `/checker/gadai-retro/${id}`
+        : `/gadai-retro/${id}`;
+
+      const res = await axiosInstance.post(urlSubmit, data, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -184,135 +192,120 @@ const EditGadaiRetroPage = () => {
     }
   };
 
-  if (loading)
-    return (
-      <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}>
-        <CircularProgress />
-      </Stack>
-    );
+  if (loading) return (
+    <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}>
+      <CircularProgress />
+    </Stack>
+  );
 
   return (
     <Card sx={{ p: 2 }}>
-      <CardHeader title="Edit Data Gadai Retro" />
+      <CardHeader title="Edit Gadai Retro" />
       <CardContent>
-        <Grid container spacing={2}>
-          {/* 🔹 Pilih Nasabah */}
-          <Grid item xs={12} sm={6}>
-            <Autocomplete
-              options={nasabahs}
-              getOptionLabel={(o) => o.nama_lengkap || ""}
-              value={selectedNasabah}
-              onChange={(e, val) => {
-                setSelectedNasabah(val);
-                setForm((prev) => ({ ...prev, detail_gadai_id: val ? val.id : "" }));
-              }}
-              renderInput={(params) => (
-                <TextField {...params} label="Nama Nasabah" size="small" fullWidth />
-              )}
-            />
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <Stack spacing={2}>
+              <TextField
+                label="Nama Barang"
+                name="nama_barang"
+                value={form.nama_barang}
+                onChange={handleInputChange}
+                fullWidth
+              />
+              <TextField
+                label="Type Retro"
+                name="type_retro"
+                value={form.type_retro}
+                onChange={handleInputChange}
+                fullWidth
+              />
+              <TextField
+                label="Kode Cap"
+                name="kode_cap"
+                value={form.kode_cap}
+                onChange={handleInputChange}
+                fullWidth
+              />
+              <Typography variant="subtitle1">Kelengkapan:</Typography>
+              <FormGroup row>
+                {KELENGKAPAN_LIST.map(item => (
+                  <FormControlLabel
+                    key={item}
+                    control={<Checkbox checked={form.kelengkapan.includes(item)} onChange={() => handleCheckboxChange(item)} />}
+                    label={item}
+                  />
+                ))}
+              </FormGroup>
+            </Stack>
           </Grid>
 
-          {/* 🔹 Input utama */}
-          {["nama_barang", "type_retro", "kode_cap", "karat", "potongan_batu", "berat"].map(
-            (key) => (
-              <Grid item xs={12} sm={6} key={key}>
-                <TextField
-                  label={key.replace(/_/g, " ").toUpperCase()}
-                  name={key}
-                  value={form[key]}
-                  onChange={handleInputChange}
-                  fullWidth
-                  size="small"
-                />
-              </Grid>
-            )
-          )}
-
-          {/* 🔹 Kelengkapan */}
-          <Grid item xs={12}>
-            <Typography variant="subtitle1">Kelengkapan:</Typography>
-            <FormGroup row>
-              {KELENGKAPAN_LIST.map((item) => (
-                <FormControlLabel
-                  key={item}
-                  control={
-                    <Checkbox
-                      checked={form.kelengkapan.includes(item)}
-                      onChange={() => handleCheckboxChange(item)}
-                    />
-                  }
-                  label={item}
-                />
-              ))}
-            </FormGroup>
+          <Grid item xs={12} md={6}>
+            <Stack spacing={2}>
+              <TextField
+                label="Karat"
+                name="karat"
+                value={form.karat}
+                onChange={handleInputChange}
+                fullWidth
+              />
+              <TextField
+                label="Potongan Batu"
+                name="potongan_batu"
+                value={form.potongan_batu}
+                onChange={handleInputChange}
+                fullWidth
+              />
+              <TextField
+                label="Berat"
+                name="berat"
+                value={form.berat}
+                onChange={handleInputChange}
+                fullWidth
+              />
+              <Autocomplete
+                options={nasabahs}
+                getOptionLabel={o => o.nama_lengkap || ""}
+                value={selectedNasabah}
+                onChange={(e, val) => {
+                  setSelectedNasabah(val);
+                  setForm(prev => ({ ...prev, detail_gadai_id: val ? val.id : "" }));
+                }}
+                renderInput={(params) => <TextField {...params} label="Cari Nasabah" placeholder="Ketik nama nasabah..." fullWidth />}
+              />
+            </Stack>
           </Grid>
 
-          {/* 🔹 Dokumen Pendukung */}
           <Grid item xs={12}>
             <Alert severity="info" sx={{ mb: 2 }}>
-              Upload file dokumen pendukung pemeriksaan barang.
+              Upload file dokumen pendukung pemeriksaan retro.
             </Alert>
           </Grid>
-
-          {DOKUMEN_PENDUKUNG_SOP.map((item) => (
+          {DOKUMEN_PENDUKUNG_SOP.map(item => (
             <Grid item xs={12} sm={6} key={item.key}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                {item.label}
-              </Typography>
-              <Box
-                sx={{
-                  p: 2,
-                  border: "1px dashed #ccc",
-                  borderRadius: 2,
-                  bgcolor: "#fafafa",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                }}
-              >
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>{item.label}</Typography>
+              <Box sx={{ p: 2, border: "1px dashed #ccc", borderRadius: 2, bgcolor: "#fafafa", display: "flex", flexDirection: "column", alignItems: "center" }}>
                 {form.dokumen_pendukung[item.key]?.url ? (
-                  <Box
-                    component="img"
-                    src={form.dokumen_pendukung[item.key].url}
-                    alt={item.label}
-                    sx={{ maxWidth: "150px", maxHeight: "150px", mb: 1, objectFit: "contain" }}
-                  />
+                  <Box component="img" src={form.dokumen_pendukung[item.key].url} alt={item.label} sx={{ maxWidth: "150px", maxHeight: "150px", mb: 1, borderRadius: 1, objectFit: "contain" }} />
                 ) : (
-                  <Typography variant="body2" sx={{ mb: 1, color: "#888" }}>
-                    Belum ada file
-                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1, color: "#888" }}>Belum ada file</Typography>
                 )}
                 <Stack direction="row" spacing={1}>
                   <Button variant="contained" component="label" size="small">
                     Upload
-                    <input
-                      type="file"
-                      hidden
-                      accept="image/*"
-                      onChange={(e) => handleDokumenChange(item.key, e.target.files[0])}
-                    />
+                    <input type="file" hidden accept="image/*" onChange={e => handleDokumenChange(item.key, e.target.files[0])} />
                   </Button>
                   {form.dokumen_pendukung[item.key]?.url && (
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      size="small"
-                      onClick={() => handleDokumenChange(item.key, null)}
-                    >
-                      Hapus
-                    </Button>
+                    <Button variant="outlined" color="error" size="small" onClick={() => handleDokumenChange(item.key, null)}>Hapus</Button>
                   )}
                 </Stack>
               </Box>
             </Grid>
           ))}
+
         </Grid>
 
-        {/* 🔹 Tombol aksi */}
         <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 4 }}>
-          <Button variant="outlined" onClick={() => navigate("/gadai-retro")}>
-            Batal
-          </Button>
+          <Button variant="outlined" color="secondary" onClick={() => navigate("/gadai-retro")}>Batal</Button>
           <Button variant="contained" color="primary" onClick={handleSubmit} disabled={saving}>
             {saving ? "Menyimpan..." : "Update"}
           </Button>

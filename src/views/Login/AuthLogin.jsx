@@ -3,51 +3,63 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import {
   Box, Button, FormHelperText, FormControl, InputLabel, OutlinedInput,
-  InputAdornment, IconButton, TextField, Typography
+  InputAdornment, IconButton, TextField
 } from '@mui/material';
 import * as Yup from 'yup';
 import { Formik } from 'formik';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import axiosInstance from 'api/axiosInstance';
+import { useContext } from 'react';
+import { AuthContext } from '../../AuthContex/AuthContext';
 
 const AuthLogin = ({ hideGoogle = false }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = React.useState(false);
+  const { login } = useContext(AuthContext); // Ambil login dari Context
 
   const handleClickShowPassword = () => setShowPassword(!showPassword);
   const handleMouseDownPassword = (event) => event.preventDefault();
 
-  const handleLogin = async (values, { setSubmitting, setErrors }) => {
-    try {
-      const response = await axiosInstance.post('/login', {
-        email: values.email,
-        password: values.password
-      });
+const handleLogin = async (values, { setSubmitting, setErrors }) => {
+  try {
+    const response = await axiosInstance.post('/login', {
+      email: values.email,
+      password: values.password
+    });
 
-      const { user, token } = response.data.data;
+    const { user, token } = response.data.data;
 
-      localStorage.setItem('auth_user', JSON.stringify(user));
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('isAuthenticated', 'true');
-      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      navigate('/');
-    } catch (err) {
-      console.error(err);
-      if (err.response?.status === 401) {
-        setErrors({ submit: 'Email atau password salah!' });
-      } else {
-        setErrors({ submit: 'Terjadi kesalahan, coba lagi.' });
-      }
-    } finally {
-      setSubmitting(false);
+    // Panggil login dari Context → langsung update state tanpa reload
+    login(user, token);
+
+    // Redirect berdasarkan role
+    if (user.role === 'petugas') {
+      navigate('/full-submit', { replace: true });
+    } else if (user.role === 'checker') {
+      navigate('/data-nasabah', { replace: true }); // <-- cek disini
+    } else if (user.role === 'hm') {
+      navigate('/dashboard/default', { replace: true });
+    } else {
+      navigate('/dashboard/default', { replace: true }); // fallback
     }
-  };
+
+  } catch (err) {
+    console.error(err);
+    if (err.response?.status === 401) {
+      setErrors({ submit: 'Email atau password salah!' });
+    } else {
+      setErrors({ submit: 'Terjadi kesalahan, coba lagi.' });
+    }
+  } finally {
+    setSubmitting(false);
+  }
+};
+
 
   return (
     <>
-      {/* === Tombol Google Login (Hanya tampil kalau hideGoogle = false) === */}
       {!hideGoogle && (
         <Button
           fullWidth
