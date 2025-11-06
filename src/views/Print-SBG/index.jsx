@@ -241,7 +241,7 @@ const PrintSuratGadaiPage = () => {
       let url = "";
       if (userRole === "checker") url = `/checker/detail-gadai/${id}`;
       else if (userRole === "petugas") url = `/petugas/detail-gadai/${id}`;
-      else if (userRole === "hm") url = `/hm/detail-gadai/${id}`;
+      else if (userRole === "hm") url = `/detail-gadai/${id}`;
       else url = `/detail-gadai/${id}`;
 
       const res = await axiosInstance.get(url);
