@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   TextField,
@@ -13,21 +13,45 @@ import {
 } from '@mui/material';
 import PhotoIcon from '@mui/icons-material/Photo';
 import axiosInstance from 'api/axiosInstance';
+import { AuthContext } from 'AuthContex/AuthContext';
 
 const EditNasabahPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
+  const role = (user?.role || '').toLowerCase();
 
   const [nasabah, setNasabah] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  // Fetch data nasabah
+  // 🔹 Fungsi untuk menyesuaikan API sesuai role
+  const getApiUrl = (resource) => {
+    switch (role) {
+      case 'checker':
+        return `/checker/${resource}`;
+      case 'hm':
+        return `/${resource}`;
+      default:
+        return null; // role lain tidak boleh
+    }
+  };
+
+  // 🔹 Fetch data nasabah
   useEffect(() => {
+    if (!['checker', 'hm'].includes(role)) {
+      alert('Role tidak diizinkan mengedit data!');
+      navigate('/');
+      return;
+    }
+
     const fetchNasabah = async () => {
       try {
-        const response = await axiosInstance.get(`/data-nasabah/${id}`);
+        const apiUrl = `${getApiUrl('data-nasabah')}/${id}`;
+        if (!apiUrl) return;
+
+        const response = await axiosInstance.get(apiUrl);
         if (response.data.success) {
           const data = response.data.data;
           setNasabah({
@@ -46,7 +70,7 @@ const EditNasabahPage = () => {
     };
 
     fetchNasabah();
-  }, [id]);
+  }, [id, role, navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -72,8 +96,14 @@ const EditNasabahPage = () => {
 
     setSaving(true);
     try {
+      const apiUrl = `${getApiUrl('data-nasabah')}/${id}`;
+      if (!apiUrl) {
+        alert('Role tidak diizinkan menyimpan data!');
+        return;
+      }
+
       const formData = new FormData();
-      formData.append('_method', 'PUT'); 
+      formData.append('_method', 'PUT');
       formData.append('nama_lengkap', nasabah.nama_lengkap);
       formData.append('nik', nasabah.nik);
       formData.append('alamat', nasabah.alamat || '');
@@ -82,13 +112,13 @@ const EditNasabahPage = () => {
         formData.append('foto_ktp', nasabah.foto_ktp_file);
       }
 
-      const response = await axiosInstance.post(`/data-nasabah/${id}`, formData, {
+      const response = await axiosInstance.post(apiUrl, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
       if (response.data.success) {
         alert('Data berhasil diperbarui!');
-        navigate('/data-nasabah');
+        navigate(role === 'checker' ? '/checker/data-nasabah' : '/data-nasabah');
       } else {
         alert(response.data.message || 'Gagal menyimpan data.');
       }
@@ -115,7 +145,9 @@ const EditNasabahPage = () => {
         <Button
           variant="contained"
           color="primary"
-          onClick={() => navigate('/data-nasabah')}
+          onClick={() =>
+            navigate(role === 'checker' ? '/checker/data-nasabah' : '/data-nasabah')
+          }
           sx={{ mt: 2 }}
         >
           Kembali
@@ -180,7 +212,9 @@ const EditNasabahPage = () => {
                 <Button
                   variant="outlined"
                   color="secondary"
-                  onClick={() => navigate('/data-nasabah')}
+                  onClick={() =>
+                    navigate(role === 'checker' ? '/checker/data-nasabah' : '/data-nasabah')
+                  }
                   disabled={saving}
                 >
                   Batal
