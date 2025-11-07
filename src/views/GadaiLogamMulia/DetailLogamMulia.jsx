@@ -53,6 +53,22 @@ const getApiUrlById = (resource, role, id) => {
   }
 };
 
+
+const parseArrayValue = (val) => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+      return [val]; // string biasa
+    } catch {
+      return [val]; // string biasa
+    }
+  }
+  return [];
+};
+
 const DetailGadaiLogamMuliaPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -174,11 +190,11 @@ const DetailGadaiLogamMuliaPage = () => {
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
               {[['Nama Barang', d.nama_barang],
-                ['Type Logam Mulia', d.type_logam_mulia],
-                ['Kode Cap', d.kode_cap],
-                ['Karat', d.karat],
-                ['Berat', d.berat ? `${d.berat} gram` : "-"],
-                ['Potongan Batu', d.potongan_batu],
+              ['Type Logam Mulia', d.type_logam_mulia],
+              ['Kode Cap', d.kode_cap],
+              ['Karat', d.karat],
+              ['Berat', d.berat ? `${d.berat} gram` : "-"],
+              ['Potongan Batu', d.potongan_batu],
               ].map(([label, value], i) => (
                 <Grid item xs={12} sm={6} key={i}>
                   <Typography><strong>{label}:</strong> {value || "-"}</Typography>
@@ -195,16 +211,14 @@ const DetailGadaiLogamMuliaPage = () => {
               <Grid item xs={12} sm={6}>
                 <Typography sx={{ mb: 1 }}><strong>Kelengkapan:</strong></Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap">
-                  {(Array.isArray(d.kelengkapan) ? d.kelengkapan : [d.kelengkapan])
-                    .filter(Boolean)
+                  {parseArrayValue(d.kelengkapan)
                     .map((k, i) => <Chip key={i} label={k} color="success" variant="outlined" size="small" />)}
                 </Stack>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <Typography sx={{ mb: 1 }}><strong>Kerusakan:</strong></Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap">
-                  {(Array.isArray(d.kerusakan) ? d.kerusakan : [d.kerusakan])
-                    .filter(Boolean)
+                  {parseArrayValue(d.kerusakan)
                     .map((r, i) => <Chip key={i} label={r} color="error" variant="outlined" size="small" />)}
                 </Stack>
               </Grid>
@@ -219,8 +233,8 @@ const DetailGadaiLogamMuliaPage = () => {
               label={d.detail_gadai?.status?.toUpperCase() || "-"}
               color={
                 d.detail_gadai?.status === "proses" ? "warning" :
-                d.detail_gadai?.status === "selesai" ? "info" :
-                d.detail_gadai?.status === "lunas" ? "success" : "default"
+                  d.detail_gadai?.status === "selesai" ? "info" :
+                    d.detail_gadai?.status === "lunas" ? "success" : "default"
               }
               size="small"
             />

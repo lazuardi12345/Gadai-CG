@@ -17,19 +17,35 @@ import {
 import { ArrowBack, Close } from "@mui/icons-material";
 import { useParams, useNavigate } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
-import { AuthContext } from "AuthContex/AuthContext"; 
+import { AuthContext } from "AuthContex/AuthContext";
 
 const DetailGadaiHpPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useContext(AuthContext); 
-  const userRole = (user?.role || '').toLowerCase(); 
+  const { user } = useContext(AuthContext);
+  const userRole = (user?.role || '').toLowerCase();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const [selectedImage, setSelectedImage] = useState("");
+
+  const parseArrayValue = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === "string") {
+      try {
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed)) return parsed;
+        return [val]; // string biasa
+      } catch {
+        return [val]; // string biasa
+      }
+    }
+    return [];
+  };
+
 
   const fetchDetail = async () => {
     setLoading(true);
@@ -159,16 +175,16 @@ const DetailGadaiHpPage = () => {
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
               <Grid container spacing={2}>
                 {[['Nama Barang', d.nama_barang],
-                  ['IMEI', d.imei],
-                  ['Merk', d.merk],
-                  ['Tipe HP', d.type_hp],
-                  ['Grade', d.grade],
-                  ['Warna', d.warna],
-                  ['RAM', d.ram],
-                  ['ROM', d.rom],
-                  ['Kunci Password', d.kunci_password],
-                  ['Kunci PIN', d.kunci_pin],
-                  ['Kunci Pola', d.kunci_pola],
+                ['IMEI', d.imei],
+                ['Merk', d.merk],
+                ['Tipe HP', d.type_hp],
+                ['Grade', d.grade],
+                ['Warna', d.warna],
+                ['RAM', d.ram],
+                ['ROM', d.rom],
+                ['Kunci Password', d.kunci_password],
+                ['Kunci PIN', d.kunci_pin],
+                ['Kunci Pola', d.kunci_pola],
                 ].map(([label, value], i) => (
                   <Grid item xs={12} sm={6} key={i}>
                     <Typography><strong>{label}:</strong> {value || "-"}</Typography>
@@ -188,8 +204,7 @@ const DetailGadaiHpPage = () => {
                 <Grid item xs={12} sm={6}>
                   <Typography sx={{ mb: 1 }}><strong>Kelengkapan:</strong></Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap">
-                    {(Array.isArray(d.kelengkapan) ? d.kelengkapan : [d.kelengkapan])
-                      .filter(Boolean)
+                    {parseArrayValue(d.kelengkapan)
                       .map((k, i) => (
                         <Chip key={i} label={k} color="success" variant="outlined" size="small" />
                       ))}
@@ -198,8 +213,7 @@ const DetailGadaiHpPage = () => {
                 <Grid item xs={12} sm={6}>
                   <Typography sx={{ mb: 1 }}><strong>Kerusakan:</strong></Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap">
-                    {(Array.isArray(d.kerusakan) ? d.kerusakan : [d.kerusakan])
-                      .filter(Boolean)
+                    {parseArrayValue(d.kerusakan)
                       .map((r, i) => (
                         <Chip key={i} label={r} color="error" variant="outlined" size="small" />
                       ))}
