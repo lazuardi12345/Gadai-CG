@@ -25,10 +25,28 @@ const GadaiHpPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
-  const canAdd =  userRole === 'hm' || userRole === 'checker';
+  const canAdd = userRole === 'hm' || userRole === 'checker';
   const canView = true; // Semua role bisa lihat
   const canEdit = userRole === 'checker' || userRole === 'hm';
   const canDelete = userRole === 'hm';
+
+  const renderArrayOrString = (value) => {
+    if (!value) return '-';
+
+    if (Array.isArray(value)) return value.join(', ');
+
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed.join(', ');
+        return value; // string biasa
+      } catch {
+        return value; // string biasa
+      }
+    }
+
+    return '-';
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -60,11 +78,11 @@ const GadaiHpPage = () => {
 
   useEffect(() => {
     const filtered = data.filter(item =>
-      (item.nama_barang?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       item.imei?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       item.merk?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       item.type_hp?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       item.detail_gadai?.nasabah?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase()))
+    (item.nama_barang?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.imei?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.merk?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.type_hp?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.detail_gadai?.nasabah?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase()))
     );
     setFilteredData(filtered);
     setPage(0);
@@ -124,7 +142,7 @@ const GadaiHpPage = () => {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  {['No','Nama','IMEI','Merk','Type HP','Grade','Kelengkapan','Kerusakan','Warna','Kunci PW','Kunci PIN','Kunci Pola','RAM','ROM','Nasabah','Aksi']
+                  {['No', 'Nama', 'IMEI', 'Merk', 'Type HP', 'Grade', 'Kelengkapan', 'Kerusakan', 'Warna', 'Kunci PW', 'Kunci PIN', 'Kunci Pola', 'RAM', 'ROM', 'Nasabah', 'Aksi']
                     .map(head => <TableCell key={head} align="center">{head}</TableCell>)}
                 </TableRow>
               </TableHead>
@@ -140,8 +158,9 @@ const GadaiHpPage = () => {
                     <TableCell>{item.merk || '-'}</TableCell>
                     <TableCell>{item.type_hp || '-'}</TableCell>
                     <TableCell>{item.grade || '-'}</TableCell>
-                    <TableCell>{Array.isArray(item.kelengkapan) ? item.kelengkapan.join(', ') : item.kelengkapan || '-'}</TableCell>
-                    <TableCell>{Array.isArray(item.kerusakan) ? item.kerusakan.join(', ') : item.kerusakan || '-'}</TableCell>
+                    <TableCell>{renderArrayOrString(item.kelengkapan)}</TableCell>
+                    <TableCell>{renderArrayOrString(item.potongan_batu)}</TableCell>
+
                     <TableCell>{item.warna || '-'}</TableCell>
                     <TableCell>{item.kunci_password || '-'}</TableCell>
                     <TableCell>{item.kunci_pin || '-'}</TableCell>
@@ -186,7 +205,7 @@ const GadaiHpPage = () => {
         </TableContainer>
 
         <TablePagination
-          rowsPerPageOptions={[5,10,25]}
+          rowsPerPageOptions={[5, 10, 25]}
           component="div"
           count={filteredData.length}
           page={page}

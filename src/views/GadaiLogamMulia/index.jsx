@@ -29,11 +29,32 @@ const GadaiLogamMuliaPage = () => {
   const canEdit = ["hm", "checker"].includes(userRole);
   const canDelete = userRole === "hm";
 
+  // Helper untuk menampilkan array / string JSON dengan rapi
+  const renderArrayOrString = (value) => {
+    if (!value) return '-';
+
+    if (Array.isArray(value)) return value.join(', ');
+
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed.join(', ');
+        return value; // string biasa
+      } catch {
+        return value; // string biasa
+      }
+    }
+
+    return '-';
+  };
+
+
+
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      let url = '/gadai-logam-mulia'; 
+      let url = '/gadai-logam-mulia';
       if (userRole === 'checker') url = '/checker/gadai-logam-mulia';
       if (userRole === 'petugas') url = '/petugas/gadai-logam-mulia';
 
@@ -150,7 +171,7 @@ const GadaiLogamMuliaPage = () => {
                     <TableCell>{item.karat || '-'}</TableCell>
                     <TableCell>{item.berat || '-'}</TableCell>
                     <TableCell>{item.potongan_batu || '-'}</TableCell>
-                    <TableCell>{Array.isArray(item.kelengkapan) ? item.kelengkapan.join(', ') : item.kelengkapan || '-'}</TableCell>
+                    <TableCell>{renderArrayOrString(item.kelengkapan)}</TableCell>
                     <TableCell>{item.detail_gadai?.nasabah?.nama_lengkap || '-'}</TableCell>
                     <TableCell align="center">
                       <Stack direction="row" spacing={1} justifyContent="center">
