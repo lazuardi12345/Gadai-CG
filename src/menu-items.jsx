@@ -133,14 +133,7 @@ export default {
           icon: icons.SmartphoneOutlinedIcon,
           role: ['checker', 'hm', 'petugas'] 
         },
-        {
-          id: 'gadai-perhiasan',
-          title: 'Gadai Perhiasan',
-          type: 'item',
-          url: '/gadai-perhiasan',
-          icon: icons.DiamondOutlinedIcon,
-          role: ['checker', 'hm', 'petugas']
-        },
+      
         {
           id: 'gadai-logam-mulia',
           title: 'Gadai Logam Mulia',
@@ -155,6 +148,15 @@ export default {
           type: 'item',
           url: '/gadai-retro',
           icon: icons.MonetizationOnOutlinedIcon,
+          role: ['checker', 'hm', 'petugas']
+        },
+
+          {
+          id: 'gadai-perhiasan',
+          title: 'Gadai Perhiasan',
+          type: 'item',
+          url: '/gadai-perhiasan',
+          icon: icons.DiamondOutlinedIcon,
           role: ['checker', 'hm', 'petugas']
         }
       ]

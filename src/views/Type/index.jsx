@@ -27,10 +27,10 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import axiosInstance from "api/axiosInstance";
-import { AuthContext } from "AuthContex/AuthContext"; // pastikan path benar
+import { AuthContext } from "AuthContex/AuthContext";
 
 const TypePage = () => {
-  const { user } = useContext(AuthContext); // ambil role user
+  const { user } = useContext(AuthContext);
   const [types, setTypes] = useState([]);
   const [filteredTypes, setFilteredTypes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,27 +48,43 @@ const TypePage = () => {
 
   useEffect(() => {
     fetchTypes();
-  }, []);
+  }, [user]);
 
-const fetchTypes = async () => {
-  setLoading(true);
-  try {
-    // endpoint berbeda untuk checker dan hm
-    const endpoint = user?.role === "checker" ? "/checker/type" : "/type";
+  const fetchTypes = async () => {
+    if (!user?.role) return;
 
-    const response = await axiosInstance.get(endpoint);
-    if (response.data.success) {
-      setTypes(response.data.data);
-      setFilteredTypes(response.data.data);
-    } else {
-      setError(response.data.message || "Gagal mengambil data");
+    setLoading(true);
+    try {
+      let endpoint = "/type";
+
+      switch (user.role) {
+        case "petugas":
+          endpoint = "/petugas/type";
+          break;
+        case "checker":
+          endpoint = "/checker/type";
+          break;
+        case "hm":
+          endpoint = "/type";
+          break;
+        default:
+          endpoint = "/type";
+          break;
+      }
+
+      const response = await axiosInstance.get(endpoint);
+      if (response.data.success) {
+        setTypes(response.data.data);
+        setFilteredTypes(response.data.data);
+      } else {
+        setError(response.data.message || "Gagal mengambil data");
+      }
+    } catch (err) {
+      setError(err.message || "Terjadi kesalahan server");
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    setError(err.message || "Terjadi kesalahan server");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // Filter real-time
   useEffect(() => {
@@ -93,6 +109,7 @@ const fetchTypes = async () => {
     setFormNamaType(type?.nama_type || "");
     setOpenDialog(true);
   };
+
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setEditingType(null);
@@ -107,10 +124,17 @@ const fetchTypes = async () => {
     const payload = { nomor_type: formNomorType, nama_type: formNamaType };
     try {
       let res;
+
+      // Gunakan endpoint sesuai role
+      let baseEndpoint = "/type";
+      if (user.role === "petugas") baseEndpoint = "/petugas/type";
+      if (user.role === "checker") baseEndpoint = "/checker/type";
+      if (user.role === "hm") baseEndpoint = "/type";
+
       if (editingType) {
-        res = await axiosInstance.put(`/type/${editingType.id}`, payload);
+        res = await axiosInstance.put(`${baseEndpoint}/${editingType.id}`, payload);
       } else {
-        res = await axiosInstance.post("/type", payload);
+        res = await axiosInstance.post(baseEndpoint, payload);
       }
 
       if (res.data.success) {
@@ -128,7 +152,10 @@ const fetchTypes = async () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Yakin hapus data ini?")) return;
     try {
-      const res = await axiosInstance.delete(`/type/${id}`);
+      let baseEndpoint = "/type";
+      if (user.role === "hm") baseEndpoint = "/type"; // hanya HM bisa hapus
+
+      const res = await axiosInstance.delete(`${baseEndpoint}/${id}`);
       if (res.data.success) {
         setTypes((prev) => prev.filter((type) => type.id !== id));
       } else {
@@ -155,8 +182,8 @@ const fetchTypes = async () => {
     );
   }
 
-  // role checks
-  const canEdit = ["hm", "checker"].includes(user?.role);
+  // Akses berdasarkan role
+  const canCreateOrEdit = ["petugas", "checker", "hm"].includes(user?.role);
   const canDelete = user?.role === "hm";
 
   return (
@@ -172,9 +199,9 @@ const fetchTypes = async () => {
                 placeholder="🔍 Cari nomor / nama type..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                sx={{ backgroundColor: "white", borderRadius: 2, width: 200 }}
+                sx={{ backgroundColor: "white", borderRadius: 2, width: 220 }}
               />
-              {canEdit && (
+              {canCreateOrEdit && (
                 <Button variant="contained" color="primary" onClick={() => handleOpenDialog()}>
                   + Tambah
                 </Button>
@@ -184,14 +211,14 @@ const fetchTypes = async () => {
         />
         <Divider />
         <CardContent sx={{ width: "100%" }}>
-          <TableContainer component={Paper} sx={{ overflowX: "auto" }}>
+          <TableContainer component={Paper}>
             <Table size="small" sx={{ minWidth: 600 }}>
               <TableHead>
                 <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
                   <TableCell><strong>No</strong></TableCell>
                   <TableCell><strong>Nomor Type</strong></TableCell>
                   <TableCell><strong>Nama Type</strong></TableCell>
-                  {(canEdit || canDelete) && <TableCell align="center"><strong>Aksi</strong></TableCell>}
+                  {(canCreateOrEdit || canDelete) && <TableCell align="center"><strong>Aksi</strong></TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -203,9 +230,9 @@ const fetchTypes = async () => {
                     <TableCell>{page * rowsPerPage + index + 1}</TableCell>
                     <TableCell>{type.nomor_type}</TableCell>
                     <TableCell>{type.nama_type}</TableCell>
-                    {(canEdit || canDelete) && (
+                    {(canCreateOrEdit || canDelete) && (
                       <TableCell align="center">
-                        {canEdit && (
+                        {canCreateOrEdit && (
                           <IconButton color="primary" onClick={() => handleOpenDialog(type)}>
                             <EditIcon />
                           </IconButton>
@@ -221,7 +248,7 @@ const fetchTypes = async () => {
                 ))}
                 {filteredTypes.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={(canEdit || canDelete) ? 4 : 3} align="center">
+                    <TableCell colSpan={(canCreateOrEdit || canDelete) ? 4 : 3} align="center">
                       Tidak ada data ditemukan.
                     </TableCell>
                   </TableRow>
@@ -243,7 +270,7 @@ const fetchTypes = async () => {
       </Card>
 
       {/* Modal Tambah/Edit */}
-      {canEdit && (
+      {canCreateOrEdit && (
         <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
           <DialogTitle>{editingType ? "✏️ Edit Type" : "➕ Tambah Type"}</DialogTitle>
           <DialogContent dividers>

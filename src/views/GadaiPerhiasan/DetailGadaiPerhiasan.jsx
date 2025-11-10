@@ -53,6 +53,21 @@ const getApiUrlById = (resource, role, id) => {
   }
 };
 
+const parseKelengkapan = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      return [value];
+    }
+  }
+  return [];
+};
+
+
 const DetailGadaiPerhiasanPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -190,24 +205,21 @@ const DetailGadaiPerhiasanPage = () => {
 
           {/* Kelengkapan & Kerusakan */}
           <Paper sx={sectionStyle} elevation={0}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>Kelengkapan & Kerusakan</Typography>
+            <Typography variant="h6" fontWeight={600} gutterBottom>Kelengkapan</Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <Typography sx={{ mb: 1 }}><strong>Kelengkapan:</strong></Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap">
-                  {(Array.isArray(d.kelengkapan) ? d.kelengkapan : [d.kelengkapan])
-                    .filter(Boolean)
-                    .map((k, i) => <Chip key={i} label={k} color="success" variant="outlined" size="small" />)}
+                  {parseKelengkapan(d.kelengkapan).length > 0 ? (
+                    parseKelengkapan(d.kelengkapan).map((k, i) => (
+                      <Chip key={i} label={k} color="success" variant="outlined" size="small" />
+                    ))
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">Tidak ada kelengkapan</Typography>
+                  )}
                 </Stack>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Typography sx={{ mb: 1 }}><strong>Kerusakan:</strong></Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                  {(Array.isArray(d.kerusakan) ? d.kerusakan : [d.kerusakan])
-                    .filter(Boolean)
-                    .map((r, i) => <Chip key={i} label={r} color="error" variant="outlined" size="small" />)}
-                </Stack>
+
               </Grid>
             </Grid>
           </Paper>
@@ -220,8 +232,8 @@ const DetailGadaiPerhiasanPage = () => {
               label={d.detail_gadai?.status?.toUpperCase() || "-"}
               color={
                 d.detail_gadai?.status === "proses" ? "warning" :
-                d.detail_gadai?.status === "selesai" ? "info" :
-                d.detail_gadai?.status === "lunas" ? "success" : "default"
+                  d.detail_gadai?.status === "selesai" ? "info" :
+                    d.detail_gadai?.status === "lunas" ? "success" : "default"
               }
               size="small"
             />

@@ -30,23 +30,20 @@ const GadaiHpPage = () => {
   const canEdit = userRole === 'checker' || userRole === 'hm';
   const canDelete = userRole === 'hm';
 
-  const renderArrayOrString = (value) => {
-    if (!value) return '-';
-
-    if (Array.isArray(value)) return value.join(', ');
-
-    if (typeof value === 'string') {
-      try {
-        const parsed = JSON.parse(value);
-        if (Array.isArray(parsed)) return parsed.join(', ');
-        return value; // string biasa
-      } catch {
-        return value; // string biasa
-      }
+const renderArrayOrString = (value) => {
+  if (!value) return '-';
+  if (Array.isArray(value)) return value.join(', '); // gabungkan array jadi string
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.join(', ');
+      return value;
+    } catch {
+      return value;
     }
-
-    return '-';
-  };
+  }
+  return '-';
+};
 
   const fetchData = async () => {
     setLoading(true);
@@ -159,8 +156,7 @@ const GadaiHpPage = () => {
                     <TableCell>{item.type_hp || '-'}</TableCell>
                     <TableCell>{item.grade || '-'}</TableCell>
                     <TableCell>{renderArrayOrString(item.kelengkapan)}</TableCell>
-                    <TableCell>{renderArrayOrString(item.potongan_batu)}</TableCell>
-
+                    <TableCell>{renderArrayOrString(item.kerusakan)}</TableCell>
                     <TableCell>{item.warna || '-'}</TableCell>
                     <TableCell>{item.kunci_password || '-'}</TableCell>
                     <TableCell>{item.kunci_pin || '-'}</TableCell>

@@ -51,6 +51,22 @@ const GadaiPerhiasanPage = () => {
     }
   };
 
+  const renderArrayOrString = (value) => {
+  if (!value) return '-';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.join(', ');
+      return value;
+    } catch {
+      return value;
+    }
+  }
+  return '-';
+};
+
+
   useEffect(() => {
     fetchData();
   }, [userRole]); 
@@ -96,6 +112,7 @@ const GadaiPerhiasanPage = () => {
       Error: {error}
     </Typography>
   );
+  
 
   return (
     <Card>
@@ -147,7 +164,7 @@ const GadaiPerhiasanPage = () => {
                     <TableCell>{item.karat || '-'}</TableCell>
                     <TableCell>{item.berat || '-'}</TableCell>
                     <TableCell>{item.potongan_batu || '-'}</TableCell>
-                    <TableCell>{Array.isArray(item.kelengkapan) ? item.kelengkapan.join(', ') : '-'}</TableCell>
+                   <TableCell>{renderArrayOrString(item.kelengkapan)}</TableCell>
                     <TableCell>{item.detail_gadai?.nasabah?.nama_lengkap || '-'}</TableCell>
                     <TableCell align="center">
                       <Stack direction="row" spacing={1} justifyContent="center">

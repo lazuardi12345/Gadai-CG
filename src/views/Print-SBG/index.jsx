@@ -32,12 +32,28 @@ Font.register({
 // ===== HELPER FUNCTIONS =====
 const cleanText = (text) => {
   if (!text) return "-";
+
+  // Kalau array → gabung jadi string
+  if (Array.isArray(text)) {
+    text = text.join(", ");
+  }
+
+  // Kalau string JSON (misalnya '["Dus","Nota"]') → parse dulu
+  if (typeof text === "string") {
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) text = parsed.join(", ");
+    } catch {
+      // biarkan text apa adanya kalau bukan JSON valid
+    }
+  }
+
   return String(text)
-    .replace(/,/g, "") // hilangkan koma
     .replace(/\s{2,}/g, " ") // hilangkan spasi ganda
     .replace(/\/\s*\//g, "/") // hilangkan slash ganda
     .trim();
 };
+
 
 const SafeText = ({ children, style }) => {
   const content =
@@ -46,6 +62,7 @@ const SafeText = ({ children, style }) => {
       : "-";
   return <Text style={style}>{content}</Text>;
 };
+
 
 const formatRupiah = (number) => {
   if (!number) return "-";
@@ -169,7 +186,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
           <SafeText style={{ position: "absolute", top: 167, left: 93, fontSize: 6 }}>
             {`${cleanText(hp.merk)}/${cleanText(hp.type_hp)}`}
           </SafeText>
-           <SafeText style={{ position: "absolute", top: 167, left: 178, fontSize: 6 }}>
+          <SafeText style={{ position: "absolute", top: 167, left: 178, fontSize: 6 }}>
             {`${cleanText(hp.warna)}`}
           </SafeText>
           <SafeText style={{ position: "absolute", top: 178, left: 178, fontSize: 6 }}>
@@ -207,10 +224,10 @@ const SuratBuktiGadaiPDF = ({ data }) => {
           </SafeText>
 
 
-            <SafeText style={{ position: "absolute", top: 110, left: 430, fontSize: 8, fontWeight: "bold" }}>
+          <SafeText style={{ position: "absolute", top: 110, left: 430, fontSize: 8, fontWeight: "bold" }}>
             {data.no_gadai}
           </SafeText>
-          <SafeText style={{ position: "absolute", top: 145, left: 425, fontSize: 6, fontWeight: "bold",  width: 100, lineHeight: 1.2, }}>
+          <SafeText style={{ position: "absolute", top: 145, left: 425, fontSize: 6, fontWeight: "bold", width: 100, lineHeight: 1.2, }}>
             {hp.nama_barang}, {hp.merk}/{hp.type_hp}, {hp.grade}/{hp.imei}, {hp.ram}/{hp.rom}, {hp.warna}, {hp.kelengkapan}/{hp.kerusakan}, {hp.password}
           </SafeText>
           {/* Tanda tangan */}

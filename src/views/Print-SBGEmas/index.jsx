@@ -86,6 +86,27 @@ const terbilang = (angka) => {
   return "Angka terlalu besar";
 };
 
+const toText = (value) => {
+  if (!value) return "-";
+
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.join(", ");
+      return parsed;
+    } catch {
+      return value;
+    }
+  }
+
+  return String(value);
+};
+
+
 // === Komponen PDF ===
 const SuratBuktiGadaiPDF = ({ data }) => {
   const nasabah = data?.nasabah || {};
@@ -192,13 +213,10 @@ const SuratBuktiGadaiPDF = ({ data }) => {
           >
             {typeDisplay}
           </Text>
-          <Text
-            style={{ position: "absolute", top: 182, left: 95, fontSize: 7 }}
-          >
-            {Array.isArray(item.kelengkapan)
-              ? item.kelengkapan.join(", ")
-              : item.kelengkapan || "-"}
+          <Text style={{ position: "absolute", top: 182, left: 95, fontSize: 7 }}>
+            {toText(item.kelengkapan)}
           </Text>
+
           <Text
             style={{ position: "absolute", top: 170, left: 193, fontSize: 7 }}
           >

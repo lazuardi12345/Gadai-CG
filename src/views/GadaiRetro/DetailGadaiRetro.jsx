@@ -52,6 +52,21 @@ const getApiUrlById = (resource, role, id) => {
   }
 };
 
+const parseKelengkapan = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      return [value];
+    }
+  }
+  return [];
+};
+
+
 const DetailGadaiRetroPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -192,12 +207,15 @@ const DetailGadaiRetroPage = () => {
             <Typography variant="h6" fontWeight={600} gutterBottom>Kelengkapan</Typography>
             <Divider sx={{ mb: 2 }} />
             <Stack direction="row" spacing={1} flexWrap="wrap">
-              {(Array.isArray(d.kelengkapan) ? d.kelengkapan : [d.kelengkapan])
-                .filter(Boolean)
-                .map((k, i) => (
+              {parseKelengkapan(d.kelengkapan).length > 0 ? (
+                parseKelengkapan(d.kelengkapan).map((k, i) => (
                   <Chip key={i} label={k} color="success" variant="outlined" size="small" />
-                ))}
+                ))
+              ) : (
+                <Typography variant="body2" color="text.secondary">Tidak ada kelengkapan</Typography>
+              )}
             </Stack>
+
           </Paper>
 
           {/* Status Gadai */}
@@ -208,8 +226,8 @@ const DetailGadaiRetroPage = () => {
               label={d.detail_gadai?.status?.toUpperCase() || "-"}
               color={
                 d.detail_gadai?.status === "proses" ? "warning" :
-                d.detail_gadai?.status === "selesai" ? "info" :
-                d.detail_gadai?.status === "lunas" ? "success" : "default"
+                  d.detail_gadai?.status === "selesai" ? "info" :
+                    d.detail_gadai?.status === "lunas" ? "success" : "default"
               }
               size="small"
             />

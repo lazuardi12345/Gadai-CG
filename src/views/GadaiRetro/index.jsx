@@ -25,7 +25,6 @@ const GadaiRetroPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
-
   const canAdd = ["hm","checker"].includes(userRole);
   const canEdit = ["hm","checker"].includes(userRole);
   const canDelete = userRole === "hm";
@@ -35,8 +34,7 @@ const GadaiRetroPage = () => {
     setLoading(true);
     setError(null);
     try {
-    
-      let url = '/gadai-retro'; 
+      let url = '/gadai-retro';
       if(userRole === 'checker') url = '/checker/gadai-retro';
       if(userRole === 'petugas') url = '/petugas/gadai-retro';
 
@@ -51,6 +49,22 @@ const GadaiRetroPage = () => {
       setLoading(false);
     }
   };
+
+const renderArrayOrString = (value) => {
+  if (!value) return '-';
+  if (Array.isArray(value)) return value.join(', '); 
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.join(', ');
+      return value;
+    } catch {
+      return value;
+    }
+  }
+  return '-';
+};
+
 
   useEffect(() => { fetchData(); }, [userRole]);
 
@@ -143,7 +157,7 @@ const GadaiRetroPage = () => {
                     <TableCell>{item.karat || '-'}</TableCell>
                     <TableCell>{item.berat || '-'}</TableCell>
                     <TableCell>{item.potongan_batu || '-'}</TableCell>
-                    <TableCell>{Array.isArray(item.kelengkapan) ? item.kelengkapan.join(', ') : '-'}</TableCell>
+                    <TableCell>{renderArrayOrString(item.kelengkapan)}</TableCell>
                     <TableCell>{item.detail_gadai?.nasabah?.nama_lengkap || '-'}</TableCell>
                     <TableCell align="center">
                       <Stack direction="row" spacing={1} justifyContent="center">

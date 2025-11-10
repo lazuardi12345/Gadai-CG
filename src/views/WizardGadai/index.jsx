@@ -52,11 +52,17 @@ const GadaiWizardPage = () => {
   const handleDetailChange = e => {
     const { name, value } = e.target;
     setDetail(prev => ({ ...prev, [name]: value }));
+
     if (name === "type_id") {
-      const type = types.find(t => t.id === parseInt(value));
-      setDetail(prev => ({ ...prev, type_name: type?.nama_type || "" }));
+      // Pastikan string dibanding string, atau number dibanding number
+      const type = types.find(t => t.id.toString() === value.toString());
+      setDetail(prev => ({
+        ...prev,
+        type_name: type?.nama_type || ""
+      }));
     }
   };
+
 
   const handleBarangChange = e => setBarang(prev => ({ ...prev, [e.target.name]: e.target.value }));
   const handleKelengkapanChange = value => {
@@ -89,7 +95,14 @@ const GadaiWizardPage = () => {
   useEffect(() => { fetchTypes(); }, []);
 
   // ---------- STEP CONTROL ----------
-  const nextStep = () => setStep(prev => prev + 1);
+  const nextStep = () => {
+    if (step === 2 && detail.type_id) {
+      const type = types.find(t => t.id.toString() === detail.type_id.toString());
+      setDetail(prev => ({ ...prev, type_name: type?.nama_type || "" }));
+    }
+    setStep(prev => prev + 1);
+  };
+
   const prevStep = () => setStep(prev => prev - 1);
 
   // ---------- SUBMIT (FINAL - gabungan semua data) ----------
@@ -244,12 +257,18 @@ const GadaiWizardPage = () => {
             <Grid item xs={12} sm={6}><TextField label="Taksiran" name="taksiran" type="number" value={detail.taksiran} onChange={handleDetailChange} fullWidth size="small" /></Grid>
             <Grid item xs={12} sm={6}><TextField label="Uang Pinjaman" name="uang_pinjaman" type="number" value={detail.uang_pinjaman} onChange={handleDetailChange} fullWidth size="small" /></Grid>
             <Grid item xs={12} sm={6}>
-              <FormControl fullWidth size="small">
+              <FormControl fullWidth size="small" disabled={!types.length}>
                 <InputLabel>Nama Type</InputLabel>
-                <Select name="type_id" value={detail.type_id || ""} onChange={handleDetailChange} label="Nama Type">
+                <Select
+                  name="type_id"
+                  value={detail.type_id || ""}
+                  onChange={handleDetailChange}
+                  label="Nama Type"
+                >
                   {types.map(t => <MenuItem key={t.id} value={t.id}>{t.nama_type}</MenuItem>)}
                 </Select>
               </FormControl>
+
             </Grid>
             <Grid item xs={12}>
               <Stack direction="row" justifyContent="space-between">

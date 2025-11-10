@@ -122,40 +122,80 @@ const PrintStrukPage = () => {
   const { tanggalStr, jamStr } = formatHariTanggal(new Date());
 
   // ======================
-  // 🔹 DETAIL BARANG
+  // 🔹 DETAIL BARANG SESUAI TYPE
   // ======================
   let barangNama = "-";
   let barangDetail = "-";
   let labelBarangDetail = "-";
 
-  switch ((typeNama || "").toLowerCase()) {
-    case "handphone":
-      if (detail.hp) {
-        barangNama = detail.hp.nama_barang || "-";
-        // Hilangkan koma & format rapi
-        const merk = (detail.hp.merk || "").replace(/,|\/+/g, "").trim();
-        const type_hp = (detail.hp.type_hp || "").replace(/,|\/+/g, "").trim();
-        const ram = (detail.hp.ram || "").replace(/,|\/+/g, "").trim();
-        const rom = (detail.hp.rom || "").replace(/,|\/+/g, "").trim();
-        barangDetail = `${merk} / ${type_hp}\n${ram} / ${rom}`;
-        labelBarangDetail = "Merk / Type | RAM / ROM";
+  const toText = (value) => {
+    if (!value) return "-";
+    if (Array.isArray(value)) return value.join(", ");
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed.join(", ");
+        return parsed;
+      } catch {
+        return value;
       }
-      break;
-    case "perhiasan":
-    case "logam mulia":
-    case "retro":
-      const item = detail.perhiasan || detail.logam_mulia || detail.retro;
-      if (item) {
-        barangNama = item.nama_barang || "-";
-        barangDetail = `${item.karat || "-"} / ${item.berat || "-"}`;
-        labelBarangDetail = "Karat / Berat";
-      }
-      break;
-    default:
-      barangNama = "-";
-      barangDetail = "-";
-      labelBarangDetail = "-";
+    }
+    return String(value);
+  };
+
+  const type = (typeNama || "").toLowerCase();
+
+  // === Handphone ===
+  // === Handphone ===
+  if (type === "handphone" && detail.hp) {
+    const hp = detail.hp;
+    barangNama = hp?.nama_barang || "Handphone";
+    const merk = (hp?.merk || "").trim();
+    const type_hp = (hp?.type_hp || "").trim();
+    const ram = (hp?.ram || "").trim();
+    const rom = (hp?.rom || "").trim();
+    barangDetail = `Merk/Type: ${merk} / ${type_hp}\nRAM/ROM: ${ram} / ${rom}`;
+    labelBarangDetail = "Detail Handphone";
   }
+
+  // === Perhiasan ===
+  else if (type === "perhiasan") {
+    const p = detail?.perhiasan ?? {};
+    barangNama = p?.nama_barang || "Perhiasan";
+    const karat = p?.karat ?? "-";
+    const berat = p?.berat ?? "-";
+    barangDetail = `Karat: ${karat} / Berat: ${berat}`;
+    labelBarangDetail = "Detail Perhiasan";
+  }
+
+  // === Logam Mulia ===
+  else if (type === "logam mulia") {
+    const lm = detail?.logam_mulia ?? {};
+    barangNama = lm?.nama_barang || "Logam Mulia";
+    const karat = lm?.karat ?? "-";
+    const berat = lm?.berat ?? "-";
+    barangDetail = `Karat: ${karat} / Berat: ${berat}`;
+    labelBarangDetail = "Detail Logam Mulia";
+  }
+
+  // === Retro ===
+  else if (type === "retro") {
+    const r = detail?.retro ?? {};
+    barangNama = r?.nama_barang || "Logam Mulia";
+    const karat = r?.karat ?? "-";
+    const berat = r?.berat ?? "-";
+    barangDetail = `Karat: ${karat} / Berat: ${berat}`;
+    labelBarangDetail = "Detail Retro";
+  }
+
+  // === Default ===
+  else {
+    barangNama = detail?.nama_barang || "-";
+    barangDetail = "-";
+    labelBarangDetail = "Detail Barang";
+  }
+
+
 
   // ======================
   // 🔹 CETAK STRUK

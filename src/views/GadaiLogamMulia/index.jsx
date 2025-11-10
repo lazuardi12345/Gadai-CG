@@ -29,25 +29,21 @@ const GadaiLogamMuliaPage = () => {
   const canEdit = ["hm", "checker"].includes(userRole);
   const canDelete = userRole === "hm";
 
-  // Helper untuk menampilkan array / string JSON dengan rapi
-  const renderArrayOrString = (value) => {
-    if (!value) return '-';
 
-    if (Array.isArray(value)) return value.join(', ');
-
-    if (typeof value === 'string') {
-      try {
-        const parsed = JSON.parse(value);
-        if (Array.isArray(parsed)) return parsed.join(', ');
-        return value; // string biasa
-      } catch {
-        return value; // string biasa
-      }
+const renderArrayOrString = (value) => {
+  if (!value) return '-';
+  if (Array.isArray(value)) return value.join(', '); 
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.join(', ');
+      return value;
+    } catch {
+      return value;
     }
-
-    return '-';
-  };
-
+  }
+  return '-';
+};
 
 
   const fetchData = async () => {
