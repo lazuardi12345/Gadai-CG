@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import axiosInstance from 'api/axiosInstance';
 import { useNavigate } from 'react-router-dom';
-import { AuthContext } from 'AuthContex/AuthContext'; // pastikan path sesuai
+import { AuthContext } from 'AuthContex/AuthContext';
 
 const KELENGKAPAN_LIST = ['Box', 'Charger', 'Kabel Data'];
 const KERUSAKAN_LIST = [
@@ -29,7 +29,11 @@ const TambahGadaiHpPage = () => {
     const navigate = useNavigate();
     const { user } = useContext(AuthContext);
     const userRole = (user?.role || '').toLowerCase();
-    const canEdit = userRole === 'hm' || userRole === 'checker';
+    const canEdit = ['hm','checker'].includes(userRole);
+
+    const getBaseUrl = (resource) => {
+        return userRole === 'checker' ? `/checker/${resource}` : `/${resource}`;
+    };
 
     const [form, setForm] = useState({
         nama_barang: '',
@@ -55,34 +59,28 @@ const TambahGadaiHpPage = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
-useEffect(() => {
-    const fetchDetail = async () => {
-        try {
-            let url = '/detail-gadai';
-            if(userRole === 'checker') {
-                url = '/checker/detail-gadai';
+    useEffect(() => {
+        const fetchDetail = async () => {
+            try {
+                const res = await axiosInstance.get(getBaseUrl('detail-gadai'));
+                const data = res.data.data || [];
+                setDetailGadai(data);
+
+                const nasabahMap = {};
+                data.forEach(d => {
+                    if(d.nasabah && !nasabahMap[d.nasabah.id]) {
+                        nasabahMap[d.nasabah.id] = d.nasabah;
+                    }
+                });
+                setUniqueNasabah(Object.values(nasabahMap));
+            } catch (err) {
+                alert('Gagal memuat data detail gadai');
+            } finally {
+                setLoading(false);
             }
-
-            const res = await axiosInstance.get(url);
-            const data = res.data.data || [];
-            setDetailGadai(data);
-
-            const nasabahMap = {};
-            data.forEach(d => {
-                if (d.nasabah && !nasabahMap[d.nasabah.id]) {
-                    nasabahMap[d.nasabah.id] = d.nasabah;
-                }
-            });
-            setUniqueNasabah(Object.values(nasabahMap));
-        } catch (err) {
-            alert('Gagal memuat data detail gadai');
-        } finally {
-            setLoading(false);
-        }
-    };
-    fetchDetail();
-}, [userRole]);
-
+        };
+        fetchDetail();
+    }, [userRole]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -93,11 +91,12 @@ useEffect(() => {
         if (!canEdit) return;
         setForm(prev => {
             const current = prev[field];
-            if (current.includes(value)) {
-                return { ...prev, [field]: current.filter(v => v !== value) };
-            } else {
-                return { ...prev, [field]: [...current, value] };
-            }
+            return {
+                ...prev,
+                [field]: current.includes(value)
+                    ? current.filter(v => v !== value)
+                    : [...current, value]
+            };
         });
     };
 
@@ -107,7 +106,7 @@ useEffect(() => {
             ...prev,
             dokumen_pendukung: {
                 ...prev.dokumen_pendukung,
-                [key]: file
+                [key]: file ? { file, url: URL.createObjectURL(file) } : null
             }
         }));
     };
@@ -122,18 +121,19 @@ useEffect(() => {
         try {
             setSaving(true);
             const data = new FormData();
+            data.append('_method', 'POST'); // jika perlu PUT, ubah sesuai
             ['nama_barang','grade','imei','warna','kunci_password','kunci_pin','kunci_pola','ram','rom','type_hp','merk','detail_gadai_id'].forEach(key => {
-                if(form[key] !== undefined && form[key] !== null){
-                    data.append(key, form[key]);
-                }
-            });
-            form.kelengkapan.forEach((item, index) => data.append(`kelengkapan[${index}]`, item));
-            form.kerusakan.forEach((item, index) => data.append(`kerusakan[${index}]`, item));
-            Object.entries(form.dokumen_pendukung).forEach(([k, file]) => {
-                if(file) data.append(`dokumen_pendukung[${k}]`, file);
+                if(form[key]) data.append(key, form[key]);
             });
 
-            const res = await axiosInstance.post('/gadai-hp', data, {
+            form.kelengkapan.forEach(item => data.append('kelengkapan[]', item));
+            form.kerusakan.forEach(item => data.append('kerusakan[]', item));
+
+            Object.entries(form.dokumen_pendukung).forEach(([k,v]) => {
+                if(v?.file) data.append(`dokumen_pendukung[${k}]`, v.file);
+            });
+
+            const res = await axiosInstance.post(getBaseUrl('gadai-hp'), data, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
@@ -157,7 +157,7 @@ useEffect(() => {
         }
     };
 
-    if (loading) {
+    if(loading){
         return (
             <Stack alignItems="center" justifyContent="center" sx={{ height: '80vh' }}>
                 <CircularProgress />
@@ -181,19 +181,17 @@ useEffect(() => {
                                 name="nama_barang"
                                 label="Nama Barang"
                                 onChange={(e) => {
-                                    if (!canEdit) return;
+                                    if(!canEdit) return;
                                     const nama = e.target.value;
                                     setForm(prev => ({
                                         ...prev,
                                         nama_barang: nama,
-                                        dokumen_pendukung: DOKUMEN_SOP[nama].reduce((acc, k) => ({ ...acc, [k]: null }), {})
+                                        dokumen_pendukung: DOKUMEN_SOP[nama].reduce((acc,k)=> ({...acc,[k]: null}),{})
                                     }));
                                 }}
                                 disabled={!canEdit}
                             >
-                                {NAMA_BARANG_LIST.map(item => (
-                                    <MenuItem key={item} value={item}>{item}</MenuItem>
-                                ))}
+                                {NAMA_BARANG_LIST.map(item => <MenuItem key={item} value={item}>{item}</MenuItem>)}
                             </Select>
                         </FormControl>
                     </Grid>
@@ -204,44 +202,27 @@ useEffect(() => {
                             options={uniqueNasabah}
                             getOptionLabel={(option) => option.nama_lengkap || ''}
                             value={selectedNasabah}
-                            onChange={(event, newValue) => {
-                                if (!canEdit) return;
+                            onChange={(e,newValue)=>{
+                                if(!canEdit) return;
                                 setSelectedNasabah(newValue);
-                                const detail = detailGadai.find(d => d.nasabah?.id === newValue?.id);
-                                setForm(prev => ({ ...prev, detail_gadai_id: detail ? detail.id : '' }));
+                                const detail = detailGadai.find(d=>d.nasabah?.id===newValue?.id);
+                                setForm(prev => ({ ...prev, detail_gadai_id: detail?.id || '' }));
                             }}
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    label="Nama Nasabah"
-                                    placeholder="Cari nama nasabah..."
-                                    size="small"
-                                    fullWidth
-                                    disabled={!canEdit}
-                                />
+                            renderInput={(params)=>(
+                                <TextField {...params} label="Nama Nasabah" placeholder="Cari nama nasabah..." size="small" fullWidth disabled={!canEdit} />
                             )}
                         />
-                        {selectedNasabah && (
-                            <Box sx={{ mt: 1, p: 1.5, border: '1px solid #ddd', borderRadius: 1, bgcolor: '#fafafa' }}>
-                                <strong>Detail Nasabah:</strong>
-                                <div>Nama: {selectedNasabah.nama_lengkap}</div>
-                                <div>No HP: {selectedNasabah.no_hp}</div>
-                                <div>Alamat: {selectedNasabah.alamat}</div>
-                            </Box>
-                        )}
                     </Grid>
 
                     {/* Field Lain */}
                     {['grade','imei','warna','kunci_password','kunci_pin','kunci_pola','ram','rom','type_hp','merk'].map(key => (
                         <Grid item xs={12} sm={6} key={key}>
                             <TextField
-                                label={key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                label={key.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}
                                 name={key}
                                 value={form[key]}
                                 onChange={handleChange}
-                                fullWidth
-                                size="small"
-                                disabled={!canEdit}
+                                fullWidth size="small" disabled={!canEdit}
                             />
                         </Grid>
                     ))}
@@ -253,13 +234,7 @@ useEffect(() => {
                             {KELENGKAPAN_LIST.map(item => (
                                 <FormControlLabel
                                     key={item}
-                                    control={
-                                        <Checkbox
-                                            checked={form.kelengkapan.includes(item)}
-                                            onChange={() => handleCheckboxChange('kelengkapan', item)}
-                                            disabled={!canEdit}
-                                        />
-                                    }
+                                    control={<Checkbox checked={form.kelengkapan.includes(item)} onChange={()=>handleCheckboxChange('kelengkapan',item)} disabled={!canEdit}/>}
                                     label={item}
                                 />
                             ))}
@@ -273,69 +248,37 @@ useEffect(() => {
                             {KERUSAKAN_LIST.map(item => (
                                 <FormControlLabel
                                     key={item}
-                                    control={
-                                        <Checkbox
-                                            checked={form.kerusakan.includes(item)}
-                                            onChange={() => handleCheckboxChange('kerusakan', item)}
-                                            disabled={!canEdit}
-                                        />
-                                    }
+                                    control={<Checkbox checked={form.kerusakan.includes(item)} onChange={()=>handleCheckboxChange('kerusakan',item)} disabled={!canEdit}/>}
                                     label={item}
                                 />
                             ))}
                         </FormGroup>
                     </Grid>
 
-                    {/* Info Dokumen Pendukung */}
-                    {form.nama_barang && (
+                    {/* Dokumen Pendukung */}
+                    {form.nama_barang && dokumenKeys.length > 0 && (
                         <Grid item xs={12}>
                             <Alert severity="info">
                                 Silakan upload dokumen pendukung sesuai jenis: <strong>{form.nama_barang}</strong>. 
-                                Dokumen wajib diupload: {dokumenKeys.map(k => k.replace(/_/g,' ').toUpperCase()).join(', ')}.
+                                Dokumen wajib diupload: {dokumenKeys.map(k=>k.replace(/_/g,' ').toUpperCase()).join(', ')}.
                             </Alert>
                         </Grid>
                     )}
 
-                    {/* Dokumen Pendukung */}
-                    {dokumenKeys.map(key => (
+                    {dokumenKeys.map(key=>(
                         <Grid item xs={12} sm={6} key={key}>
                             <Typography variant="subtitle2" sx={{ mb: 1 }}>{key.replace(/_/g,' ').toUpperCase()}</Typography>
-                            <Box
-                                sx={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    p: 1.5,
-                                    border: '1px dashed #ccc',
-                                    borderRadius: 2,
-                                    bgcolor: '#fafafa'
-                                }}
-                            >
-                                <Typography variant="body2" sx={{ flex: 1, wordBreak: 'break-all' }}>
-                                    {form.dokumen_pendukung[key]?.name || 'Belum ada file dipilih'}
+                            <Box sx={{display:'flex',alignItems:'center',justifyContent:'space-between',p:1.5,border:'1px dashed #ccc',borderRadius:2,bgcolor:'#fafafa'}}>
+                                <Typography variant="body2" sx={{ flex:1, wordBreak:'break-all' }}>
+                                    {form.dokumen_pendukung[key]?.file?.name || 'Belum ada file dipilih'}
                                 </Typography>
                                 <Stack direction="row" spacing={1}>
-                                    <Button
-                                        variant="contained"
-                                        component="label"
-                                        size="small"
-                                        disabled={!canEdit}
-                                    >
+                                    <Button variant="contained" component="label" size="small" disabled={!canEdit}>
                                         Upload
-                                        <input
-                                            type="file"
-                                            hidden
-                                            onChange={(e) => handleDokumenChange(key, e.target.files[0])}
-                                        />
+                                        <input type="file" hidden onChange={(e)=>handleDokumenChange(key,e.target.files[0])}/>
                                     </Button>
-                                    {form.dokumen_pendukung[key] && (
-                                        <Button
-                                            variant="outlined"
-                                            color="error"
-                                            size="small"
-                                            onClick={() => handleDokumenChange(key, null)}
-                                            disabled={!canEdit}
-                                        >
+                                    {form.dokumen_pendukung[key]?.file && (
+                                        <Button variant="outlined" color="error" size="small" onClick={()=>handleDokumenChange(key,null)} disabled={!canEdit}>
                                             Hapus
                                         </Button>
                                     )}
@@ -343,12 +286,13 @@ useEffect(() => {
                             </Box>
                         </Grid>
                     ))}
+
                 </Grid>
 
                 {/* Buttons */}
                 {canEdit && (
-                    <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 4 }}>
-                        <Button variant="outlined" onClick={() => navigate('/gadai-hp')}>Batal</Button>
+                    <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt:4 }}>
+                        <Button variant="outlined" onClick={()=>navigate('/gadai-hp')}>Batal</Button>
                         <Button variant="contained" color="primary" onClick={handleSubmit} disabled={saving}>
                             {saving ? 'Menyimpan...' : 'Simpan'}
                         </Button>

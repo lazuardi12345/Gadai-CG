@@ -69,8 +69,8 @@ const EditGadaiPerhiasanPage = () => {
         const kelengkapan = Array.isArray(data.kelengkapan)
           ? data.kelengkapan
           : data.kelengkapan
-          ? [data.kelengkapan]
-          : [];
+            ? [data.kelengkapan]
+            : [];
 
         const dokumenPendukung = {};
         if (data.dokumen_pendukung) {

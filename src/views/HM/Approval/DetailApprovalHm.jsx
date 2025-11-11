@@ -18,7 +18,7 @@ import {
 import { ArrowBack, Close } from "@mui/icons-material";
 import axiosInstance from "api/axiosInstance";
 
-
+// Helper: full URL dokumen
 const getFullDokumenUrl = (path) => {
   if (!path) return null;
   if (path.startsWith("http")) return path;
@@ -30,12 +30,12 @@ const getFullDokumenUrl = (path) => {
 
 // Helper: warna status
 const getStatusColor = (status) => {
-  if (!status) return "#ccc"; 
+  if (!status) return "#ccc"; // default abu-abu
   const s = status.toLowerCase();
-  if (s.includes("approved")) return "#4caf50"; 
-  if (s.includes("rejected")) return "#f44336"; 
-  if (s.includes("pending")) return "#ff9800"; 
-  return "#ccc"; 
+  if (s.includes("approved")) return "#4caf50"; // hijau
+  if (s.includes("rejected")) return "#f44336"; // merah
+  if (s.includes("pending")) return "#ff9800"; // kuning
+  return "#ccc"; // default abu-abu
 };
 
 const DetailApprovalHMPage = () => {
@@ -103,21 +103,38 @@ const DetailApprovalHMPage = () => {
   };
   const barangList = getBarang();
 
-  // Dokumen pendukung
   const dokumenList = [];
+
   barangList.forEach((item) => {
     if (item.dokumen_pendukung) {
-      Object.entries(item.dokumen_pendukung).forEach(([key, val]) => {
-        if (val) {
-          let url = null;
-          if (typeof val === "string") url = getFullDokumenUrl(val);
-          else if (Array.isArray(val) && val.length > 0)
-            url = getFullDokumenUrl(val[0]);
-          if (url) dokumenList.push({ key, url });
+      let dokumenObj = item.dokumen_pendukung;
+
+      // Pastikan jadi object
+      if (typeof dokumenObj === "string") {
+        try {
+          dokumenObj = JSON.parse(dokumenObj);
+        } catch {
+          dokumenObj = {};
         }
+      }
+
+      Object.entries(dokumenObj).forEach(([key, val]) => {
+        let url = null;
+        if (typeof val === "string" && val) {
+          url = val.startsWith("http")
+            ? val
+            : `${window.location.origin}/${val}`;
+        } else if (Array.isArray(val) && val.length > 0) {
+          url = val[0].startsWith("http")
+            ? val[0]
+            : `${window.location.origin}/${val[0]}`;
+        }
+
+        if (url) dokumenList.push({ key, url });
       });
     }
   });
+
 
   // Filter approval berdasarkan role
   const hmApprovals =
@@ -245,57 +262,40 @@ const DetailApprovalHMPage = () => {
           </Box>
 
           {/* BARANG */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>
-              Detail Barang
-            </Typography>
-            <Grid container spacing={2}>
-              {barangList.length > 0 ? (
-                barangList.map((item, idx) => (
-                  <Grid item xs={12} sm={6} key={idx}>
-                    <Paper
+          {dokumenList.length > 0 && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" fontWeight={600} gutterBottom>
+                Dokumen Pendukung
+              </Typography>
+              <Grid container spacing={2}>
+                {dokumenList.map((d, i) => (
+                  <Grid item xs={12} sm={4} key={i}>
+                    <Typography sx={{ mb: 1, fontSize: 14, fontWeight: 500 }}>
+                      {d.key.replace(/_/g, " ").toUpperCase()}
+                    </Typography>
+                    <Box
+                      component="img"
+                      src={d.url}
+                      alt={d.key}
                       sx={{
-                        p: 2,
-                        borderRadius: 2,
-                        boxShadow: 2,
-                        height: "100%",
+                        width: "100%",
+                        maxHeight: 150,
+                        objectFit: "contain",
+                        borderRadius: 1,
+                        border: "1px solid #ccc",
+                        cursor: "pointer",
+                        "&:hover": { transform: "scale(1.05)" },
+                        transition: "transform 0.3s",
                       }}
-                    >
-                      {Object.entries(item).map(([key, val]) => {
-                        const skipFields = [
-                          "id",
-                          "dokumen_pendukung",
-                          "created_at",
-                          "updated_at",
-                          "deleted_at",
-                          "detail_gadai_id",
-                        ];
-                        if (!skipFields.includes(key)) {
-                          const displayValue = Array.isArray(val)
-                            ? val.join(", ")
-                            : val || "-";
-                          return (
-                            <Typography
-                              key={key}
-                              sx={{ mb: 0.5, fontSize: 14 }}
-                            >
-                              <strong>{key.replace(/_/g, " ")}:</strong>{" "}
-                              {displayValue}
-                            </Typography>
-                          );
-                        }
-                        return null;
-                      })}
-                    </Paper>
+                      onClick={() => setSelectedImage(d.url)}
+                    />
                   </Grid>
-                ))
-              ) : (
-                <Typography color="text.secondary" sx={{ ml: 2 }}>
-                  Tidak ada barang
-                </Typography>
-              )}
-            </Grid>
-          </Box>
+                ))}
+              </Grid>
+            </Box>
+          )}
+
+
 
           {/* APPROVAL HISTORY CHECKER & HM (side by side) */}
           {(checkerApprovals.length > 0 || hmApprovals.length > 0) && (
@@ -449,73 +449,73 @@ const DetailApprovalHMPage = () => {
         </CardContent>
       </Paper>
 
-     {/* PREVIEW IMAGE */}
-<Dialog
-  open={!!selectedImage}
-  onClose={() => setSelectedImage("")}
-  maxWidth="lg"
-  fullWidth
->
-  <DialogContent
-    sx={{
-      position: "relative",
-      p: 0,
-      textAlign: "center",
-      bgcolor: "#000",
-    }}
-  >
-    <IconButton
-      onClick={() => setSelectedImage("")}
-      sx={{
-        position: "absolute",
-        top: 8,
-        right: 8,
-        zIndex: 10,
-        bgcolor: "rgba(255,255,255,0.7)",
-      }}
-    >
-      <Close />
-    </IconButton>
-    <Box
-      component="img"
-      src={selectedImage}
-      alt="Preview"
-      sx={{
-        width: "100%",
-        height: "auto",
-        maxHeight: "90vh",
-        objectFit: "contain",
-      }}
-    />
-  </DialogContent>
+      {/* PREVIEW IMAGE */}
+      <Dialog
+        open={!!selectedImage}
+        onClose={() => setSelectedImage("")}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogContent
+          sx={{
+            position: "relative",
+            p: 0,
+            textAlign: "center",
+            bgcolor: "#000",
+          }}
+        >
+          <IconButton
+            onClick={() => setSelectedImage("")}
+            sx={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              zIndex: 10,
+              bgcolor: "rgba(255,255,255,0.7)",
+            }}
+          >
+            <Close />
+          </IconButton>
+          <Box
+            component="img"
+            src={selectedImage}
+            alt="Preview"
+            sx={{
+              width: "100%",
+              height: "auto",
+              maxHeight: "90vh",
+              objectFit: "contain",
+            }}
+          />
+        </DialogContent>
 
-  {/* Tombol Aksi */}
-  <Box
-    sx={{
-      display: "flex",
-      justifyContent: "center",
-      gap: 2,
-      p: 2,
-      bgcolor: "#f9f9f9",
-      borderTop: "1px solid #ddd",
-    }}
-  >
-    <Button
-      variant="outlined"
-      color="primary"
-      onClick={() => window.open(selectedImage, "_blank")}
-    >
-      Perbesar
-    </Button>
-    <Button
-      variant="contained"
-      color="inherit"
-      onClick={() => setSelectedImage("")}
-    >
-      Tutup
-    </Button>
-  </Box>
-</Dialog>
+        {/* Tombol Aksi */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            gap: 2,
+            p: 2,
+            bgcolor: "#f9f9f9",
+            borderTop: "1px solid #ddd",
+          }}
+        >
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={() => window.open(selectedImage, "_blank")}
+          >
+            Perbesar
+          </Button>
+          <Button
+            variant="contained"
+            color="inherit"
+            onClick={() => setSelectedImage("")}
+          >
+            Tutup
+          </Button>
+        </Box>
+      </Dialog>
 
     </Box>
   );

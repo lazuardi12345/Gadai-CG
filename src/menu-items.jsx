@@ -13,6 +13,7 @@ import DiamondOutlinedIcon from '@mui/icons-material/DiamondOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
 import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
+import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 
 // daftar icon
 const icons = {
@@ -157,6 +158,15 @@ export default {
           type: 'item',
           url: '/gadai-perhiasan',
           icon: icons.DiamondOutlinedIcon,
+          role: ['checker', 'hm', 'petugas']
+        },
+
+        {
+          id: 'Notifications',
+          title: 'pemberitahuan',
+          type: 'item',
+          url: '/notifications',
+          icon: icons.NotificationsNoneOutlinedIcon,
           role: ['checker', 'hm', 'petugas']
         }
       ]

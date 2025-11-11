@@ -53,15 +53,25 @@ const PrintStrukPerpanjanganPage = () => {
   const typeNama = detail?.type?.nama_type?.toLowerCase() || "-";
   const pokok = Number(detail?.uang_pinjaman || 0);
 
-  const perpanjanganTerbaru = detail?.perpanjangan_tempos?.length
-    ? detail.perpanjangan_tempos[detail.perpanjangan_tempos.length - 1]
-    : null;
+  // Ambil perpanjangan terakhir
+  const perpanjanganList = detail?.perpanjangan_tempos || [];
+  const perpanjanganTerakhir =
+    perpanjanganList.length > 0 ? perpanjanganList[perpanjanganList.length - 1] : null;
 
-  const jatuhTempoBaru =
-    perpanjanganTerbaru?.jatuh_tempo_baru || detail?.jatuh_tempo;
+  // Ambil perpanjangan sebelumnya (kalau ada)
+  const perpanjanganSebelum =
+    perpanjanganList.length > 1 ? perpanjanganList[perpanjanganList.length - 2] : null;
+
+  // Tentukan jatuh tempo lama → dari perpanjangan sebelumnya, kalau ada
+  const jatuhTempoLama =
+    perpanjanganSebelum?.jatuh_tempo_baru || detail.jatuh_tempo;
+
+  // Tanggal perpanjangan dan jatuh tempo baru dari perpanjangan terakhir
   const tanggalPerpanjangan =
-    perpanjanganTerbaru?.tanggal_perpanjangan || new Date().toISOString();
-  const jatuhTempoLama = detail.jatuh_tempo;
+    perpanjanganTerakhir?.tanggal_perpanjangan || new Date().toISOString();
+  const jatuhTempoBaru =
+    perpanjanganTerakhir?.jatuh_tempo_baru || detail?.jatuh_tempo;
+
 
   const today = new Date();
 
@@ -90,37 +100,24 @@ const PrintStrukPerpanjanganPage = () => {
       "Desember",
     ];
     const pad = (n) => n.toString().padStart(2, "0");
-    const tanggalStr = `${hari[date.getDay()]}, ${date.getDate()} ${
-      bulan[date.getMonth()]
-    } ${date.getFullYear()}`;
+    const tanggalStr = `${hari[date.getDay()]}, ${date.getDate()} ${bulan[date.getMonth()]
+      } ${date.getFullYear()}`;
     const jamStr = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
     return { tanggalStr, jamStr };
   };
 
   const { tanggalStr, jamStr } = formatHariTanggal(today);
 
-  // 🔹 Fungsi bantu format rupiah
+
   const formatRupiah = (val) => `Rp. ${Number(val || 0).toLocaleString("id-ID")}`;
 
-  // 🔹 Fungsi hitung jasa lama
-  const hitungJasaLama = (pokok, jenisBarang, telatHari) => {
+  const hitungDenda = (pokok, jenisBarang, telatHari) => {
     if (telatHari <= 0) return 0;
-    let jasa = 0;
-    if (["handphone", "elektronik"].includes(jenisBarang)) {
-      const periode30 = Math.floor(telatHari / 30);
-      const sisa = telatHari % 30;
-      jasa += periode30 * pokok * 0.095;
-      if (sisa > 0) jasa += pokok * 0.045;
-    } else {
-      const periode30 = Math.floor(telatHari / 30);
-      const sisa = telatHari % 30;
-      jasa += periode30 * pokok * 0.025;
-      if (sisa > 0) jasa += pokok * 0.015;
-    }
-    return jasa;
+    if (["handphone", "elektronik"].includes(jenisBarang))
+      return pokok * 0.003 * telatHari;
+    return pokok * 0.001 * telatHari;
   };
 
-  // 🔹 Fungsi hitung jasa baru
   const hitungJasaBaru = (pokok, jenisBarang, periodeHari) => {
     if (periodeHari <= 0) return 0;
     let jasa = 0;
@@ -138,37 +135,28 @@ const PrintStrukPerpanjanganPage = () => {
     return jasa;
   };
 
-  // 🔹 Fungsi hitung denda
-  const hitungDenda = (pokok, jenisBarang, telatHari) => {
-    if (telatHari <= 0) return 0;
-    if (["handphone", "elektronik"].includes(jenisBarang))
-      return pokok * 0.003 * telatHari;
-    return pokok * 0.001 * telatHari;
-  };
-
-  // 🔹 Hitung total
   const totalTelat = Math.max(
     0,
     Math.ceil(
       (new Date(tanggalPerpanjangan) - new Date(jatuhTempoLama)) /
-        (1000 * 60 * 60 * 24)
+      (1000 * 60 * 60 * 24)
     )
   );
+
   const periodeBaruHari = Math.max(
     0,
     Math.ceil(
       (new Date(jatuhTempoBaru) - new Date(tanggalPerpanjangan)) /
-        (1000 * 60 * 60 * 24)
+      (1000 * 60 * 60 * 24)
     )
   );
 
-  const jasaLama = hitungJasaLama(pokok, typeNama, totalTelat);
   const jasaBaru = hitungJasaBaru(pokok, typeNama, periodeBaruHari);
   const denda = hitungDenda(pokok, typeNama, totalTelat);
   const admin = ["emas", "perhiasan", "logam mulia", "retro"].includes(typeNama)
     ? 10000
     : 0;
-  const totalBayar = jasaLama + jasaBaru + denda + admin;
+  const totalBayar = jasaBaru + denda + admin;
 
   // 🔹 Bersihkan nama barang
   const cleanText = (val) =>
@@ -203,7 +191,7 @@ const PrintStrukPerpanjanganPage = () => {
       break;
   }
 
-  // 🔹 Fungsi print
+  // 🔹 Cetak
   const handlePrint = () => {
     const printWindow = window.open("", "", "width=400,height=600");
     printWindow.document.write(printHTML());
@@ -242,7 +230,6 @@ const PrintStrukPerpanjanganPage = () => {
           <div class="row"><span>${labelBarangDetail}</span><span>${barangDetail}</span></div>
           <hr />
           <div class="row"><span>Pokok Pinjaman</span><span>${formatRupiah(pokok)}</span></div>
-          <div class="row"><span>Jasa Lama</span><span>${formatRupiah(jasaLama)}</span></div>
           <div class="row"><span>Jasa Baru</span><span>${formatRupiah(jasaBaru)}</span></div>
           <div class="row"><span>Denda</span><span>${formatRupiah(denda)}</span></div>
           <div class="row"><span>Admin</span><span>${formatRupiah(admin)}</span></div>
@@ -282,7 +269,6 @@ const PrintStrukPerpanjanganPage = () => {
           <div>{labelBarangDetail}: {barangDetail}</div>
           <hr />
           <div>Pokok Pinjaman: {formatRupiah(pokok)}</div>
-          <div>Jasa Lama: {formatRupiah(jasaLama)}</div>
           <div>Jasa Baru: {formatRupiah(jasaBaru)}</div>
           <div>Denda: {formatRupiah(denda)}</div>
           <div>Admin: {formatRupiah(admin)}</div>

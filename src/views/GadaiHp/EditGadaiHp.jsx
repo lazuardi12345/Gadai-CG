@@ -2,7 +2,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import {
     Card, CardHeader, CardContent, Grid, TextField, Button,
     Stack, CircularProgress, Autocomplete, Box, FormGroup,
-    FormControlLabel, Checkbox, Typography
+    FormControlLabel, Checkbox, Typography, MenuItem
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from 'api/axiosInstance';
@@ -29,9 +29,7 @@ const EditGadaiHpPage = () => {
     const navigate = useNavigate();
     const { user } = useContext(AuthContext);
     const userRole = (user?.role || '').toLowerCase();
-
-    const canEdit = userRole === 'hm' || userRole === 'checker';
-    const canView = true; 
+    const canEdit = React.useMemo(() => ['hm', 'checker'].includes(userRole), [userRole]);
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -60,7 +58,7 @@ const EditGadaiHpPage = () => {
         switch (userRole) {
             case 'checker': return `/checker/${resource}`;
             case 'hm': return `/${resource}`;
-            default: return null; // role lain tidak diizinkan
+            default: return null;
         }
     };
 
@@ -78,9 +76,9 @@ const EditGadaiHpPage = () => {
                 const dokumenPendukung = {};
                 if (data.dokumen_pendukung) {
                     Object.entries(data.dokumen_pendukung).forEach(([key, val]) => {
-                        if (typeof val === 'string' && val) dokumenPendukung[key] = { url: val.startsWith('http') ? val : `${window.location.origin}/${val}` };
-                        else if (Array.isArray(val) && val.length > 0) dokumenPendukung[key] = { url: val[0].startsWith('http') ? val[0] : `${window.location.origin}/${val[0]}` };
-                        else dokumenPendukung[key] = null;
+                        if (typeof val === 'string' && val) dokumenPendukung[key] = { url: val.startsWith('http') ? val : `${window.location.origin}/${val}`, file: null, remove: false };
+                        else if (Array.isArray(val) && val.length > 0) dokumenPendukung[key] = { url: val[0].startsWith('http') ? val[0] : `${window.location.origin}/${val[0]}`, file: null, remove: false };
+                        else dokumenPendukung[key] = { file: null, url: null, remove: false };
                     });
                 }
 
@@ -140,13 +138,22 @@ const EditGadaiHpPage = () => {
             ...prev,
             dokumen_pendukung: {
                 ...prev.dokumen_pendukung,
-                [key]: file ? { file, url: URL.createObjectURL(file) } : null
+                [key]: file ? { file, url: URL.createObjectURL(file), remove: false } : { ...prev.dokumen_pendukung[key], file: null, url: null, remove: true }
             }
         }));
     };
 
+    const handleNamaBarangChange = (nama) => {
+        if (!canEdit) return;
+        setForm(prev => ({
+            ...prev,
+            nama_barang: nama,
+            dokumen_pendukung: DOKUMEN_SOP[nama].reduce((acc, k) => ({ ...acc, [k]: prev.dokumen_pendukung[k] || { file: null, url: null, remove: false } }), {})
+        }));
+    };
+
     const handleSubmit = async () => {
-        if (!canEdit) return; // Petugas tidak bisa submit
+        if (!canEdit) return;
         if (!form.detail_gadai_id) { alert('Silakan pilih Nasabah.'); return; }
 
         try {
@@ -158,6 +165,7 @@ const EditGadaiHpPage = () => {
                 if (key === 'dokumen_pendukung') {
                     Object.entries(form.dokumen_pendukung).forEach(([k, val]) => {
                         if (val?.file instanceof File) data.append(`dokumen_pendukung[${k}]`, val.file);
+                        if (val?.remove) data.append(`dokumen_pendukung_remove[${k}]`, '1');
                     });
                 } else if (key === 'kelengkapan' || key === 'kerusakan') {
                     form[key].forEach(value => data.append(`${key}[]`, value));
@@ -166,10 +174,15 @@ const EditGadaiHpPage = () => {
                 }
             });
 
-            const res = await axiosInstance.post(`/gadai-hp/${id}`, data, { headers: { 'Content-Type': 'multipart/form-data' } });
+            const url = `${getBaseUrl('gadai-hp')}/${id}`;
+            const res = await axiosInstance.post(url, data, { headers: { 'Content-Type': 'multipart/form-data' } });
 
-            if (res.data.success) { alert('Data berhasil diperbarui!'); navigate('/gadai-hp'); }
-            else alert(res.data.message || 'Gagal memperbarui data');
+            if (res.data.success) {
+                alert('Data berhasil diperbarui!');
+                navigate('/gadai-hp');
+            } else {
+                alert(res.data.message || 'Gagal memperbarui data');
+            }
 
         } catch (err) {
             console.error(err.response?.data || err);
@@ -221,15 +234,31 @@ const EditGadaiHpPage = () => {
                     {/* Input Text Fields */}
                     {['nama_barang', 'grade', 'imei', 'warna', 'kunci_password', 'kunci_pin', 'kunci_pola', 'ram', 'rom', 'type_hp', 'merk'].map(key => (
                         <Grid item xs={12} sm={6} key={key}>
-                            <TextField
-                                label={key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                                name={key}
-                                value={form[key]}
-                                onChange={handleInputChange}
-                                fullWidth
-                                size="small"
-                                disabled={!canEdit}
-                            />
+                            {key === 'nama_barang' ? (
+                                <TextField
+                                    select
+                                    label="Nama Barang"
+                                    size="small"
+                                    fullWidth
+                                    value={form.nama_barang}
+                                    onChange={(e) => handleNamaBarangChange(e.target.value)}
+                                    disabled={!canEdit}
+                                >
+                                    {NAMA_BARANG_LIST.map(item => (
+                                        <MenuItem key={item} value={item}>{item}</MenuItem>
+                                    ))}
+                                </TextField>
+                            ) : (
+                                <TextField
+                                    label={key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                    name={key}
+                                    value={form[key]}
+                                    onChange={handleInputChange}
+                                    fullWidth
+                                    size="small"
+                                    disabled={!canEdit}
+                                />
+                            )}
                         </Grid>
                     ))}
 

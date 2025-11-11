@@ -7,7 +7,7 @@ import {
 import axiosInstance from "api/axiosInstance";
 import dayjs from "dayjs";
 
-const EditApprovalHMPage = () => {
+const EditApprovalPage = () => {
   const { detailGadaiId } = useParams();
   const navigate = useNavigate();
 
@@ -27,7 +27,7 @@ const EditApprovalHMPage = () => {
     const fetchDetail = async () => {
       setLoading(true);
       try {
-        const res = await axiosInstance.get(`/detail-gadai/${detailGadaiId}`);
+        const res = await axiosInstance.get(`/checker/approvals/${detailGadaiId}/full-detail`);
         const detail = res.data?.data?.detail_gadai || res.data?.data;
 
         if (!detail) {
@@ -85,7 +85,7 @@ const EditApprovalHMPage = () => {
       };
 
       const res = await axiosInstance.post(
-        `/approvals/${detailGadaiId}/update-detail`,
+        `/checker/approvals/${detailGadaiId}/update-detail`,
         payload
       );
 
@@ -122,7 +122,6 @@ const EditApprovalHMPage = () => {
     }
   };
 
-
   if (loading) return (
     <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
       <CircularProgress />
@@ -132,7 +131,7 @@ const EditApprovalHMPage = () => {
   return (
     <Box sx={{ maxWidth: 600, mx: "auto", mt: 3, mb: 6 }}>
       <Card>
-        <CardHeader title="Edit Detail Gadai" />
+        <CardHeader title="Edit Detail Gadai Checker" />
         <CardContent>
           <Typography variant="h6" fontWeight={600} mb={1}>Detail Gadai</Typography>
           <Paper sx={{ p: 2, mb: 3 }}>
@@ -175,9 +174,8 @@ const EditApprovalHMPage = () => {
                       const d = form.detail_gadai.tanggal_gadai
                         ? dayjs(form.detail_gadai.tanggal_gadai).add(tenor, "day")
                         : dayjs();
-                      const iso = d.format("YYYY-MM-DD");
                       return (
-                        <MenuItem key={tenor} value={iso}>
+                        <MenuItem key={tenor} value={d.format("YYYY-MM-DD")}>
                           {tenor} Hari — {d.format("DD/MM/YYYY")}
                         </MenuItem>
                       );
@@ -216,9 +214,8 @@ const EditApprovalHMPage = () => {
                             const d = p.tanggal_perpanjangan
                               ? dayjs(p.tanggal_perpanjangan).add(tenor, "day")
                               : dayjs();
-                            const iso = d.format("YYYY-MM-DD");
                             return (
-                              <MenuItem key={tenor} value={iso}>
+                              <MenuItem key={tenor} value={d.format("YYYY-MM-DD")}>
                                 {tenor} Hari — {d.format("DD/MM/YYYY")}
                               </MenuItem>
                             );
@@ -250,4 +247,4 @@ const EditApprovalHMPage = () => {
   );
 };
 
-export default EditApprovalHMPage;
+export default EditApprovalPage;

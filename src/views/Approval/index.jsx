@@ -10,6 +10,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import axiosInstance from "api/axiosInstance";
 import { AuthContext } from "AuthContex/AuthContext";
 import { useNavigate } from "react-router-dom";
+import EditIcon from "@mui/icons-material/Edit";
 
 const ApprovalGadaiPage = () => {
   const { user } = useContext(AuthContext);
@@ -120,8 +121,8 @@ const ApprovalGadaiPage = () => {
           ? "approved_checker"
           : "rejected_checker"
         : action === "approve"
-        ? "approved_hm"
-        : "rejected_hm";
+          ? "approved_hm"
+          : "rejected_hm";
 
     try {
       // Endpoint sesuai role
@@ -179,9 +180,8 @@ const ApprovalGadaiPage = () => {
     const approved = entry.status.includes("approved");
     return (
       <Chip
-        label={`${approved ? "Approved" : "Rejected"} by ${
-          roleKey.charAt(0).toUpperCase() + roleKey.slice(1)
-        }`}
+        label={`${approved ? "Approved" : "Rejected"} by ${roleKey.charAt(0).toUpperCase() + roleKey.slice(1)
+          }`}
         color={approved ? "success" : "error"}
         size="small"
       />
@@ -300,6 +300,14 @@ const ApprovalGadaiPage = () => {
                         {tab === "semua" &&
                           !item.approvals?.some((a) => a.role === role) && (
                             <>
+
+                              <Button
+                                variant="contained"
+                                color="primary"
+                                size="small"
+                                startIcon={<EditIcon />}
+                                onClick={() => navigate(`/approval-gadai-edit/${item.id}`)}
+                              ></Button>
                               <Button
                                 variant="contained"
                                 color="success"

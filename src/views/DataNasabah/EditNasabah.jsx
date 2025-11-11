@@ -213,7 +213,7 @@ const EditNasabahPage = () => {
                   variant="outlined"
                   color="secondary"
                   onClick={() =>
-                    navigate(role === 'checker' ? '/checker/data-nasabah' : '/data-nasabah')
+                    navigate(role === 'checker' ? '/data-nasabah' : '/data-nasabah')
                   }
                   disabled={saving}
                 >

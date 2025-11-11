@@ -30,20 +30,21 @@ const GadaiLogamMuliaPage = () => {
   const canDelete = userRole === "hm";
 
 
-const renderArrayOrString = (value) => {
-  if (!value) return '-';
-  if (Array.isArray(value)) return value.join(', '); 
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) return parsed.join(', ');
-      return value;
-    } catch {
-      return value;
+  const renderArrayOrString = (value) => {
+    if (!value) return '-';
+    if (Array.isArray(value)) return value.join(', ');
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed.join(', ');
+        return value;
+      } catch {
+        return value;
+      }
     }
-  }
-  return '-';
-};
+    return '-';
+  };
+
 
 
   const fetchData = async () => {

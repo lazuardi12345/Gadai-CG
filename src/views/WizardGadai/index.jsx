@@ -105,18 +105,23 @@ const GadaiWizardPage = () => {
 
   const prevStep = () => setStep(prev => prev - 1);
 
-  // ---------- SUBMIT (FINAL - gabungan semua data) ----------
+
   const handleSubmitFinal = async () => {
+
     if (!nasabah.nama_lengkap || !nasabah.nik || !nasabah.no_hp || !fotoKtp) {
       alert("Nama, NIK, No HP, dan Foto KTP wajib diisi!");
       setStep(1);
       return;
     }
+
+
     if (!detail.tanggal_gadai || !detail.jatuh_tempo || !detail.type_id) {
       alert("Tanggal, Jatuh Tempo, dan Type wajib diisi!");
       setStep(2);
       return;
     }
+
+
     if (!barang.nama_barang) {
       alert("Nama barang wajib diisi!");
       setStep(3);
@@ -127,47 +132,68 @@ const GadaiWizardPage = () => {
       setLoading(true);
       const formData = new FormData();
 
-      // Kirim semua data dalam struktur: nasabah[], detail[], barang[]
-      Object.entries(nasabah).forEach(([k, v]) => {
-        if (v !== null && v !== "") formData.append(`nasabah[${k}]`, v);
+      Object.entries(nasabah).forEach(([key, value]) => {
+        if (value !== null && value !== "") {
+          formData.append(`nasabah[${key}]`, value);
+        }
       });
-      if (fotoKtp) formData.append("nasabah[foto_ktp]", fotoKtp);
+      if (fotoKtp) {
+        formData.append("nasabah[foto_ktp]", fotoKtp);
+      }
 
-      Object.entries(detail).forEach(([k, v]) => {
-        if (v !== null && v !== "") formData.append(`detail[${k}]`, v);
-      });
-
-      Object.entries(barang).forEach(([k, v]) => {
-        if (k !== "dokumen_pendukung" && Array.isArray(v)) {
-          v.forEach((item) => formData.append(`barang[${k}][]`, item));
-        } else if (k !== "dokumen_pendukung" && v !== null && v !== "") {
-          formData.append(`barang[${k}]`, v);
+      Object.entries(detail).forEach(([key, value]) => {
+        if (value !== null && value !== "") {
+          formData.append(`detail[${key}]`, value);
         }
       });
 
-      if (barang.dokumen_pendukung) {
+
+      Object.entries(barang).forEach(([key, value]) => {
+
+        if (key === "dokumen_pendukung") return;
+
+
+        if (Array.isArray(value)) {
+          value.forEach((item) => {
+            if (item !== null && item !== "")
+              formData.append(`barang[${key}][]`, item);
+          });
+        }
+
+        else if (value !== null && value !== "") {
+          formData.append(`barang[${key}]`, value);
+        }
+      });
+
+      if (barang.dokumen_pendukung && typeof barang.dokumen_pendukung === "object") {
         Object.entries(barang.dokumen_pendukung).forEach(([key, file]) => {
-          if (file) formData.append(`barang[dokumen_pendukung][${key}]`, file);
+          if (file instanceof File) {
+            formData.append(`barang[dokumen_pendukung][${key}]`, file);
+          } else if (typeof file === "string") {
+            formData.append(`barang[dokumen_pendukung_existing][${key}]`, file);
+          }
         });
       }
+
 
       const res = await axiosInstance.post("/petugas/gadai-wizard", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
       if (res.data.success) {
-        alert("✅ Data gadai berhasil disimpan!");
+        alert("Data gadai berhasil disimpan!");
         navigate("/data-nasabah");
       } else {
         alert(res.data.message || "Gagal menyimpan data.");
       }
     } catch (err) {
-      console.error(err.response?.data || err);
+      console.error("Error:", err.response?.data || err);
       alert(err.response?.data?.message || "Terjadi kesalahan server.");
     } finally {
       setLoading(false);
     }
   };
+
 
   if (loading)
     return (

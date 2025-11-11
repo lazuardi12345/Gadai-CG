@@ -32,7 +32,7 @@ const GadaiHpPage = () => {
 
 const renderArrayOrString = (value) => {
   if (!value) return '-';
-  if (Array.isArray(value)) return value.join(', '); // gabungkan array jadi string
+  if (Array.isArray(value)) return value.join(', '); 
   if (typeof value === 'string') {
     try {
       const parsed = JSON.parse(value);

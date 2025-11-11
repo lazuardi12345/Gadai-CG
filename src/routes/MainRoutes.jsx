@@ -57,11 +57,13 @@ const WizardGadaiPage = Loadable(lazy(() => import('views/WizardGadai/index')));
 //Approval Chekcer
 const ApprovalGadaiPage = Loadable(lazy(() => import('views/Approval/index')));
 const DetailApprovalPage = Loadable(lazy(() => import('views/Approval/DetailApproval')));
-
+const EditApprovalPage = Loadable(lazy(() => import('views/Approval/EditApproval')));
 
 const ApprovalHmPage = Loadable(lazy(() => import('views/HM/Approval/index')));
 const DetailApprovalHMPage = Loadable(lazy(() => import('views/HM/Approval/DetailApprovalHm')));
 const EditApprovalHMPage = Loadable(lazy(() => import('views/HM/Approval/EditApprovalHm')));
+
+const NotificationsPage = Loadable(lazy(() => import('views/Notifications/index')));
 
 
 
@@ -111,9 +113,11 @@ const MainRoutes = {
     { path: '/full-submit', element: <WizardGadaiPage/> },
     { path: '/approval-gadai', element: <ApprovalGadaiPage/> },
     { path: '/approval-gadai-detail/:detailGadaiId', element: <DetailApprovalPage/> },
+    { path: '/approval-gadai-edit/:detailGadaiId', element: <EditApprovalPage/> },
     { path: '/approval-hm-gadai', element: <ApprovalHmPage/> },
     { path: '/approval-hm-gadai-detail/:detailGadaiId', element: <DetailApprovalHMPage/> },
     { path: '/approval-hm-gadai-edit/:detailGadaiId', element: <EditApprovalHMPage/> },
+    { path: '/notifications', element: <NotificationsPage/> },
 
 
   ]
