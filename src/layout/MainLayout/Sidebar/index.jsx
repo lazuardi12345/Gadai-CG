@@ -13,7 +13,8 @@ import MenuList from './MenuList';
 import { drawerWidth } from 'config.js';
 
 // assets
-import logo from 'assets/images/logo.svg';
+import logoDesktop from 'assets/images/LogoCG.jpeg';
+import logoMobile from 'assets/images/LogoCG.jpeg';
 
 // custom style
 const Nav = styled((props) => <nav {...props} />)(({ theme }) => ({
@@ -28,36 +29,61 @@ const Nav = styled((props) => <nav {...props} />)(({ theme }) => ({
 const Sidebar = ({ drawerOpen, drawerToggle, window }) => {
   const theme = useTheme();
   const matchUpMd = useMediaQuery(theme.breakpoints.up('md'));
+
+  // Konten drawer (sidebar)
   const drawer = (
     <>
+      {/* Header untuk mobile */}
       <Box sx={{ display: { md: 'none', xs: 'block' } }}>
         <Grid
           container
           direction="row"
           justifyContent="center"
-          elevation={5}
           alignItems="center"
-          spacing={0}
           sx={{
             ...theme.mixins.toolbar,
-            lineHeight: 0,
             background: theme.palette.primary.main,
-            boxShadow: '0px 2px 4px -1px rgba(0,0,0,0.2), 0px 4px 5px 0px rgba(0,0,0,0.14), 0px 1px 10px 0px rgba(0,0,0,0.12)'
+            boxShadow:
+              '0px 2px 4px -1px rgba(0,0,0,0.2), 0px 4px 5px 0px rgba(0,0,0,0.14), 0px 1px 10px 0px rgba(0,0,0,0.12)'
           }}
         >
           <Grid item>
-            <img src={logo} alt="Logo" />
+            <img
+              src={logoMobile}
+              alt="Logo Mobile"
+              style={{
+                height: '40px',
+                width: 'auto',
+                marginTop: 4
+              }}
+            />
           </Grid>
         </Grid>
       </Box>
+
+      {/* Header untuk desktop */}
+      <Box sx={{ display: { xs: 'none', md: 'flex' }, justifyContent: 'center', p: 2 }}>
+        <img
+          src={logoDesktop}
+          alt="Logo Desktop"
+          style={{
+            height: '60px',
+            width: 'auto',
+            marginBottom: 8
+          }}
+        />
+      </Box>
+
       <Divider />
-      <PerfectScrollbar style={{ height: 'calc(100vh - 65px)', padding: '10px' }}>
+
+      {/* Isi menu dengan scrollbar */}
+      <PerfectScrollbar style={{ height: 'calc(100vh - 90px)', padding: '10px' }}>
         <MenuList />
-        
       </PerfectScrollbar>
     </>
   );
 
+  // Target container
   const container = window !== undefined ? () => window().document.body : undefined;
 
   return (

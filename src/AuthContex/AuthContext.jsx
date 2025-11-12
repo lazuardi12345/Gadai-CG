@@ -11,6 +11,9 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true); // menandai proses load auth
 
+  // === 🔔 Tambahan untuk notifikasi ===
+  const [hasNewNotification, setHasNewNotification] = useState(false);
+
   // Load data dari localStorage saat pertama kali mount
   useEffect(() => {
     const storedToken = localStorage.getItem('auth_token');
@@ -26,7 +29,7 @@ export const AuthProvider = ({ children }) => {
       axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
     }
 
-    setLoading(false); // selesai load
+    setLoading(false); 
   }, []);
 
   // Fungsi login → update state & localStorage
@@ -41,7 +44,7 @@ export const AuthProvider = ({ children }) => {
     axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
   };
 
-  // Fungsi logout → hapus semua data
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -51,9 +54,12 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('auth_token');
 
     delete axiosInstance.defaults.headers.common['Authorization'];
+
+
+    setHasNewNotification(false);
   };
 
-  // Cek role user (helper)
+
   const hasRole = (roles) => {
     if (!user || !user.role) return false;
     return roles.includes(user.role);
@@ -68,7 +74,9 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         hasRole,
-        loading, // supaya komponen bisa menunggu auth siap
+        loading, 
+        hasNewNotification,
+        setHasNewNotification,
       }}
     >
       {children}

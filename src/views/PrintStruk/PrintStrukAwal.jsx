@@ -14,7 +14,7 @@ const PrintStrukPage = () => {
   const [loading, setLoading] = useState(true);
   const printRef = useRef();
 
-  // 🔹 Tentukan endpoint API sesuai role
+
   const getApiUrl = () => {
     switch (userRole) {
       case "petugas":
@@ -52,9 +52,7 @@ const PrintStrukPage = () => {
   const petugas = nasabah?.user?.name || "-";
   const typeNama = detail?.type?.nama_type || "-";
 
-  // ======================
-  // 🔥 HITUNG BIAYA GADAI
-  // ======================
+
   const pinjaman = Number(detail?.uang_pinjaman || 0);
   const tglGadai = new Date(detail?.tanggal_gadai);
   const tglJatuhTempo = new Date(detail?.jatuh_tempo);
@@ -62,7 +60,7 @@ const PrintStrukPage = () => {
   // === Hitung lama hari ===
   let selisihHari = Math.ceil((tglJatuhTempo - tglGadai) / (1000 * 60 * 60 * 24));
 
-  // ✅ Tambahkan toleransi 1 hari
+  // Tambahkan toleransi 1 hari
   const blokHari = [15, 30, 45, 60, 75, 90, 105, 120];
   for (let batas of blokHari) {
     if (selisihHari === batas + 1) {
@@ -204,9 +202,7 @@ const PrintStrukPage = () => {
     labelBarangDetail = "Detail Barang";
   }
 
-  // ======================
-  // 🔹 CETAK STRUK
-  // ======================
+ 
   const handlePrint = () => {
     const printWindow = window.open("", "", "width=400,height=600");
     printWindow.document.write(`
