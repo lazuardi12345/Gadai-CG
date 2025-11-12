@@ -9,7 +9,7 @@ import axiosInstance from "api/axiosInstance";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "AuthContex/AuthContext"; 
 
-const KELENGKAPAN_LIST = ["Sertifikat", "Nota", "Dus", "Lainnya"];
+const KELENGKAPAN_LIST = ["Sertifikat", "Nota", "Kartu Garansi",];
 const DOKUMEN_PENDUKUNG_SOP = [
   { key: "emas_timbangan", label: "Emas + Timbangan" },
   { key: "gosokan_timer", label: "Gosokan + Timer 1 Menit" },

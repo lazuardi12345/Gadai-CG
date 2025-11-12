@@ -130,17 +130,16 @@ const DetailGadaiPage = () => {
     }
   };
 
-  const getApprovalColor = (status) => {
-    switch (status) {
-      case "approved":
-        return "success";
-      case "rejected":
-        return "error";
-      case "pending":
-      default:
-        return "warning";
-    }
-  };
+const getApprovalColor = (status) => {
+  if (!status) return "warning";
+
+  const s = status.toLowerCase();
+
+  if (s.includes("approved")) return "success";
+  if (s.includes("rejected")) return "error";
+
+  return "warning";
+};
 
   const getPrintSBGRoute = (item) => {
     const typeName = item.type?.nama_type?.toLowerCase();

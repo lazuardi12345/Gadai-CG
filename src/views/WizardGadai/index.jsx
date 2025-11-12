@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 
 // HP
 const NAMA_BARANG_LIST = ['Android', 'Samsung', 'iPhone'];
-const KELENGKAPAN_LIST = ['Box', 'Charger', 'Kabel Data'];
+const KELENGKAPAN_LIST = ['Box', 'Charger', 'Kabel Data', 'buku garansi', 'kartu garansi', 'tusuk sim'];
 const KERUSAKAN_LIST = [
   'LCD Pecah', 'LCD Kuning/Pink', 'LCD Bercak', 'Baterai Bocor', 'Tombol Rusak',
   'Layar Tidak Fungsi', 'Kamera Tidak Berfungsi/Blur', 'Tombol Volume Tidak Berfungsi',
@@ -23,7 +23,7 @@ const DOKUMEN_SOP_HP = {
 };
 
 // Emas / Perhiasan / Retro
-const KELENGKAPAN_COMMON = ['Sertifikat', 'Nota', 'Kartu Garansi', 'Box'];
+const KELENGKAPAN_COMMON = ['Sertifikat', 'Nota', 'Kartu Garansi'];
 const DOKUMEN_SOP_COMMON = ['emas_timbangan', 'gosokan_timer', 'gosokan_ktp', 'batu', 'cap_merek', 'karatase', 'ukuran_batu'];
 
 const GadaiWizardPage = () => {

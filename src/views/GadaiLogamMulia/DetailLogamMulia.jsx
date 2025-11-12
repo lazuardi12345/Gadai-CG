@@ -61,9 +61,9 @@ const parseArrayValue = (val) => {
     try {
       const parsed = JSON.parse(val);
       if (Array.isArray(parsed)) return parsed;
-      return [val]; // string biasa
+      return [val];
     } catch {
-      return [val]; // string biasa
+      return [val]; 
     }
   }
   return [];

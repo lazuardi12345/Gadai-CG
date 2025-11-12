@@ -9,7 +9,7 @@ import axiosInstance from "api/axiosInstance";
 import { AuthContext } from "AuthContex/AuthContext";
 
 
-const KELENGKAPAN_LIST = ["Sertifikat", "Nota", "Dus", "Lainnya"];
+const KELENGKAPAN_LIST = ["Sertifikat", "Nota", "Kartu Garansi",];
 
 const DOKUMEN_PENDUKUNG_SOP = [
   { key: "emas_timbangan", label: "Emas + Timbangan" },

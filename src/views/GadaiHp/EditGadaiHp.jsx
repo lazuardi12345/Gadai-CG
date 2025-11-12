@@ -8,7 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from 'api/axiosInstance';
 import { AuthContext } from "AuthContex/AuthContext";
 
-const KELENGKAPAN_LIST = ['Box', 'Charger', 'Kabel Data'];
+const KELENGKAPAN_LIST = ['Box', 'Charger', 'Kabel Data', 'kartu garansi', 'tusuk sim'];
 const KERUSAKAN_LIST = [
     'LCD Pecah', 'LCD Kuning/Pink', 'LCD Bercak', 'Baterai Bocor',
     'Tombol Rusak', 'Layar tidak fungsi', 'Kamera tidak berfungsi/blur',
