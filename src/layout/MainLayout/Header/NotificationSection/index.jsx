@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState, useRef } from 'react';
 import { useTheme } from '@mui/material/styles';
 import { Button, Badge } from '@mui/material';
 import NotificationsNoneTwoToneIcon from '@mui/icons-material/NotificationsNoneTwoTone';
@@ -9,10 +9,16 @@ import axiosInstance from 'api/axiosInstance';
 const NotificationSection = () => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { hasNewNotification, setHasNewNotification, user } = useContext(AuthContext);
-  const userRole = (user?.role || '').toLowerCase();
-  const [loading, setLoading] = useState(false);
+  const { user } = useContext(AuthContext);
 
+  const userRole = (user?.role || '').toLowerCase();
+  const [hasNewNotification, setHasNewNotification] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const lastNotifId = useRef(null); // simpan ID notifikasi terakhir
+
+  // ======================
+  // FETCH NOTIFICATION
+  // ======================
   const fetchNewNotification = async () => {
     try {
       let url = '/notifications';
@@ -21,9 +27,16 @@ const NotificationSection = () => {
 
       const res = await axiosInstance.get(url);
       if (res.data.success && res.data.data.length > 0) {
-        // Cek apakah ada yang belum dibaca
-        const adaBaru = res.data.data.some((n) => !n.is_read);
-        setHasNewNotification(adaBaru);
+        const latestId = res.data.data[0].id; // ambil ID notifikasi terbaru (asumsi urut desc)
+
+        // kalau pertama kali load, simpan ID-nya
+        if (!lastNotifId.current) {
+          lastNotifId.current = latestId;
+        } else if (latestId !== lastNotifId.current) {
+          // kalau ada ID baru dibanding sebelumnya → notifikasi baru!
+          setHasNewNotification(true);
+          lastNotifId.current = latestId;
+        }
       }
     } catch (err) {
       console.error('Gagal cek notifikasi:', err);
@@ -38,11 +51,17 @@ const NotificationSection = () => {
     return () => clearInterval(interval);
   }, [userRole]);
 
+  // ======================
+  // HANDLE CLICK ICON
+  // ======================
   const handleClick = () => {
     setHasNewNotification(false); // hilangkan tanda merah
-    navigate('/notifications');   // buka halaman notifikasi
+    navigate('/notifications'); // buka halaman notifikasi
   };
 
+  // ======================
+  // RENDER
+  // ======================
   return (
     <Button
       sx={{ minWidth: { sm: 50, xs: 35 } }}
