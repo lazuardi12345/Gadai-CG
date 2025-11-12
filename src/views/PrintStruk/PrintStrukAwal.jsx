@@ -73,9 +73,10 @@ const PrintStrukPage = () => {
 
   let persenJasa = 0;
   let jenisSkema = "";
+  const typeLower = (typeNama || "").toLowerCase();
 
   // === Jika barang HP ===
-  if ((typeNama || "").toLowerCase() === "handphone") {
+  if (typeLower === "handphone" || typeLower === "hp") {
     jenisSkema = "HP";
     if (selisihHari <= 15) persenJasa = 0.045;
     else if (selisihHari <= 30) persenJasa = 0.095;
@@ -98,15 +99,27 @@ const PrintStrukPage = () => {
   }
 
   const jasaSewa = pinjaman * persenJasa;
-  const admin = pinjaman * 0.01;
+
+  // === Administrasi minimal fix ===
+  let adminPersen = pinjaman * 0.01; // 1% dari pinjaman
+  let admin = adminPersen;
+
+  if (["logam mulia", "retro", "perhiasan"].includes(typeLower)) {
+    admin = Math.max(adminPersen, 10000); // Minimal Rp 10.000
+  } else if (["handphone", "hp", "elektronik"].includes(typeLower)) {
+    admin = Math.max(adminPersen, 5000); // Minimal Rp 5.000
+  } else {
+    admin = Math.max(adminPersen, 5000); // Default minimal Rp 5.000
+  }
+
+  // === Asuransi tetap ===
   const asuransi = 10000;
+
+  // === Total diterima ===
   const totalDiterima = pinjaman - jasaSewa - admin - asuransi;
 
   const formatRupiah = (val) => `Rp. ${Number(val || 0).toLocaleString("id-ID")}`;
 
-  // ======================
-  // 🔹 FORMAT TANGGAL + JAM
-  // ======================
   const formatHariTanggal = (date) => {
     const hari = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
     const bulan = [
@@ -121,9 +134,6 @@ const PrintStrukPage = () => {
 
   const { tanggalStr, jamStr } = formatHariTanggal(new Date());
 
-  // ======================
-  // 🔹 DETAIL BARANG SESUAI TYPE
-  // ======================
   let barangNama = "-";
   let barangDetail = "-";
   let labelBarangDetail = "-";
@@ -145,7 +155,6 @@ const PrintStrukPage = () => {
 
   const type = (typeNama || "").toLowerCase();
 
-  // === Handphone ===
   // === Handphone ===
   if (type === "handphone" && detail.hp) {
     const hp = detail.hp;
@@ -181,7 +190,7 @@ const PrintStrukPage = () => {
   // === Retro ===
   else if (type === "retro") {
     const r = detail?.retro ?? {};
-    barangNama = r?.nama_barang || "Logam Mulia";
+    barangNama = r?.nama_barang || "Retro";
     const karat = r?.karat ?? "-";
     const berat = r?.berat ?? "-";
     barangDetail = `Karat: ${karat} / Berat: ${berat}`;
@@ -194,8 +203,6 @@ const PrintStrukPage = () => {
     barangDetail = "-";
     labelBarangDetail = "Detail Barang";
   }
-
-
 
   // ======================
   // 🔹 CETAK STRUK
@@ -254,7 +261,11 @@ const PrintStrukPage = () => {
             <div class="row"><span class="label">Jatuh Tempo</span><span class="value">${detail?.jatuh_tempo || "-"}</span></div>
             <hr />
 
-            <div class="center">
+            <div class="center" style="font-size:10px; margin-top:6px;">
+              <div>* Biaya admin minimal Rp 5.000 (HP) dan Rp 10.000 (Emas/Perhiasan)</div>
+            </div>
+
+            <div class="center" style="margin-top:6px;">
               <div>Terima kasih atas kepercayaan Anda!</div>
               <div>Gadai cepat, aman, dan terpercaya di</div>
               <div class="bold">CG GADAI.</div>
@@ -303,6 +314,7 @@ const PrintStrukPage = () => {
         </div>
 
         <div style={{ marginTop: "8px", fontSize: "12px" }}>
+          <p>* Biaya admin minimal Rp 5.000 (HP) dan Rp 10.000 (Emas/Perhiasan)</p>
           <p>Terima kasih atas kepercayaan Anda!</p>
           <p>Gadai cepat, aman, dan terpercaya di</p>
           <p><b>CG GADAI.</b></p>

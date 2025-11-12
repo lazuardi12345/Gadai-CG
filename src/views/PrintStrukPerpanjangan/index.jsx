@@ -14,7 +14,6 @@ const PrintStrukPerpanjanganPage = () => {
   const [loading, setLoading] = useState(true);
   const printRef = useRef();
 
-  // 🔹 Tentukan endpoint sesuai role
   const getApiUrl = () => {
     switch (userRole) {
       case "petugas":
@@ -72,7 +71,6 @@ const PrintStrukPerpanjanganPage = () => {
   const jatuhTempoBaru =
     perpanjanganTerakhir?.jatuh_tempo_baru || detail?.jatuh_tempo;
 
-
   const today = new Date();
 
   const formatHariTanggal = (date) => {
@@ -108,15 +106,47 @@ const PrintStrukPerpanjanganPage = () => {
 
   const { tanggalStr, jamStr } = formatHariTanggal(today);
 
-
   const formatRupiah = (val) => `Rp. ${Number(val || 0).toLocaleString("id-ID")}`;
+
+  // ==========================================
+  // 🔹 Kalkulasi denda, admin, penalty terbaru
+  // ==========================================
+
+  const MAX_TELAT_HARI = 15;
+  const FIX_PENALTY = 180000;
+  const BARANG_EMAS = ["logam mulia", "retro", "perhiasan"];
 
   const hitungDenda = (pokok, jenisBarang, telatHari) => {
     if (telatHari <= 0) return 0;
-    if (["handphone", "elektronik"].includes(jenisBarang))
+
+    if (["handphone", "elektronik"].includes(jenisBarang)) {
+      // HP & elektronik: 0.3% per hari
       return pokok * 0.003 * telatHari;
-    return pokok * 0.001 * telatHari;
+    } else if (BARANG_EMAS.includes(jenisBarang)) {
+      // Emas (retro, logam mulia, perhiasan): 0.1% per hari
+      return pokok * 0.001 * telatHari;
+    }
+
+    return 0;
   };
+
+  const hitungPenalty = (telatHari) => {
+    return telatHari > MAX_TELAT_HARI ? FIX_PENALTY : 0;
+  };
+
+  const hitungAdmin = (jenisBarang, pokok) => {
+    const adminPersen = pokok * 0.01; // 1% dari pinjaman
+    if (BARANG_EMAS.includes(jenisBarang)) {
+      return Math.max(adminPersen, 10000); // minimal 10rb
+    } else if (["handphone", "hp", "elektronik"].includes(jenisBarang)) {
+      return Math.max(adminPersen, 5000); // minimal 5rb
+    } else {
+      return Math.max(adminPersen, 5000); // default minimal 5rb
+    }
+  };
+
+
+  // ==========================================
 
   const hitungJasaBaru = (pokok, jenisBarang, periodeHari) => {
     if (periodeHari <= 0) return 0;
@@ -153,10 +183,9 @@ const PrintStrukPerpanjanganPage = () => {
 
   const jasaBaru = hitungJasaBaru(pokok, typeNama, periodeBaruHari);
   const denda = hitungDenda(pokok, typeNama, totalTelat);
-  const admin = ["emas", "perhiasan", "logam mulia", "retro"].includes(typeNama)
-    ? 10000
-    : 0;
-  const totalBayar = jasaBaru + denda + admin;
+  const penalty = hitungPenalty(totalTelat);
+  const admin = hitungAdmin(typeNama, pokok);
+  const totalBayar = jasaBaru + denda + penalty + admin;
 
   // 🔹 Bersihkan nama barang
   const cleanText = (val) =>
@@ -232,6 +261,7 @@ const PrintStrukPerpanjanganPage = () => {
           <div class="row"><span>Pokok Pinjaman</span><span>${formatRupiah(pokok)}</span></div>
           <div class="row"><span>Jasa Baru</span><span>${formatRupiah(jasaBaru)}</span></div>
           <div class="row"><span>Denda</span><span>${formatRupiah(denda)}</span></div>
+          ${penalty > 0 ? `<div class="row"><span>Penalty</span><span>${formatRupiah(penalty)}</span></div>` : ""}
           <div class="row"><span>Admin</span><span>${formatRupiah(admin)}</span></div>
           <hr />
           <div class="row bold"><span>Total Bayar</span><span>${formatRupiah(totalBayar)}</span></div>
@@ -243,6 +273,11 @@ const PrintStrukPerpanjanganPage = () => {
           <div class="row"><span>Tanggal Perpanjangan</span><span>${tanggalPerpanjangan}</span></div>
           <div class="row"><span>Jatuh Tempo Baru</span><span>${jatuhTempoBaru}</span></div>
           <hr />
+
+           <div class="center" style="font-size:10px; margin-top:6px;">
+              <div>* Biaya admin minimal Rp 5.000 (HP) dan Rp 10.000 (Emas/Perhiasan)</div>
+            </div>
+            
           <div class="center">
             <div>Terima kasih atas kepercayaan Anda!</div>
             <div>Gadai cepat, aman, dan terpercaya di</div>
@@ -271,6 +306,7 @@ const PrintStrukPerpanjanganPage = () => {
           <div>Pokok Pinjaman: {formatRupiah(pokok)}</div>
           <div>Jasa Baru: {formatRupiah(jasaBaru)}</div>
           <div>Denda: {formatRupiah(denda)}</div>
+          {penalty > 0 && <div>Penalty: {formatRupiah(penalty)}</div>}
           <div>Admin: {formatRupiah(admin)}</div>
           <hr />
           <div>Telat: {totalTelat} hari</div>
@@ -283,6 +319,7 @@ const PrintStrukPerpanjanganPage = () => {
         </div>
 
         <div style={{ marginTop: "8px", fontSize: "12px" }}>
+          <p>* Biaya admin minimal Rp 5.000 (HP) dan Rp 10.000 (Emas/Perhiasan)</p>
           <p>Terima kasih atas kepercayaan Anda!</p>
           <p>Gadai cepat, aman, dan terpercaya di</p>
           <p><b>CG GADAI.</b></p>

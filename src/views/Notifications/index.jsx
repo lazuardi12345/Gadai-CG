@@ -23,14 +23,14 @@ const NotificationsPage = () => {
 
   const [notifications, setNotifications] = useState([]);
   const [filtered, setFiltered] = useState([]);
-  const [lastIds, setLastIds] = useState([]); // untuk highlight notifikasi baru
+  const [lastIds, setLastIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  // fetch notifications
+ 
   const fetchNotifications = async () => {
     try {
       let url = '/notifications';
@@ -41,7 +41,7 @@ const NotificationsPage = () => {
       if (res.data.success) {
         setNotifications(res.data.data);
 
-        // highlight notifikasi baru
+ 
         const newIds = res.data.data.map(n => n.id);
         setLastIds(prev => {
           const diff = newIds.filter(id => !prev.includes(id));
@@ -57,14 +57,14 @@ const NotificationsPage = () => {
     }
   };
 
-  // initial fetch + polling setiap 5 detik
+
   useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 5000);
     return () => clearInterval(interval);
   }, [userRole]);
 
-  // filter search
+ 
   useEffect(() => {
     const filteredData = notifications.filter(n =>
       n.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||

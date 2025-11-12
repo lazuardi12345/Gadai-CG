@@ -44,17 +44,17 @@ const EditGadaiPerhiasanPage = () => {
     dokumen_pendukung: {},
   });
 
-  // Ambil data awal
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // endpoint perhiasan sesuai role
+
         const urlGet = userRole === "checker"
           ? `/checker/gadai-perhiasan/${id}`
           : `/gadai-perhiasan/${id}`;
 
-        // endpoint nasabah sesuai role
+
         const urlNasabah = userRole === "checker"
           ? `/checker/data-nasabah`
           : `/data-nasabah`;
