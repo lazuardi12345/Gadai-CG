@@ -14,27 +14,52 @@ const NotificationSection = () => {
   const userRole = (user?.role || '').toLowerCase();
   const [hasNewNotification, setHasNewNotification] = useState(false);
   const [loading, setLoading] = useState(false);
-  const lastNotifId = useRef(null); // simpan ID notifikasi terakhir
+  const lastNotifId = useRef(null);
+
+  // ======================
+  // PRELOAD SOUND
+  // ======================
+  // ✅ Gunakan useRef agar tidak buat objek audio baru setiap kali
+  const notifSound = useRef(new Audio('/asset/sounds/notif.mp3')); 
+  // path HARUS diawali '/' karena file di folder public (bukan relatif)
+
+  const playNotificationSound = () => {
+    try {
+      const audio = notifSound.current;
+      audio.currentTime = 0; // reset ke awal agar bisa diputar berulang
+      audio.volume = 0.7;
+      audio.play().catch(() => {
+        console.warn('Autoplay diblokir browser, user perlu interaksi dulu.');
+      });
+    } catch (err) {
+      console.error('Gagal memutar suara notif:', err);
+    }
+  };
 
   // ======================
   // FETCH NOTIFICATION
   // ======================
   const fetchNewNotification = async () => {
     try {
+      setLoading(true);
       let url = '/notifications';
+
+      // arahkan endpoint berdasarkan role
       if (userRole === 'checker') url = '/checker/notifications';
+      else if (userRole === 'hm') url = '/notifications';
       else if (userRole === 'petugas') url = '/petugas/notifications';
 
       const res = await axiosInstance.get(url);
-      if (res.data.success && res.data.data.length > 0) {
-        const latestId = res.data.data[0].id; // ambil ID notifikasi terbaru (asumsi urut desc)
 
-        // kalau pertama kali load, simpan ID-nya
+      if (res.data.success && res.data.data.length > 0) {
+        const latestId = res.data.data[0].id;
+
         if (!lastNotifId.current) {
           lastNotifId.current = latestId;
         } else if (latestId !== lastNotifId.current) {
-          // kalau ada ID baru dibanding sebelumnya → notifikasi baru!
+          // jika ada notifikasi baru
           setHasNewNotification(true);
+          playNotificationSound(); 
           lastNotifId.current = latestId;
         }
       }
@@ -47,7 +72,7 @@ const NotificationSection = () => {
 
   useEffect(() => {
     fetchNewNotification();
-    const interval = setInterval(fetchNewNotification, 5000);
+    const interval = setInterval(fetchNewNotification, 5000); // cek tiap 5 detik
     return () => clearInterval(interval);
   }, [userRole]);
 
@@ -55,8 +80,8 @@ const NotificationSection = () => {
   // HANDLE CLICK ICON
   // ======================
   const handleClick = () => {
-    setHasNewNotification(false); // hilangkan tanda merah
-    navigate('/notifications'); // buka halaman notifikasi
+    setHasNewNotification(false);
+    navigate('/notifications');
   };
 
   // ======================
