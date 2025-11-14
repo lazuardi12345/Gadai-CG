@@ -168,6 +168,14 @@ export default {
           url: '/notifications',
           icon: icons.NotificationsNoneOutlinedIcon,
           role: ['checker', 'hm', 'petugas']
+        },
+         {
+          id: 'Admin Page',
+          title: 'Laporan Admin',
+          type: 'item',
+          url: '/admin',
+          icon: icons.NotificationsNoneOutlinedIcon,
+          role: ['hm', 'admin']
         }
       ]
     }

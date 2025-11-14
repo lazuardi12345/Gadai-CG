@@ -64,6 +64,8 @@ const DetailApprovalHMPage = Loadable(lazy(() => import('views/HM/Approval/Detai
 const EditApprovalHMPage = Loadable(lazy(() => import('views/HM/Approval/EditApprovalHm')));
 
 const NotificationsPage = Loadable(lazy(() => import('views/Notifications/index')));
+const AdminLaporanPage = Loadable(lazy(() => import('views/Admin/index')));
+const AdminDetailPage = Loadable(lazy(() => import('views/Admin/detail')));
 
 
 
@@ -118,6 +120,8 @@ const MainRoutes = {
     { path: '/approval-hm-gadai-detail/:detailGadaiId', element: <DetailApprovalHMPage/> },
     { path: '/approval-hm-gadai-edit/:detailGadaiId', element: <EditApprovalHMPage/> },
     { path: '/notifications', element: <NotificationsPage/> },
+    { path: '/admin', element: <AdminLaporanPage/> },
+    { path: '/admin-detail/:detailGadaiId', element: <AdminDetailPage/> },
 
 
   ]
