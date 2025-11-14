@@ -30,12 +30,12 @@ const getFullDokumenUrl = (path) => {
 
 // Helper: warna status
 const getStatusColor = (status) => {
-  if (!status) return "#ccc"; // default abu-abu
+  if (!status) return "#ccc"; 
   const s = status.toLowerCase();
-  if (s.includes("approved")) return "#4caf50"; // hijau
-  if (s.includes("rejected")) return "#f44336"; // merah
-  if (s.includes("pending")) return "#ff9800"; // kuning
-  return "#ccc"; // default abu-abu
+  if (s.includes("approved")) return "#4caf50"; 
+  if (s.includes("rejected")) return "#f44336"; 
+  if (s.includes("pending")) return "#ff9800"; 
+  return "#ccc"; 
 };
 
 const DetailApprovalHMPage = () => {
@@ -121,9 +121,8 @@ const DetailApprovalHMPage = () => {
       Object.entries(dokumenObj).forEach(([key, val]) => {
         let url = null;
         if (typeof val === "string" && val) {
-          url = val.startsWith("http")
-            ? val
-            : `${window.location.origin}/${val}`;
+          url = getFullDokumenUrl(val);
+
         } else if (Array.isArray(val) && val.length > 0) {
           url = val[0].startsWith("http")
             ? val[0]
@@ -261,39 +260,6 @@ const DetailApprovalHMPage = () => {
             </Paper>
           </Box>
 
-          {/* BARANG */}
-          {dokumenList.length > 0 && (
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="h6" fontWeight={600} gutterBottom>
-                Dokumen Pendukung
-              </Typography>
-              <Grid container spacing={2}>
-                {dokumenList.map((d, i) => (
-                  <Grid item xs={12} sm={4} key={i}>
-                    <Typography sx={{ mb: 1, fontSize: 14, fontWeight: 500 }}>
-                      {d.key.replace(/_/g, " ").toUpperCase()}
-                    </Typography>
-                    <Box
-                      component="img"
-                      src={d.url}
-                      alt={d.key}
-                      sx={{
-                        width: "100%",
-                        maxHeight: 150,
-                        objectFit: "contain",
-                        borderRadius: 1,
-                        border: "1px solid #ccc",
-                        cursor: "pointer",
-                        "&:hover": { transform: "scale(1.05)" },
-                        transition: "transform 0.3s",
-                      }}
-                      onClick={() => setSelectedImage(d.url)}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
-            </Box>
-          )}
 
 
 

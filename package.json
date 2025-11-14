@@ -33,6 +33,7 @@
   "scripts": {
     "start": "vite",
     "build": "vite build",
+     "dev": "vite --host",
     "build-stage": "env-cmd -f .env.qa vite build",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",

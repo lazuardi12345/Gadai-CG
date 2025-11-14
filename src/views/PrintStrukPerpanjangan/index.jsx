@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useContext } from "react";
 import { useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { CircularProgress, Button, Box } from "@mui/material";
-import logo from "assets/images/CGadai.png";
+import logo from "assets/images/GadaiLogo.png";
 import { AuthContext } from "AuthContex/AuthContext";
 
 const PrintStrukPerpanjanganPage = () => {
@@ -220,74 +220,163 @@ const PrintStrukPerpanjanganPage = () => {
       break;
   }
 
-  // 🔹 Cetak
-  const handlePrint = () => {
-    const printWindow = window.open("", "", "width=400,height=600");
-    printWindow.document.write(printHTML());
-    printWindow.document.close();
-  };
+const handlePrint = () => {
+  const printWindow = window.open("", "", "width=400,height=600");
+  printWindow.document.write(`
+  <html>
+    <head>
+      <title>Struk Perpanjangan</title>
+      <style>
+        @media print {
+          @page {
+            size: 80mm auto;
+            margin: 0;
+          }
+          html, body {
+            width: 80mm;
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          body * {
+            box-sizing: border-box;
+          }
+        }
 
-  const printHTML = () => `
-    <html>
-      <head>
-        <title>Struk Perpanjangan</title>
-        <style>
-          @page { size: 80mm auto; margin:0; }
-          body { font-family: monospace; font-size:11px; margin:0; padding:0; }
-          .print-box { width:80mm; margin:0 auto; padding:6px; }
-          .center { text-align:center; }
-          .bold { font-weight:bold; }
-          img { display:block; margin:0 auto 6px auto; width:150px; }
-          .row { display:flex; justify-content:space-between; margin-bottom:2px; }
-          hr { border:none; border-top:1px dashed #000; margin:5px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="print-box">
-          <div class="center">
-            <img src="${logo}" alt="Logo" />
-            <div>No Transaksi</div>
-            <div class="bold">${detail?.no_gadai || "-"}</div>
-          </div>
+        html, body {
+          width: 80mm;
+          margin: 0;
+          padding: 0;
+          font-family: "Consolas", "Courier New", monospace;
+          font-size: 11px;
+          font-weight: 700; /* 🔹 Semua teks bold */
+          color: #000;
+          line-height: 1.25;
+        }
 
-          <div class="row"><span>Hari, Tanggal</span><span>${tanggalStr}</span></div>
-          <div class="row"><span>Waktu</span><span>${jamStr}</span></div>
-          <div class="row"><span>Petugas</span><span>${petugas}</span></div>
+        .print-box {
+          width: 100%;
+          padding: 2px 3px;
+        }
 
-          <div class="center bold" style="margin:6px 0;">PERPANJANGAN GADAI</div>
-          <div class="row"><span>Nama Barang</span><span>${barangNama}</span></div>
-          <div class="row"><span>${labelBarangDetail}</span><span>${barangDetail}</span></div>
-          <hr />
-          <div class="row"><span>Pokok Pinjaman</span><span>${formatRupiah(pokok)}</span></div>
-          <div class="row"><span>Jasa Baru</span><span>${formatRupiah(jasaBaru)}</span></div>
-          <div class="row"><span>Denda</span><span>${formatRupiah(denda)}</span></div>
-          ${penalty > 0 ? `<div class="row"><span>Penalty</span><span>${formatRupiah(penalty)}</span></div>` : ""}
-          <div class="row"><span>Admin</span><span>${formatRupiah(admin)}</span></div>
-          <hr />
-          <div class="row bold"><span>Total Bayar</span><span>${formatRupiah(totalBayar)}</span></div>
-          <hr />
-          <div class="row"><span>Telat</span><span>${totalTelat} hari</span></div>
-          <div class="row"><span>Periode Baru</span><span>${periodeBaruHari} hari</span></div>
-          <div class="row"><span>Tanggal Gadai</span><span>${detail?.tanggal_gadai}</span></div>
-          <div class="row"><span>Jatuh Tempo Lama</span><span>${jatuhTempoLama}</span></div>
-          <div class="row"><span>Tanggal Perpanjangan</span><span>${tanggalPerpanjangan}</span></div>
-          <div class="row"><span>Jatuh Tempo Baru</span><span>${jatuhTempoBaru}</span></div>
-          <hr />
+        .center { text-align: center; }
+        .bold { font-weight: 800; } /* 🔹 Extra bold untuk heading utama */
 
-           <div class="center" style="font-size:10px; margin-top:6px;">
-              <div>* Biaya admin minimal Rp 5.000 (HP) dan Rp 10.000 (Emas/Perhiasan)</div>
-            </div>
-            
-          <div class="center">
-            <div>Terima kasih atas kepercayaan Anda!</div>
-            <div>Gadai cepat, aman, dan terpercaya di</div>
-            <div class="bold">CG GADAI.</div>
-          </div>
+        img {
+          display: block;
+          margin: 0 auto 2px auto;
+          width: 110px;
+        }
+
+        hr {
+          border: none;
+          border-top: 1px dashed #000;
+          margin: 3px 0;
+        }
+
+        .row {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 1px;
+        }
+
+        pre {
+          margin: 0;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+
+        .footer {
+          font-size: 10px;
+          margin-top: 4px;
+          text-align: center;
+        }
+
+        .thanks {
+          margin-top: 4px;
+          text-align: center;
+        }
+
+        /* === FIX agar tidak ada spasi kosong bawah === */
+        @media print {
+          body::after { content: none !important; }
+          body {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            height: auto !important;
+            overflow: hidden !important;
+          }
+          .print-box {
+            margin-bottom: 0;
+            padding-bottom: 0;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="print-box">
+        <div class="center">
+          <img src="${logo}" alt="Logo" />
+          <div>No Transaksi</div>
+          <div class="bold">${detail?.no_gadai || "-"}</div>
         </div>
-        <script>window.onload = function(){window.print(); window.close();}</script>
-      </body>
-    </html>
-  `;
+
+        <div class="row"><span>Hari, Tanggal</span><span>${tanggalStr}</span></div>
+        <div class="row"><span>Waktu</span><span>${jamStr}</span></div>
+        <div class="row"><span>Petugas</span><span>${petugas}</span></div>
+
+        <div class="center bold" style="margin: 4px 0;">PERPANJANGAN GADAI</div>
+
+        <div class="row"><span>Nama Barang</span><span>${barangNama}</span></div>
+        <div class="row">
+          <span>${labelBarangDetail}</span>
+          <span><pre>${barangDetail}</pre></span>
+        </div>
+        <hr />
+
+        <div class="row"><span>Pokok Pinjaman</span><span>${formatRupiah(pokok)}</span></div>
+        <div class="row"><span>Jasa Baru</span><span>${formatRupiah(jasaBaru)}</span></div>
+        <div class="row"><span>Denda</span><span>${formatRupiah(denda)}</span></div>
+        ${penalty > 0 ? `<div class="row"><span>Penalty</span><span>${formatRupiah(penalty)}</span></div>` : ""}
+        <div class="row"><span>Admin</span><span>${formatRupiah(admin)}</span></div>
+        <hr />
+        <div class="row bold"><span>Total Bayar</span><span>${formatRupiah(totalBayar)}</span></div>
+        <hr />
+
+        <div class="row"><span>Telat</span><span>${totalTelat} hari</span></div>
+        <div class="row"><span>Periode Baru</span><span>${periodeBaruHari} hari</span></div>
+        <div class="row"><span>Tanggal Gadai</span><span>${detail?.tanggal_gadai}</span></div>
+        <div class="row"><span>Jatuh Tempo Lama</span><span>${jatuhTempoLama}</span></div>
+        <div class="row"><span>Tanggal Perpanjangan</span><span>${tanggalPerpanjangan}</span></div>
+        <div class="row"><span>Jatuh Tempo Baru</span><span>${jatuhTempoBaru}</span></div>
+        <hr />
+
+        <div class="footer">
+          * Biaya admin minimal Rp 5.000 (HP) dan Rp 10.000 (Emas/Perhiasan)
+        </div>
+
+        <div class="thanks">
+          <div class="bold">Terima kasih atas kepercayaan Anda!</div>
+          <div class="bold">Gadai cepat, aman, dan terpercaya di</div>
+          <div class="bold">CG GADAI.</div>
+        </div>
+      </div>
+
+      <script>
+        // delay ringan agar render selesai baru print
+        window.onload = () => setTimeout(() => {
+          window.print();
+          window.close();
+        }, 150);
+      </script>
+    </body>
+  </html>
+  `);
+  printWindow.document.close();
+};
+
+
 
   return (
     <Box sx={{ maxWidth: 400, mx: "auto", p: 2, textAlign: "center", fontFamily: "monospace" }}>

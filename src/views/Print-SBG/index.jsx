@@ -231,7 +231,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
             {hp.nama_barang}, {hp.merk}/{hp.type_hp}, {hp.grade}/{hp.imei}, {hp.ram}/{hp.rom}, {hp.warna}, {hp.kelengkapan}/{hp.kerusakan}, {hp.password}
           </SafeText>
           {/* Tanda tangan */}
-          <SafeText style={{ position: "absolute", top: 239, left: 60, fontSize: 9 }}>
+          <SafeText style={{ position: "absolute", top: 239, left: 46, fontSize: 7, }}>
             {nasabah.nama_lengkap}
           </SafeText>
         </View>

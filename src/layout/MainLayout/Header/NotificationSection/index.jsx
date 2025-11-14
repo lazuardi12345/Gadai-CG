@@ -16,17 +16,13 @@ const NotificationSection = () => {
   const [loading, setLoading] = useState(false);
   const lastNotifId = useRef(null);
 
-  // ======================
-  // PRELOAD SOUND
-  // ======================
-  // ✅ Gunakan useRef agar tidak buat objek audio baru setiap kali
   const notifSound = useRef(new Audio('/asset/sounds/notif.mp3')); 
-  // path HARUS diawali '/' karena file di folder public (bukan relatif)
+
 
   const playNotificationSound = () => {
     try {
       const audio = notifSound.current;
-      audio.currentTime = 0; // reset ke awal agar bisa diputar berulang
+      audio.currentTime = 0;
       audio.volume = 0.7;
       audio.play().catch(() => {
         console.warn('Autoplay diblokir browser, user perlu interaksi dulu.');

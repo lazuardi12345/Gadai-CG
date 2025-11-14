@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { CircularProgress, Button, Box } from "@mui/material";
 import { AuthContext } from "AuthContex/AuthContext";
-import logo from "assets/images/CGadai.png";
+import logo from "assets/images/GadaiLogo.png";
 
 const PrintStrukPage = () => {
   const { id } = useParams();
@@ -27,7 +27,7 @@ const PrintStrukPage = () => {
     }
   };
 
-  // 🔹 Fetch Data
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -202,82 +202,155 @@ const PrintStrukPage = () => {
     labelBarangDetail = "Detail Barang";
   }
 
- 
-  const handlePrint = () => {
-    const printWindow = window.open("", "", "width=400,height=600");
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Struk Gadai</title>
-          <style>
-            @page { size: 80mm auto; margin: 0; }
-            body { font-family: monospace; font-size: 11px; margin: 0; padding: 0; text-align: left; }
-            .print-box { width: 80mm; margin: 0 auto; padding: 6px; }
-            .center { text-align: center; }
-            img { display: block; margin: 15 auto 9px auto; width: 150px; }
-            hr { border: none; border-top: 1px dashed #000; margin: 5px 0; }
-            .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
-            .label { text-align: left; }
-            .value { text-align: right; }
-            .bold { font-weight: bold; }
-            pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
-          </style>
-        </head>
-        <body>
-          <div class="print-box">
-            <div class="center">
-              <img src="${logo}" alt="Logo" />
-              <div>No Transaksi</div>
-              <div class="bold">${detail?.no_gadai || "-"}</div>
-            </div>
 
-            <div class="row"><span class="label">Hari, Tanggal</span><span class="value">${tanggalStr}</span></div>
-            <div class="row"><span class="label">Waktu</span><span class="value">${jamStr}</span></div>
-            <div class="row"><span class="label">Petugas</span><span class="value">${petugas}</span></div>
-
-            <div class="center bold" style="margin: 6px 0;">TRANSAKSI GADAI</div>
-
-            <div class="row"><span class="label">Harga Taksiran</span><span class="value">${formatRupiah(detail?.taksiran)}</span></div>
-            <div class="row"><span class="label">Harga Pinjaman</span><span class="value">${formatRupiah(detail?.uang_pinjaman)}</span></div>
-            <div class="row"><span class="label">Barang Gadai</span><span class="value">${typeNama}</span></div>
-            <hr />
-
-            <div class="row"><span class="label">Nama Barang</span><span class="value">${barangNama}</span></div>
-            <div class="row"><span class="label">${labelBarangDetail}</span><span class="value"><pre>${barangDetail}</pre></span></div>
-            <hr />
-
-            <div class="row"><span class="label">Pokok Pinjaman</span><span class="value">${formatRupiah(pinjaman)}</span></div>
-            <div class="row"><span class="label">Jasa Sewa (${jenisSkema} ${(persenJasa * 100).toFixed(1)}%)</span><span class="value">${formatRupiah(jasaSewa)}</span></div>
-            <div class="row"><span class="label">Administrasi</span><span class="value">${formatRupiah(admin)}</span></div>
-            <div class="row"><span class="label">Asuransi</span><span class="value">${formatRupiah(asuransi)}</span></div>
-            <div class="row bold"><span class="label">Total Diterima</span><span class="value">${formatRupiah(totalDiterima)}</span></div>
-            <hr />
-
-            <div class="row"><span class="label">Tanggal Gadai</span><span class="value">${detail?.tanggal_gadai || "-"}</span></div>
-            <div class="row"><span class="label">Jatuh Tempo</span><span class="value">${detail?.jatuh_tempo || "-"}</span></div>
-            <hr />
-
-            <div class="center" style="font-size:10px; margin-top:6px;">
-              <div>* Biaya admin minimal Rp 5.000 (HP) dan Rp 10.000 (Emas/Perhiasan)</div>
-            </div>
-
-            <div class="center" style="margin-top:6px;">
-              <div>Terima kasih atas kepercayaan Anda!</div>
-              <div>Gadai cepat, aman, dan terpercaya di</div>
-              <div class="bold">CG GADAI.</div>
-            </div>
-          </div>
-          <script>
-            window.onload = function() {
-              window.print();
-              window.close();
+const handlePrint = () => {
+  const printWindow = window.open("", "", "width=400,height=600");
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Struk Gadai</title>
+        <style>
+          /* Atur untuk print thermal */
+          @media print {
+            @page { 
+              size: 80mm auto; 
+              margin: 0; 
             }
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-  };
+
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 80mm;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            * {
+              margin: 0 !important;
+              padding: 0 !important;
+              box-sizing: border-box;
+            }
+
+            body::before,
+            body::after { 
+              content: none !important; 
+              display: none !important; 
+            }
+
+            .print-box {
+              margin: 0 !important;
+              padding: 0 !important;
+              transform: translateY(-5px); /* geser konten naik supaya pas */
+            }
+
+            img {
+              display: block;
+              margin: 0 auto !important;
+              padding: 0 !important;
+              width: 120px;
+            }
+
+            .row {
+              display: flex;
+              justify-content: space-between;
+              margin: 1px 0 !important;
+            }
+
+            .center {
+              text-align: center;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+
+            .bold { font-weight: 700; }
+
+            pre {
+              margin: 0 !important;
+              white-space: pre-wrap;
+              word-break: break-word;
+            }
+
+            hr {
+              border: none;
+              border-top: 1px dashed #000;
+              margin: 2px 0 !important;
+            }
+
+            .footer, .thanks {
+              text-align: center;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+          }
+
+          /* Font dan style umum */
+          html, body {
+            font-family: "Courier New", monospace;
+            font-size: 11px;
+            font-weight: 600;
+            color: #000;
+            line-height: 1.25;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="print-box">
+          <div class="center">
+            <img src="${logo}" alt="Logo" />
+            <div>No Transaksi</div>
+            <div class="bold">${detail?.no_gadai || "-"}</div>
+          </div>
+
+          <div class="row"><span>Hari, Tanggal</span><span>${tanggalStr}</span></div>
+          <div class="row"><span>Waktu</span><span>${jamStr}</span></div>
+          <div class="row"><span>Petugas</span><span>${petugas}</span></div>
+
+          <div class="center bold" style="margin: 4px 0;">TRANSAKSI GADAI</div>
+
+          <div class="row"><span>Harga Taksiran</span><span>${formatRupiah(detail?.taksiran)}</span></div>
+          <div class="row"><span>Harga Pinjaman</span><span>${formatRupiah(detail?.uang_pinjaman)}</span></div>
+          <div class="row"><span>Barang Gadai</span><span>${typeNama}</span></div>
+          <hr />
+
+          <div class="row"><span>Nama Barang</span><span>${barangNama}</span></div>
+          <div class="row"><span>${labelBarangDetail}</span><span><pre>${barangDetail}</pre></span></div>
+          <hr />
+
+          <div class="row"><span>Pokok Pinjaman</span><span>${formatRupiah(pinjaman)}</span></div>
+          <div class="row"><span>Jasa Sewa (${jenisSkema} ${(persenJasa * 100).toFixed(1)}%)</span><span>${formatRupiah(jasaSewa)}</span></div>
+          <div class="row"><span>Administrasi</span><span>${formatRupiah(admin)}</span></div>
+          <div class="row"><span>Asuransi</span><span>${formatRupiah(asuransi)}</span></div>
+          <div class="row bold"><span>Total Diterima</span><span>${formatRupiah(totalDiterima)}</span></div>
+          <hr />
+
+          <div class="row"><span>Tanggal Gadai</span><span>${detail?.tanggal_gadai || "-"}</span></div>
+          <div class="row"><span>Jatuh Tempo</span><span>${detail?.jatuh_tempo || "-"}</span></div>
+          <hr />
+
+          <div class="footer">
+            * Biaya admin minimal Rp 5.000 (HP) dan Rp 10.000 (Emas/Perhiasan)
+          </div>
+
+          <div class="thanks">
+            <div>Terima kasih atas kepercayaan Anda!</div>
+            <div>Gadai cepat, aman, dan terpercaya di</div>
+            <div class="bold">CG GADAI.</div>
+          </div>
+        </div>
+
+        <script>
+          window.onload = () => {
+            window.print();
+            window.close();
+          };
+        </script>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+};
+
+
 
   return (
     <Box sx={{ maxWidth: 400, margin: "0 auto", padding: 2, textAlign: "center" }}>

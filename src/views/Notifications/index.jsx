@@ -7,45 +7,27 @@ import {
 import axiosInstance from 'api/axiosInstance';
 import { AuthContext } from 'AuthContex/AuthContext';
 
-const getVisibleCatatan = (notif) => {
-
-  if (userRole === 'hm' && notif.role === 'checker') return '-';
-
-  if (userRole === 'checker' && notif.role === 'hm') return '-';
-
-  return notif.catatan || '-';
-};
-
-
 const NotificationsPage = () => {
   const { user } = useContext(AuthContext);
   const userRole = (user?.role || '').toLowerCase();
 
   const [notifications, setNotifications] = useState([]);
   const [filtered, setFiltered] = useState([]);
-  const [lastIds, setLastIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
- 
+  // === Ambil data dari backend ===
   const fetchNotifications = async () => {
     try {
-      let url = '/notifications';
-      if (userRole === 'checker') url = '/checker/notifications';
-      else if (userRole === 'petugas') url = '/petugas/notifications';
-
-      const res = await axiosInstance.get(url);
+      const res = await axiosInstance.get('/notifications');
       if (res.data.success) {
-        setNotifications(res.data.data);
-
- 
-        const newIds = res.data.data.map(n => n.id);
-        setLastIds(prev => {
-          const diff = newIds.filter(id => !prev.includes(id));
-          return [...prev, ...diff];
+        setNotifications(prev => {
+          // merge biar data lama gak ilang (hanya tambah yang baru)
+          const newOnes = res.data.data.filter(n => !prev.some(p => p.id === n.id));
+          return [...prev, ...newOnes].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         });
       } else {
         setError(res.data.message || 'Gagal mengambil notifikasi');
@@ -57,14 +39,13 @@ const NotificationsPage = () => {
     }
   };
 
-
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 5000);
+    const interval = setInterval(fetchNotifications, 5000); // auto refresh tiap 5 detik
     return () => clearInterval(interval);
   }, [userRole]);
 
- 
+  // === Filter pencarian ===
   useEffect(() => {
     const filteredData = notifications.filter(n =>
       n.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -72,36 +53,41 @@ const NotificationsPage = () => {
       (n.nasabah || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (n.marketing || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
-
     setFiltered(filteredData);
     setPage(0);
   }, [searchTerm, notifications]);
 
+  // === Pagination ===
   const handleChangePage = (_, newPage) => setPage(newPage);
   const handleChangeRowsPerPage = (e) => {
     setRowsPerPage(parseInt(e.target.value, 10));
     setPage(0);
   };
 
+  // === Warna status ===
   const getStatusColor = (status) => {
     if (!status) return 'default';
-    if (status.includes('approved')) return 'success';
-    if (status.includes('rejected')) return 'error';
+    if (status.toLowerCase().includes('approved')) return 'success';
+    if (status.toLowerCase().includes('rejected')) return 'error';
     return 'default';
   };
 
-  if (loading) return (
-    <Stack alignItems="center" justifyContent="center" sx={{ height: '80vh' }}>
-      <CircularProgress />
-    </Stack>
-  );
+  // === Loading/Error UI ===
+  if (loading)
+    return (
+      <Stack alignItems="center" justifyContent="center" sx={{ height: '80vh' }}>
+        <CircularProgress />
+      </Stack>
+    );
 
-  if (error) return (
-    <Typography color="error" variant="h6" align="center" sx={{ mt: 2 }}>
-      Error: {error}
-    </Typography>
-  );
+  if (error)
+    return (
+      <Typography color="error" variant="h6" align="center" sx={{ mt: 2 }}>
+        Error: {error}
+      </Typography>
+    );
 
+  // === Render utama ===
   return (
     <Card>
       <CardHeader
@@ -137,29 +123,29 @@ const NotificationsPage = () => {
                 {(rowsPerPage > 0
                   ? filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                   : filtered
-                ).map((n, idx) => {
-                  const isNew = !lastIds.includes(n.id);
-                  return (
-                    <TableRow
-                      key={n.id}
-                      hover
-                      sx={{ backgroundColor: isNew ? '#fff2f0' : 'inherit', transition: '0.3s' }}
-                    >
-                      <TableCell align="center">{page * rowsPerPage + idx + 1}</TableCell>
-                      <TableCell align="center">
-                        <Chip label={n.status || '-'} color={getStatusColor(n.status)} size="small" />
+                ).map((n, idx) => (
+                  <TableRow key={n.id} hover>
+                    <TableCell align="center">{page * rowsPerPage + idx + 1}</TableCell>
+                    <TableCell align="center">
+                      <Chip label={n.status || '-'} color={getStatusColor(n.status)} size="small" />
+                    </TableCell>
+                    {userRole !== 'petugas' && (
+                      <TableCell sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                        {n.catatan || '-'}
                       </TableCell>
-                      {userRole !== 'petugas' && (
-                        <TableCell sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                          {n.catatan || '-'}
-                        </TableCell>
-                      )}
-                      <TableCell sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{n.nasabah || '-'}</TableCell>
-                      <TableCell sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{n.marketing || '-'}</TableCell>
-                      <TableCell align="center">{new Date(n.created_at).toLocaleString()}</TableCell>
-                    </TableRow>
-                  );
-                })}
+                    )}
+                    <TableCell sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                      {n.nasabah || '-'}
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                      {n.marketing || '-'}
+                    </TableCell>
+                    <TableCell align="center">
+                      {new Date(n.created_at).toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+
                 {filtered.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} align="center">Tidak ada notifikasi</TableCell>
@@ -169,6 +155,7 @@ const NotificationsPage = () => {
             </Table>
           </Box>
         </TableContainer>
+
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"
