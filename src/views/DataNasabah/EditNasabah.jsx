@@ -108,6 +108,7 @@ const EditNasabahPage = () => {
       formData.append('nik', nasabah.nik);
       formData.append('alamat', nasabah.alamat || '');
       formData.append('no_hp', nasabah.no_hp || '');
+      formData.append('no_rek', nasabah.no_rek || '');
       if (nasabah.foto_ktp_file instanceof File) {
         formData.append('foto_ktp', nasabah.foto_ktp_file);
       }
@@ -196,7 +197,7 @@ const EditNasabahPage = () => {
 
                <TextField
                 label="Nomor Rekening"
-                name="nomor rekening"
+                name="no_rek"
                 value={nasabah.no_rek}
                 onChange={handleChange}
                 fullWidth

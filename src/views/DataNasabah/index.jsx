@@ -68,7 +68,7 @@ const DataNasabahPage = () => {
     const [modalFotoSrc, setModalFotoSrc] = useState("");
 
     const [openTambahModal, setOpenTambahModal] = useState(false);
-    
+
     // REVISI 1: Tambahkan 'no_rek' ke state formData
     const [formData, setFormData] = useState({
         nama_lengkap: "",
@@ -106,18 +106,18 @@ const DataNasabahPage = () => {
     const handleSearchChange = (e) => setSearchTerm(e.target.value);
 
     const handleOpenModal = (fotoUrl) => { setModalFotoSrc(fotoUrl); setOpenModal(true); };
-    
-    const handleOpenTambahModal = () => { 
+
+    const handleOpenTambahModal = () => {
         // Reset form data saat modal dibuka
-        setFormData({ 
-            nama_lengkap: "", 
-            nik: "", 
-            alamat: "", 
-            no_hp: "", 
+        setFormData({
+            nama_lengkap: "",
+            nik: "",
+            alamat: "",
+            no_hp: "",
             no_rek: "", // <-- Reset No Rek
-            foto_ktp: null 
-        }); 
-        setOpenTambahModal(true); 
+            foto_ktp: null
+        });
+        setOpenTambahModal(true);
     };
 
     const handleFormChange = (e) => {
@@ -129,7 +129,7 @@ const DataNasabahPage = () => {
     const handleSubmit = async () => {
         // REVISI 2: Tambahkan no_rek ke destructuring dan validasi lokal
         const { nama_lengkap, nik, alamat, no_hp, no_rek, foto_ktp } = formData;
-        
+
         // Asumsi: no_rek bersifat nullable (tidak wajib diisi) sesuai migrasi yang Anda buat
         if (!nama_lengkap || !nik || !alamat || !no_hp || !foto_ktp) {
             // Jika foto_ktp wajib:
@@ -149,9 +149,9 @@ const DataNasabahPage = () => {
         try {
             setSubmitting(true);
             const res = await axiosInstance.post(apiUrl, fd, { headers: { "Content-Type": "multipart/form-data" } });
-            if (res.data.success) { 
-                setOpenTambahModal(false); 
-                fetchData(); 
+            if (res.data.success) {
+                setOpenTambahModal(false);
+                fetchData();
             }
             else {
                 // Menangani error dari backend, termasuk error validasi
@@ -159,8 +159,8 @@ const DataNasabahPage = () => {
                 alert(errorMessage);
             }
         } catch (err) {
-             const errorMessage = err.response?.data?.message || err.message || "Terjadi kesalahan server";
-             alert(errorMessage);
+            const errorMessage = err.response?.data?.message || err.message || "Terjadi kesalahan server";
+            alert(errorMessage);
         } finally { setSubmitting(false); }
     };
 
@@ -207,8 +207,8 @@ const DataNasabahPage = () => {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {(rowsPerPage > 0 
-                                ? nasabahData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage) 
+                            {(rowsPerPage > 0
+                                ? nasabahData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                                 : nasabahData
                             ).map((nasabah, index) => (
                                 <TableRow key={nasabah.id} hover>
@@ -228,8 +228,7 @@ const DataNasabahPage = () => {
                                             <IconButton color="secondary" onClick={() => navigate(`/detail-nasabah/${nasabah.id}`)}>
                                                 <VisibilityIcon />
                                             </IconButton>
-                                            {/* Petugas dan HM/Admin bisa edit */}
-                                            {role !== "checker" && (
+                                            {(role === "checker" || role === "hm") && (
                                                 <IconButton color="primary" onClick={() => navigate(`/edit-nasabah/${nasabah.id}`)}>
                                                     <EditIcon />
                                                 </IconButton>
@@ -308,7 +307,7 @@ const DataNasabahPage = () => {
                         <TextField label="No HP" name="no_hp" value={formData.no_hp} onChange={handleFormChange} required />
                         {/* REVISI 6: Tambahkan input No Rek */}
                         <TextField label="No Rekening" name="no_rek" value={formData.no_rek} onChange={handleFormChange} helperText="Kosongkan jika tidak ada/belum memiliki" />
-                        
+
                         <Button variant="contained" component="label">
                             Upload Foto KTP ({formData.foto_ktp ? 'Sudah Ada' : 'Wajib Diisi'})
                             <input type="file" hidden name="foto_ktp" onChange={handleFormChange} />
