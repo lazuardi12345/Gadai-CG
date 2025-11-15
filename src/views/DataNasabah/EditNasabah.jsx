@@ -194,6 +194,14 @@ const EditNasabahPage = () => {
                 fullWidth
               />
 
+               <TextField
+                label="Nomor Rekening"
+                name="nomor rekening"
+                value={nasabah.no_rek}
+                onChange={handleChange}
+                fullWidth
+              />
+
               <Stack spacing={1}>
                 <Button variant="contained" component="label" startIcon={<PhotoIcon />}>
                   Upload Foto KTP

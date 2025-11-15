@@ -15,7 +15,7 @@ import {
 import templateBg from "assets/images/SBG-HP.jpg";
 import { AuthContext } from "AuthContex/AuthContext";
 
-// ===== REGISTER FONT =====
+
 Font.register({
     family: "Roboto",
     fonts: [
@@ -29,35 +29,32 @@ Font.register({
     ],
 });
 
-// ===== HELPER FUNCTIONS =====
+
 const cleanText = (text) => {
     if (!text) return "-";
 
-    // Kalau array → gabung jadi string
+    
     if (Array.isArray(text)) {
         text = text.join(", ");
     }
 
-    // Kalau string JSON (misalnya '["Dus","Nota"]') → parse dulu
+    
     if (typeof text === "string") {
         try {
             const parsed = JSON.parse(text);
             if (Array.isArray(parsed)) text = parsed.join(", ");
         } catch {
-            // biarkan text apa adanya kalau bukan JSON valid
+            
         }
     }
 
     return String(text)
-        .replace(/\s{2,}/g, " ") // hilangkan spasi ganda
-        .replace(/\/\s*\//g, "/") // hilangkan slash ganda
+        .replace(/\s{2,}/g, " ") 
+        .replace(/\/\s*\//g, "/") 
         .trim();
 };
 
-/**
- * Fungsi baru untuk memformat detail HP secara kondisional, 
- * menghilangkan pemisah ganda atau pemisah yang tidak perlu.
- */
+
 const formatHpDetails = (hp) => {
     if (!hp) return "-";
 

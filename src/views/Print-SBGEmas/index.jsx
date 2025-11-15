@@ -29,11 +29,10 @@ Font.register({
     ],
 });
 
-// === Konversi ukuran mm → pt ===
+
 const DESIGN_WIDTH_PT = 187 * 2.83465;
 const DESIGN_HEIGHT_PT = 263 * 2.83465;
 
-// === Helper ===
 const formatRupiah = (number) => {
     if (!number) return "-";
     return new Intl.NumberFormat("id-ID", {
@@ -90,7 +89,7 @@ const toText = (value) => {
     if (!value) return "-";
 
     if (Array.isArray(value)) {
-        // Gabungkan array menjadi string, lalu hilangkan spasi ganda, dll.
+    
         return value.filter(Boolean).map(String).join(", ");
     }
 
@@ -107,20 +106,17 @@ const toText = (value) => {
     return String(value);
 };
 
-/**
- * Fungsi untuk memformat detail item (perhiasan/emas) secara kondisional, 
- * menghilangkan pemisah ganda atau pemisah yang tidak perlu.
- */
+
 const formatItemDetails = (item, typeDisplay) => {
     if (!item) return "-";
     
-    // 1. Gabungkan Kelengkapan (sudah ditangani oleh toText, tapi kita pastikan filternya)
+
     const kelengkapanText = toText(item.kelengkapan);
 
-    // 2. Gabungkan Karat/Berat
+
     const karatBerat = [toText(item.karat), toText(item.berat)].filter(text => text !== "-").join("/");
 
-    // 3. Buat array dari semua bagian yang harus dipisahkan oleh koma
+
     const parts = [
         item.nama_barang, 
         typeDisplay, 
@@ -128,17 +124,17 @@ const formatItemDetails = (item, typeDisplay) => {
         karatBerat, 
         item.kode_cap, 
         item.potongan_batu
-    ].map(toText).filter(text => text !== "-"); // Filter nilai "-" hasil dari toText
+    ].map(toText).filter(text => text !== "-"); 
 
-    // 4. Gabungkan semua bagian yang ada dengan koma dan spasi
+
     return parts.join(", ");
 };
 
 
-// === Komponen PDF ===
+
 const SuratBuktiGadaiPDF = ({ data }) => {
     const nasabah = data?.nasabah || {};
-    // Ambil data barang dari salah satu field yang ada
+   
     const item = data?.perhiasan || data?.logam_mulia || data?.retro || {};
     const typeDisplay =
         item.type_retro || item.type_logam_mulia || item.type_perhiasan || "";
@@ -149,7 +145,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                 size={[DESIGN_WIDTH_PT, DESIGN_HEIGHT_PT]}
                 style={{ position: "relative", padding: 0, fontFamily: "Roboto" }}
             >
-                {/* Background */}
+             
                 <Image
                     src={templateBg}
                     style={{
@@ -161,7 +157,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                     }}
                 />
 
-                {/* Overlay Text */}
+                
                 <View
                     style={{
                         position: "absolute",
@@ -171,7 +167,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         height: "100%",
                     }}
                 >
-                    {/* No Gadai Utama */}
+            
                     <Text
                         style={{
                             position: "absolute",
@@ -183,7 +179,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                     >
                         {data.no_gadai}
                     </Text>
-                    {/* Data Nasabah */}
+             
                     <Text
                         style={{ position: "absolute", top: 98, left: 95, fontSize: 7 }}
                     >
@@ -210,7 +206,6 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {nasabah.no_hp}
                     </Text>
 
-                    {/* Tanggal */}
                     <Text
                         style={{
                             position: "absolute",
@@ -234,7 +229,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {data.jatuh_tempo}
                     </Text>
 
-                    {/* Barang (Kiri Bawah) */}
+              
                     <Text
                         style={{ position: "absolute", top: 158, left: 95, fontSize: 7 }}
                     >
@@ -265,7 +260,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {toText(item.potongan_batu)}
                     </Text>
 
-                    {/* Nilai Tak. & Pinjaman */}
+               
                     <Text
                         style={{
                             position: "absolute",
@@ -302,7 +297,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {terbilang(data.uang_pinjaman)} Rupiah
                     </Text>
 
-                    {/* Tanda tangan */}
+                
                     <Text
                         style={{
                             position: "absolute",
@@ -317,7 +312,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {nasabah.nama_lengkap}
                     </Text>
                     
-                    {/* No Gadai Barcode Area */}
+          
                     <Text
                         style={{
                             position: "absolute",
@@ -329,8 +324,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                     >
                         {data.no_gadai}
                     </Text>
-                    
-                    {/* DETAIL BARANG KANAN (SUDAH DIPERBAIKI) */}
+       
                     <Text
                         style={{
                             position: "absolute",
@@ -350,7 +344,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
     );
 };
 
-// === Page Component ===
+
 const PrintSuratGadaiEmasPage = () => {
     const { id } = useParams();
     const { user } = useContext(AuthContext);
@@ -371,7 +365,7 @@ const PrintSuratGadaiEmasPage = () => {
             const res = await axiosInstance.get(url);
             setDataGadai(res.data.data);
         } catch (err) {
-            console.error("❌ Gagal memuat data:", err);
+            console.error(" Gagal memuat data:", err);
         } finally {
             setLoading(false);
         }
@@ -400,7 +394,7 @@ const PrintSuratGadaiEmasPage = () => {
     return (
         <Box sx={{ p: 3, textAlign: "center" }}>
             <Button variant="contained" color="primary" onClick={handlePrintPDF}>
-                🖨️ Cetak / Download PDF
+               Cetak / Download PDF
             </Button>
 
             <Box mt={2}>
