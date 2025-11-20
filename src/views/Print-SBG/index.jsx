@@ -60,19 +60,19 @@ const formatHpDetails = (hp) => {
 
     const data = [
         hp.nama_barang,
-        // Pasangan Merk/Type
+
         [hp.merk, hp.type_hp].filter(Boolean).join("/"),
-        // Pasangan Grade/IMEI
+
         [hp.grade, hp.imei].filter(Boolean).join("/"),
-        // Pasangan RAM/ROM
+
         [hp.ram, hp.rom].filter(Boolean).join("/"),
         hp.warna,
-        // Pasangan Kelengkapan/Kerusakan
+    
         [hp.kelengkapan, hp.kerusakan].filter(Boolean).join("/"),
         hp.password
     ];
 
-    // Gabungkan hanya item yang tidak kosong (setelah di-cleanText) dengan koma dan spasi
+
     return data.map(cleanText).filter(text => text !== "-").join(", ");
 };
 

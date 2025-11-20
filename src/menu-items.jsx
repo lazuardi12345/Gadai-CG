@@ -176,6 +176,15 @@ export default {
           url: '/admin',
           icon: icons.NotificationsNoneOutlinedIcon,
           role: ['hm', 'admin']
+        },
+
+        {
+          id: 'Pelelangan',
+          title: 'Data Lelang',
+          type: 'item',
+          url: '/pelelangan',
+          icon: icons.NotificationsNoneOutlinedIcon,
+          role: ['hm', 'petugas', 'checker']
         }
       ]
     }

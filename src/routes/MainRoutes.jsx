@@ -68,7 +68,7 @@ const AdminLaporanPage = Loadable(lazy(() => import('views/Admin/index')));
 const AdminDetailPage = Loadable(lazy(() => import('views/Admin/detail')));
 
 
-
+const PelelanganPage = Loadable(lazy(() => import('views/Pelelangan/index')));
 
 // ==============================|| MAIN ROUTES ||============================== //
 const MainRoutes = {
@@ -122,6 +122,7 @@ const MainRoutes = {
     { path: '/notifications', element: <NotificationsPage/> },
     { path: '/admin', element: <AdminLaporanPage/> },
     { path: '/admin-detail/:detailGadaiId', element: <AdminDetailPage/> },
+     { path: '/pelelangan', element: <PelelanganPage/> },
 
 
   ]

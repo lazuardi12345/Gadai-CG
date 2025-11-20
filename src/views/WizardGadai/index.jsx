@@ -226,6 +226,9 @@ const GadaiWizardPage = () => {
               <TextField label="No HP" name="no_hp" value={nasabah.no_hp} onChange={handleNasabahChange} fullWidth size="small" />
             </Grid>
             <Grid item xs={12} sm={6}>
+              <TextField label="No Rekening" name="no_rek" value={nasabah.no_rek} onChange={handleNasabahChange} fullWidth size="small" />
+            </Grid>
+            <Grid item xs={12} sm={6}>
               <Stack spacing={1}>
                 <Typography variant="subtitle2">Upload Foto KTP</Typography>
                 <Button variant="contained" component="label" sx={{ width: "fit-content" }}>

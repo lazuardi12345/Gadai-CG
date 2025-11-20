@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useRef } from 'react';
 import {
     Card, CardHeader, CardContent, Divider, Table, TableContainer,
     TableHead, TableBody, TableRow, TableCell, TablePagination,
@@ -19,50 +19,55 @@ const NotificationsPage = () => {
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
-    // === Penentuan Endpoint Notifikasi berdasarkan Role ===
+    // Audio notifikasi
+    const notifSound = useRef(new Audio('/asset/sounds/notif.mp3'));
+    const lastNotifIds = useRef([]);
+
     const notificationEndpoint = (() => {
         if (userRole === 'checker') return '/checker/notifications';
         if (userRole === 'petugas') return '/petugas/notifications';
-        // Admin, HM, atau lainnya menggunakan default '/notifications'
         return '/notifications'; 
     })();
 
-    // === Ambil data dari backend ===
     const fetchNotifications = async () => {
         try {
-            const res = await axiosInstance.get(notificationEndpoint); 
-
+            const res = await axiosInstance.get(notificationEndpoint);
             if (res.data.success) {
-                setNotifications(prev => {
-                    // Merge: hanya tambahkan data baru yang belum ada (berdasarkan ID)
-                    const newOnes = res.data.data.filter(n => !prev.some(p => p.id === n.id));
-                    // Gabungkan data lama dan baru, kemudian urutkan berdasarkan created_at (terbaru di atas)
-                    return [...prev, ...newOnes].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                });
+                const newData = res.data.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+                // ==== Deteksi notifikasi baru untuk bunyi ====
+                const currentIds = newData.map(n => n.id);
+                const hasNew = currentIds.some(id => !lastNotifIds.current.includes(id));
+                if (hasNew && lastNotifIds.current.length > 0) {
+                    // putar suara hanya jika bukan fetch pertama
+                    try {
+                        const audio = notifSound.current;
+                        audio.currentTime = 0;
+                        audio.volume = 0.7;
+                        audio.play().catch(() => console.warn('Autoplay diblokir browser'));
+                    } catch (err) {
+                        console.error('Gagal memutar suara notif:', err);
+                    }
+                }
+                lastNotifIds.current = currentIds; // update lastNotifIds
+
+                setNotifications(newData);
             } else {
                 setError(res.data.message || 'Gagal mengambil notifikasi');
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Terjadi kesalahan server');
-        } finally {
-            // Kita atur loading=false di useEffect setelah fetch pertama
         }
     };
 
     useEffect(() => {
-        // Fetch pertama untuk inisialisasi dan menghilangkan loading spinner
         setLoading(true);
-        fetchNotifications().then(() => setLoading(false)).catch(() => setLoading(false));
+        fetchNotifications().then(() => setLoading(false));
 
-        // Auto refresh tiap 5 detik
-        const interval = setInterval(fetchNotifications, 5000); 
-        
-        // Cleanup interval saat komponen di-unmount atau userRole berubah
+        const interval = setInterval(fetchNotifications, 5000); // cek tiap 5 detik
         return () => clearInterval(interval);
-        
     }, [userRole, notificationEndpoint]);
 
-    // === Filter pencarian ===
     useEffect(() => {
         const filteredData = notifications.filter(n =>
             n.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -74,14 +79,12 @@ const NotificationsPage = () => {
         setPage(0);
     }, [searchTerm, notifications, userRole]);
 
-    // === Pagination ===
     const handleChangePage = (_, newPage) => setPage(newPage);
     const handleChangeRowsPerPage = (e) => {
         setRowsPerPage(parseInt(e.target.value, 10));
         setPage(0);
     };
 
-    // === Warna status ===
     const getStatusColor = (status) => {
         if (!status) return 'default';
         const lowerStatus = status.toLowerCase();
@@ -90,7 +93,6 @@ const NotificationsPage = () => {
         return 'default';
     };
 
-    // === Loading/Error UI ===
     if (loading)
         return (
             <Stack alignItems="center" justifyContent="center" sx={{ height: '80vh' }}>
@@ -105,7 +107,6 @@ const NotificationsPage = () => {
             </Typography>
         );
 
-    // === Render utama ===
     return (
         <Card>
             <CardHeader
@@ -130,14 +131,12 @@ const NotificationsPage = () => {
                                 <TableRow>
                                     <TableCell align="center">No</TableCell>
                                     <TableCell align="center">Status</TableCell>
-                                    {/* Kolom Catatan hanya muncul jika bukan Petugas */}
                                     {userRole !== 'petugas' && <TableCell>Catatan</TableCell>}
                                     <TableCell>Nasabah</TableCell>
                                     <TableCell>Marketing</TableCell>
                                     <TableCell align="center">Waktu</TableCell>
                                 </TableRow>
                             </TableHead>
-
                             <TableBody>
                                 {(rowsPerPage > 0
                                     ? filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
@@ -167,7 +166,6 @@ const NotificationsPage = () => {
 
                                 {filtered.length === 0 && (
                                     <TableRow>
-                                        {/* Colspan disesuaikan berdasarkan ada/tidaknya kolom Catatan */}
                                         <TableCell colSpan={userRole !== 'petugas' ? 6 : 5} align="center">
                                             Tidak ada notifikasi
                                         </TableCell>

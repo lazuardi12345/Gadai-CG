@@ -1,5 +1,4 @@
 import React, { useContext, useEffect, useState, useRef } from 'react';
-import { useTheme } from '@mui/material/styles';
 import { Button, Badge } from '@mui/material';
 import NotificationsNoneTwoToneIcon from '@mui/icons-material/NotificationsNoneTwoTone';
 import { useNavigate } from 'react-router-dom';
@@ -7,125 +6,114 @@ import { AuthContext } from 'AuthContex/AuthContext';
 import axiosInstance from 'api/axiosInstance';
 
 const NotificationSection = () => {
-    const theme = useTheme();
-    const navigate = useNavigate();
     const { user } = useContext(AuthContext);
+    const navigate = useNavigate();
 
     const userRole = (user?.role || '').toLowerCase();
     const [hasNewNotification, setHasNewNotification] = useState(false);
     const [loading, setLoading] = useState(false);
-    
-    // lastNotifId menyimpan ID notifikasi terbaru yang sudah diproses.
-    const lastNotifId = useRef(null); 
 
-    // Audio untuk notifikasi
-    const notifSound = useRef(new Audio('/asset/sounds/notif.mp3')); 
+    const lastNotifId = useRef(null);
+    const hasPlayedSound = useRef(false);
 
-    /**
-     * @description Memutar suara notifikasi.
-     */
+    const notifSound = useRef(new Audio('/asset/sounds/notif.mp3'));
+
     const playNotificationSound = () => {
         try {
             const audio = notifSound.current;
             audio.currentTime = 0;
             audio.volume = 0.7;
-            audio.play().catch(() => {
-                console.warn('Autoplay diblokir browser, user perlu interaksi dulu.');
-            });
+            audio.play().catch(() => console.warn('Autoplay diblokir browser'));
         } catch (err) {
             console.error('Gagal memutar suara notif:', err);
         }
     };
 
-    /**
-     * @description Menentukan endpoint API notifikasi berdasarkan role.
-     */
     const getNotificationEndpoint = () => {
-        if (userRole === 'checker') return '/checker/notifications';
-        if (userRole === 'petugas') return '/petugas/notifications';
-        // HM, Admin, atau Default
-        return '/notifications'; 
+        if (userRole === 'checker') return '/checker/notifications/new';
+        if (userRole === 'petugas') return '/petugas/notifications/new';
+        if (userRole === 'admin') return '/admin/notifications/new';
+        return '/notifications/new'; // HM
     };
 
-    // ======================
-    // FETCH NOTIFICATION (Cek Notifikasi Baru)
-    // ======================
+    const getMarkReadEndpoint = () => {
+        if (userRole === 'checker') return '/checker/notifications/mark-read';
+        if (userRole === 'petugas') return '/petugas/notifications/mark-read';
+        if (userRole === 'admin') return '/admin/notifications/mark-read';
+        return '/notifications/mark-read'; // HM
+    };
+
+    // =========================
+    // Cek notifikasi baru
+    // =========================
     const fetchNewNotification = async () => {
-        const url = getNotificationEndpoint();
-
         try {
-            setLoading(true);
-            
-            // Mengambil notifikasi terbaru (asumsi API mengurutkan secara DESC dan limit: 1)
-            const res = await axiosInstance.get(url, { params: { limit: 1 } });
+            const res = await axiosInstance.get(getNotificationEndpoint());
 
-            if (res.data.success && res.data.data.length > 0) {
-                const latestId = res.data.data[0].id;
+            if (res.data.success) {
+                const unreadNotifications = res.data.data.filter(n => !n.is_read);
 
-                if (!lastNotifId.current) {
-                    // Kasus 1: Inisialisasi awal. Simpan ID terbaru, JANGAN bunyikan.
-                    lastNotifId.current = latestId;
-                } else if (latestId !== lastNotifId.current) {
-                    // Kasus 2: ID notifikasi baru terdeteksi.
-                    
-                    // Gunakan perbandingan (>) untuk mencegah false positive jika API 
-                    // mengembalikan data lama karena error atau cache.
-                    if (latestId > lastNotifId.current) { 
-                        setHasNewNotification(true);
-                        playNotificationSound(); 
-                        lastNotifId.current = latestId; // Update ID terakhir
+                if (unreadNotifications.length === 0) {
+                    // tidak ada unread → badge hilang
+                    setHasNewNotification(false);
+                    hasPlayedSound.current = false;
+                    lastNotifId.current = null;
+                } else {
+                    // ada unread → badge merah tetap muncul
+                    setHasNewNotification(true);
+
+                    const latestId = unreadNotifications[0].id;
+
+                    // bunyi hanya jika ada notif baru
+                    if (!lastNotifId.current || latestId > lastNotifId.current) {
+                        if (!hasPlayedSound.current) {
+                            playNotificationSound();
+                            hasPlayedSound.current = true;
+                        }
+                        lastNotifId.current = latestId;
                     }
-                } 
-                // Jika latestId === lastNotifId.current, status hasNewNotification tetap (Badge menyala/mati sesuai klik user).
-
-            } 
-            // Jika res.data.data kosong, lastNotifId.current tidak diubah, sehingga tidak ada suara.
-
+                }
+            }
         } catch (err) {
-            console.error(`Gagal cek notifikasi untuk ${userRole}:`, err);
-        } finally {
-            setLoading(false);
+            console.error('Gagal cek notifikasi:', err);
         }
     };
 
-    // ======================
-    // EFFECT & INTERVAL
-    // ======================
+    // =========================
+    // Tandai notifikasi sudah dibaca
+    // =========================
+    const markNotificationsAsRead = async () => {
+        try {
+            const res = await axiosInstance.get(getNotificationEndpoint());
+            const unreadIds = res.data.data.filter(n => !n.is_read).map(n => n.id);
+
+            if (unreadIds.length > 0) {
+                await axiosInstance.post(getMarkReadEndpoint(), { ids: unreadIds });
+            }
+
+            setHasNewNotification(false);
+            hasPlayedSound.current = false;
+            lastNotifId.current = null;
+        } catch (err) {
+            console.error('Gagal mark as read:', err);
+        }
+    };
+
     useEffect(() => {
-        // Panggil saat mount untuk inisialisasi ID terakhir
-        fetchNewNotification();
-        
-        // Cek notifikasi baru tiap 5 detik
-        const interval = setInterval(fetchNewNotification, 5000); 
-        
-        // Cleanup function
-        return () => clearInterval(interval);
+        fetchNewNotification(); // cek 1x saat mount
     }, [userRole]);
 
-    // ======================
-    // HANDLE CLICK ICON
-    // ======================
-    const handleClick = () => {
-        // Saat diklik, hilangkan badge notifikasi dan navigasi
-        setHasNewNotification(false);
+    const handleClick = async () => {
+        await markNotificationsAsRead();
         navigate('/notifications');
     };
 
-    // ======================
-    // RENDER
-    // ======================
     return (
-        <Button
-            sx={{ minWidth: { sm: 50, xs: 35 } }}
-            color="inherit"
-            onClick={handleClick}
-            disabled={loading}
-        >
+        <Button color="inherit" onClick={handleClick} disabled={loading}>
             <Badge
                 color="error"
                 variant="dot"
-                // Badge hanya muncul jika hasNewNotification = true
-                invisible={!hasNewNotification} 
+                invisible={!hasNewNotification}
                 overlap="circular"
                 anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
