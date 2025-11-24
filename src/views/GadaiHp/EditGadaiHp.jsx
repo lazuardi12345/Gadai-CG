@@ -1,123 +1,114 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext } from "react";
 import {
-    Card, CardHeader, CardContent, Grid, TextField, Button,
-    Stack, CircularProgress, Autocomplete, Box, FormGroup,
-    FormControlLabel, Checkbox, Typography, MenuItem
-} from '@mui/material';
-import { useNavigate, useParams } from 'react-router-dom';
-import axiosInstance from 'api/axiosInstance';
+    Card, CardHeader, CardContent, Grid, Typography, Stack,
+    Button, CircularProgress, Box, TextField, FormGroup, FormControlLabel, Checkbox
+} from "@mui/material";
+import { useParams, useNavigate } from "react-router-dom";
+import axiosInstance from "api/axiosInstance";
 import { AuthContext } from "AuthContex/AuthContext";
 
-const KELENGKAPAN_LIST = ['Box', 'Charger', 'Kabel Data', 'kartu garansi', 'tusuk sim'];
-const KERUSAKAN_LIST = [
-    'LCD Pecah', 'LCD Kuning/Pink', 'LCD Bercak', 'Baterai Bocor',
-    'Tombol Rusak', 'Layar tidak fungsi', 'Kamera tidak berfungsi/blur',
-    'Tombol volume tidak berfungsi', 'SIM tidak terbaca', 'Tombol power tidak berfungsi',
-    'Face Id/ Finger Print tidak berfungsi', 'IMEI tidak terbaca', 'Display Phone'
-];
-
-const NAMA_BARANG_LIST = ['Android', 'Samsung', 'iPhone'];
-
-const DOKUMEN_SOP = {
-    Android: ['body', 'imei', 'about', 'akun', 'admin', 'cam_depan', 'cam_belakang', 'rusak'],
-    Samsung: ['body', 'imei', 'about', 'samsung_account', 'admin', 'cam_depan', 'cam_belakang', 'galaxy_store'],
-    iPhone: ['body', 'imei', 'about', 'icloud', 'battery', '3utools', 'iunlocker', 'cek_pencurian'],
+// Helper: full URL dokumen
+const getFullDokumenUrl = (path) => {
+    if (!path) return null;
+    if (path.startsWith("http")) return path;
+    const baseUrl = import.meta.env.VITE_API_BASE_URL.replace(/\/api$/, "");
+    return path.startsWith("storage/") ? `${baseUrl}/${path}` : `${baseUrl}/storage/${path}`;
 };
+
+const KELENGKAPAN_LIST = ["Box", "Charger", "Kabel Data", "Kartu Garansi", "Tusuk SIM"];
 
 const EditGadaiHpPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useContext(AuthContext);
-    const userRole = (user?.role || '').toLowerCase();
-    const canEdit = React.useMemo(() => ['hm', 'checker'].includes(userRole), [userRole]);
+    const userRole = (user?.role || "").toLowerCase();
+    const canEdit = ["hm", "checker"].includes(userRole);
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [detailGadai, setDetailGadai] = useState([]);
-    const [uniqueNasabah, setUniqueNasabah] = useState([]);
-    const [selectedNasabah, setSelectedNasabah] = useState(null);
     const [form, setForm] = useState({
-        nama_barang: '',
+        nama_barang: "",
         kelengkapan: [],
         kerusakan: [],
-        grade: '',
-        imei: '',
-        warna: '',
-        kunci_password: '',
-        kunci_pin: '',
-        kunci_pola: '',
-        ram: '',
-        rom: '',
-        type_hp: '',
-        merk: '',
-        detail_gadai_id: '',
+        grade_type: "",
+        grade_nominal: "",
+        imei: "",
+        warna: "",
+        kunci_password: "",
+        kunci_pin: "",
+        kunci_pola: "",
+        ram: "",
+        rom: "",
+        type_hp: "",
+        merk: "",
+        detail_gadai_id: "",
         dokumen_pendukung: {},
     });
 
-    const getBaseUrl = (resource) => {
-        switch (userRole) {
-            case 'checker': return `/checker/${resource}`;
-            case 'hm': return `/${resource}`;
-            default: return null;
+    // Ambil data awal
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const url = userRole === "checker" ? `/checker/gadai-hp/${id}` : `/gadai-hp/${id}`;
+            const res = await axiosInstance.get(url);
+            if (!res.data.success) throw new Error(res.data.message || "Gagal ambil data");
+            const d = res.data.data;
+
+            // Ambil daftar kerusakan default
+            const kerRes = await axiosInstance.get("/kerusakan");
+            const defaultKerusakanList = kerRes.data?.data?.items || kerRes.data?.data || [];
+
+
+            const kerusakanMap = {};
+            if (Array.isArray(d.kerusakan)) {
+                d.kerusakan.forEach(k => {
+                    kerusakanMap[k.id] = k.pivot?.nominal_override ?? k.nominal ?? 0;
+                });
+            }
+
+            const kerusakanArray = defaultKerusakanList.map(k => {
+                const overrideNominal = kerusakanMap[k.id];
+
+                return {
+                    id: k.id,
+                    nama_kerusakan: k.nama_kerusakan || k.nama,
+                    nominal_default: k.nominal ?? 0,
+                    nominal: overrideNominal ?? k.nominal ?? 0,
+                    checked: overrideNominal !== undefined,
+                };
+            });
+
+
+
+            let kelengkapanArray = [];
+            try { kelengkapanArray = d.kelengkapan ? JSON.parse(d.kelengkapan) : []; } catch { kelengkapanArray = []; }
+
+            const dokumenPendukung = {};
+            if (d.dokumen_pendukung) {
+                const dok = typeof d.dokumen_pendukung === "string" ? JSON.parse(d.dokumen_pendukung) : d.dokumen_pendukung;
+                Object.entries(dok).forEach(([k, val]) => {
+                    dokumenPendukung[k] = val
+                        ? { file: null, url: getFullDokumenUrl(val), remove: false }
+                        : { file: null, url: null, remove: false };
+                });
+            }
+
+            setForm(prev => ({
+                ...prev,
+                ...d,
+                kelengkapan: kelengkapanArray,
+                kerusakan: kerusakanArray,
+                dokumen_pendukung: dokumenPendukung,
+            }));
+        } catch (err) {
+            console.error(err);
+            alert("Terjadi kesalahan server");
+        } finally {
+            setLoading(false);
         }
     };
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const [resGadai, resDetailGadai] = await Promise.all([
-                    axiosInstance.get(`${getBaseUrl('gadai-hp')}/${id}`),
-                    axiosInstance.get(getBaseUrl('detail-gadai')),
-                ]);
-
-                const data = resGadai.data.data;
-
-                const dokumenPendukung = {};
-                if (data.dokumen_pendukung) {
-                    Object.entries(data.dokumen_pendukung).forEach(([key, val]) => {
-                        if (typeof val === 'string' && val) dokumenPendukung[key] = { url: val.startsWith('http') ? val : `${window.location.origin}/${val}`, file: null, remove: false };
-                        else if (Array.isArray(val) && val.length > 0) dokumenPendukung[key] = { url: val[0].startsWith('http') ? val[0] : `${window.location.origin}/${val[0]}`, file: null, remove: false };
-                        else dokumenPendukung[key] = { file: null, url: null, remove: false };
-                    });
-                }
-
-                setForm({
-                    ...form,
-                    nama_barang: data.nama_barang || '',
-                    kelengkapan: Array.isArray(data.kelengkapan) ? data.kelengkapan : [],
-                    kerusakan: Array.isArray(data.kerusakan) ? data.kerusakan : [],
-                    grade: data.grade || '',
-                    imei: data.imei || '',
-                    warna: data.warna || '',
-                    kunci_password: data.kunci_password || '',
-                    kunci_pin: data.kunci_pin || '',
-                    kunci_pola: data.kunci_pola || '',
-                    ram: data.ram || '',
-                    rom: data.rom || '',
-                    type_hp: data.type_hp || '',
-                    merk: data.merk || '',
-                    detail_gadai_id: data.detail_gadai_id || '',
-                    dokumen_pendukung: dokumenPendukung,
-                });
-
-                const detailData = resDetailGadai.data.data || [];
-                setDetailGadai(detailData);
-
-                const nasabahMap = {};
-                detailData.forEach(d => { if (d.nasabah && !nasabahMap[d.nasabah.id]) nasabahMap[d.nasabah.id] = d.nasabah; });
-                setUniqueNasabah(Object.values(nasabahMap));
-
-                const selectedDetail = detailData.find(d => d.id === data.detail_gadai_id);
-                setSelectedNasabah(selectedDetail ? selectedDetail.nasabah : null);
-
-            } catch (err) {
-                console.error(err);
-                alert('Gagal mengambil data gadai HP');
-            } finally { setLoading(false); }
-        };
-        fetchData();
-    }, [id, userRole]);
+    useEffect(() => { fetchData(); }, [id, userRole]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -127,7 +118,7 @@ const EditGadaiHpPage = () => {
     const handleCheckboxChange = (field, value) => {
         setForm(prev => {
             const newArray = prev[field].includes(value)
-                ? prev[field].filter(item => item !== value)
+                ? prev[field].filter(i => i !== value)
                 : [...prev[field], value];
             return { ...prev, [field]: newArray };
         });
@@ -138,215 +129,169 @@ const EditGadaiHpPage = () => {
             ...prev,
             dokumen_pendukung: {
                 ...prev.dokumen_pendukung,
-                [key]: file ? { file, url: URL.createObjectURL(file), remove: false } : { ...prev.dokumen_pendukung[key], file: null, url: null, remove: true }
-            }
+                [key]: file
+                    ? { file, url: URL.createObjectURL(file), remove: false }
+                    : { ...prev.dokumen_pendukung[key], file: null, url: null, remove: true },
+            },
         }));
     };
 
-    const handleNamaBarangChange = (nama) => {
-        if (!canEdit) return;
-        setForm(prev => ({
-            ...prev,
-            nama_barang: nama,
-            dokumen_pendukung: DOKUMEN_SOP[nama].reduce((acc, k) => ({ ...acc, [k]: prev.dokumen_pendukung[k] || { file: null, url: null, remove: false } }), {})
-        }));
+    const toggleKerusakan = (idx) => {
+        setForm(prev => {
+            const ker = [...prev.kerusakan];
+            ker[idx].checked = !ker[idx].checked;
+            if (!ker[idx].checked) ker[idx].nominal = ker[idx].nominal_default;
+            return { ...prev, kerusakan: ker };
+        });
+    };
+
+    const handleNominalChange = (idx, value) => {
+        setForm(prev => {
+            const ker = [...prev.kerusakan];
+            ker[idx].nominal = Number(value);
+            return { ...prev, kerusakan: ker };
+        });
     };
 
     const handleSubmit = async () => {
-        if (!canEdit) return;
-        if (!form.detail_gadai_id) { alert('Silakan pilih Nasabah.'); return; }
-
         try {
             setSaving(true);
             const data = new FormData();
-            data.append('_method', 'PUT');
+            data.append("_method", "PUT");
 
-            Object.keys(form).forEach(key => {
-                if (key === 'dokumen_pendukung') {
-                    Object.entries(form.dokumen_pendukung).forEach(([k, val]) => {
-                        if (val?.file instanceof File) data.append(`dokumen_pendukung[${k}]`, val.file);
-                        if (val?.remove) data.append(`dokumen_pendukung_remove[${k}]`, '1');
-                    });
-                } else if (key === 'kelengkapan' || key === 'kerusakan') {
-                    form[key].forEach(value => data.append(`${key}[]`, value));
-                } else {
-                    data.append(key, form[key]);
+            // Fields
+            ["nama_barang", "grade_type", "grade_nominal", "imei", "warna", "kunci_password", "kunci_pin", "kunci_pola", "ram", "rom", "type_hp", "merk", "detail_gadai_id"]
+                .forEach(key => { if (form[key] && form[key] !== "null") data.append(key, form[key]); });
+
+            // Kelengkapan
+            form.kelengkapan.forEach((item, i) => data.append(`kelengkapan[${i}]`, item));
+
+
+            let index = 0;
+            form.kerusakan.forEach(k => {
+                if (k.checked && k.id) {
+                    data.append(`kerusakan[${index}][id]`, k.id);
+                    data.append(`kerusakan[${index}][nominal_override]`, Number(k.nominal) || 0);
+                    index++;
                 }
             });
 
-            const url = `${getBaseUrl('gadai-hp')}/${id}`;
-            const res = await axiosInstance.post(url, data, { headers: { 'Content-Type': 'multipart/form-data' } });
+
+
+            // Dokumen
+            Object.entries(form.dokumen_pendukung).forEach(([key, val]) => {
+                if (val?.file instanceof File) data.append(`dokumen_pendukung[${key}]`, val.file);
+                if (val?.remove) data.append(`dokumen_pendukung_remove[${key}]`, '1');
+            });
+
+            const url = userRole === "checker" ? `/checker/gadai-hp/${id}` : `/gadai-hp/${id}`;
+            const res = await axiosInstance.post(url, data, { headers: { "Content-Type": "multipart/form-data" } });
 
             if (res.data.success) {
-                alert('Data berhasil diperbarui!');
-                navigate('/gadai-hp');
+                alert("Data berhasil diperbarui!");
+                navigate(-1);
             } else {
-                alert(res.data.message || 'Gagal memperbarui data');
+                alert(res.data.message || "Gagal menyimpan");
             }
-
         } catch (err) {
-            console.error(err.response?.data || err);
-            if (err.response?.status === 422 && err.response.data.errors) {
-                const messages = Object.values(err.response.data.errors).flat().join('\n');
-                alert(`Validasi gagal:\n${messages}`);
-            } else alert(err.response?.data?.message || 'Terjadi kesalahan server');
-        } finally { setSaving(false); }
+            console.error(err);
+            alert("Terjadi kesalahan saat menyimpan data");
+        } finally {
+            setSaving(false);
+        }
     };
 
     if (loading) return (
-        <Stack alignItems="center" justifyContent="center" sx={{ height: '80vh' }}>
+        <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}>
             <CircularProgress />
         </Stack>
     );
 
-    const dokumenKeys = form.nama_barang ? DOKUMEN_SOP[form.nama_barang] : [];
-
     return (
-        <Card sx={{ p: 2 }}>
-            <CardHeader title="Edit Data Gadai HP" />
+        <Card sx={{ maxWidth: 1000, mx: "auto", mt: 2, p: 2 }}>
+            <CardHeader title="Edit Gadai HP" />
             <CardContent>
+
+                {/* Informasi HP */}
+                <Typography variant="h6" fontWeight={600} gutterBottom>Informasi HP</Typography>
                 <Grid container spacing={2}>
-
-                    {/* Autocomplete Nasabah */}
-                    <Grid item xs={12} sm={6}>
-                        <Autocomplete
-                            options={uniqueNasabah}
-                            getOptionLabel={(option) => option.nama_lengkap || ''}
-                            value={selectedNasabah}
-                            onChange={(event, newValue) => {
-                                setSelectedNasabah(newValue);
-                                const detail = detailGadai.find(d => d.nasabah?.id === newValue?.id);
-                                setForm(prev => ({ ...prev, detail_gadai_id: detail ? detail.id : '' }));
-                            }}
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    label="Nama Nasabah"
-                                    placeholder="Cari nama nasabah..."
-                                    size="small"
-                                    fullWidth
-                                    disabled={!canEdit}
-                                />
-                            )}
-                        />
-                    </Grid>
-
-                    {/* Input Text Fields */}
-                    {['nama_barang', 'grade', 'imei', 'warna', 'kunci_password', 'kunci_pin', 'kunci_pola', 'ram', 'rom', 'type_hp', 'merk'].map(key => (
+                    {["nama_barang", "grade_type", "grade_nominal", "imei", "warna", "ram", "rom", "kunci_pin"].map(key => (
                         <Grid item xs={12} sm={6} key={key}>
-                            {key === 'nama_barang' ? (
-                                <TextField
-                                    select
-                                    label="Nama Barang"
-                                    size="small"
-                                    fullWidth
-                                    value={form.nama_barang}
-                                    onChange={(e) => handleNamaBarangChange(e.target.value)}
-                                    disabled={!canEdit}
-                                >
-                                    {NAMA_BARANG_LIST.map(item => (
-                                        <MenuItem key={item} value={item}>{item}</MenuItem>
-                                    ))}
-                                </TextField>
-                            ) : (
-                                <TextField
-                                    label={key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                                    name={key}
-                                    value={form[key]}
-                                    onChange={handleInputChange}
-                                    fullWidth
-                                    size="small"
-                                    disabled={!canEdit}
-                                />
-                            )}
+                            <TextField
+                                label={key.replace(/_/g, ' ').toUpperCase()}
+                                name={key}
+                                value={form[key]}
+                                onChange={handleInputChange}
+                                fullWidth
+                            />
                         </Grid>
                     ))}
-
-                    {/* Checkbox Kelengkapan */}
-                    <Grid item xs={12} sm={6}>
-                        <Box sx={{ border: '1px dashed #ccc', borderRadius: 2, p: 2, bgcolor: '#fafafa' }}>
-                            <Typography variant="subtitle2" sx={{ mb: 1 }}>Kelengkapan</Typography>
-                            <FormGroup>
-                                {KELENGKAPAN_LIST.map(option => (
-                                    <FormControlLabel
-                                        key={option}
-                                        control={
-                                            <Checkbox
-                                                checked={form.kelengkapan.includes(option)}
-                                                onChange={() => handleCheckboxChange('kelengkapan', option)}
-                                                disabled={!canEdit}
-                                            />
-                                        }
-                                        label={option}
-                                    />
-                                ))}
-                            </FormGroup>
-                        </Box>
-                    </Grid>
-
-                    {/* Checkbox Kerusakan */}
-                    <Grid item xs={12} sm={6}>
-                        <Box sx={{ border: '1px dashed #ccc', borderRadius: 2, p: 2, bgcolor: '#fafafa' }}>
-                            <Typography variant="subtitle2" sx={{ mb: 1 }}>Kerusakan</Typography>
-                            <FormGroup>
-                                {KERUSAKAN_LIST.map(option => (
-                                    <FormControlLabel
-                                        key={option}
-                                        control={
-                                            <Checkbox
-                                                checked={form.kerusakan.includes(option)}
-                                                onChange={() => handleCheckboxChange('kerusakan', option)}
-                                                disabled={!canEdit}
-                                            />
-                                        }
-                                        label={option}
-                                    />
-                                ))}
-                            </FormGroup>
-                        </Box>
-                    </Grid>
-
-                    {/* Dokumen Pendukung */}
-                    {dokumenKeys.length > 0 && (
-                        <Grid item xs={12}>
-                            <Typography variant="subtitle1" sx={{ mb: 1 }}>LENGKAPI DOKUMEN PENDUKUNG:</Typography>
-                        </Grid>
-                    )}
-                    {dokumenKeys.map(key => (
-                        <Grid item xs={12} sm={6} key={key}>
-                            <Typography variant="subtitle2" sx={{ mb: 1 }}>{key.replace(/_/g, ' ').toUpperCase()}</Typography>
-                            <Box sx={{ p: 2, border: '1px dashed #ccc', borderRadius: 2, bgcolor: '#fafafa', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                {form.dokumen_pendukung[key]?.url ? (
-                                    <Box component="img" src={form.dokumen_pendukung[key].url} alt={key}
-                                        sx={{ maxWidth: '150px', maxHeight: '150px', mb: 1, borderRadius: 1, objectFit: 'contain' }}
-                                    />
-                                ) : <Typography variant="body2" sx={{ mb: 1, color: '#888' }}>Belum ada file dipilih</Typography>}
-
-                                <Stack direction="row" spacing={1}>
-                                    <Button variant="contained" component="label" size="small" disabled={!canEdit}>
-                                        Upload
-                                        <input type="file" hidden accept="image/*" onChange={(e) => handleDokumenChange(key, e.target.files[0])} />
-                                    </Button>
-                                    {form.dokumen_pendukung[key]?.url && canEdit && (
-                                        <Button variant="outlined" color="error" size="small" onClick={() => handleDokumenChange(key, null)}>
-                                            Hapus
-                                        </Button>
-                                    )}
-                                </Stack>
-                            </Box>
-                        </Grid>
-                    ))}
-
                 </Grid>
 
+                {/* Kelengkapan */}
+                <Box sx={{ mt: 2 }}>
+                    <Typography>Kelengkapan:</Typography>
+                    <FormGroup row>
+                        {KELENGKAPAN_LIST.map(item => (
+                            <FormControlLabel
+                                key={item}
+                                control={<Checkbox checked={form.kelengkapan.includes(item)} onChange={() => handleCheckboxChange("kelengkapan", item)} />}
+                                label={item}
+                            />
+                        ))}
+                    </FormGroup>
+                </Box>
+
+                {/* Kerusakan */}
+                <Box sx={{ mt: 2 }}>
+                    <Typography>Kerusakan:</Typography>
+                    {form.kerusakan.map((k, idx) => (
+                        <Stack key={idx} direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                            <Checkbox checked={k.checked} onChange={() => toggleKerusakan(idx)} disabled={!canEdit} />
+                            <Typography sx={{ minWidth: 200 }}>{k.nama_kerusakan}</Typography>
+                            <TextField
+                                type="number"
+                                size="small"
+                                value={k.nominal}
+                                disabled={!k.checked || !canEdit}
+                                onChange={e => handleNominalChange(idx, e.target.value)}
+                            />
+                        </Stack>
+                    ))}
+                </Box>
+
+                {/* Dokumen Pendukung */}
+                {Object.keys(form.dokumen_pendukung || {}).length > 0 && (
+                    <Box sx={{ mt: 3 }}>
+                        <Typography variant="h6">Dokumen Pendukung</Typography>
+                        <Grid container spacing={2}>
+                            {Object.entries(form.dokumen_pendukung).map(([key, val]) => (
+                                <Grid item xs={12} sm={4} key={key}>
+                                    <Typography sx={{ mb: 1 }}>{key.replace(/_/g, " ").toUpperCase()}</Typography>
+                                    {val?.url ? (
+                                        <Box component="img" src={val.url} alt={key} sx={{ width: "100%", maxHeight: 150, objectFit: "contain", mb: 1 }} />
+                                    ) : <Typography variant="body2" color="text.secondary">Belum ada dokumen</Typography>}
+                                    <Stack direction="row" spacing={1}>
+                                        <Button variant="contained" component="label" size="small" disabled={!canEdit}>
+                                            Upload
+                                            <input type="file" hidden onChange={e => handleDokumenChange(key, e.target.files[0])} />
+                                        </Button>
+                                        {val?.url && canEdit && (
+                                            <Button variant="outlined" color="error" size="small" onClick={() => handleDokumenChange(key, null)}>Hapus</Button>
+                                        )}
+                                    </Stack>
+                                </Grid>
+                            ))}
+                        </Grid>
+                    </Box>
+                )}
+
+                {/* Actions */}
                 <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 4 }}>
-                    <Button variant="outlined" onClick={() => navigate('/gadai-hp')}>Batal</Button>
-                    {canEdit && (
-                        <Button variant="contained" color="primary" onClick={handleSubmit} disabled={saving}>
-                            {saving ? 'Menyimpan...' : 'Update'}
-                        </Button>
-                    )}
+                    <Button variant="outlined" onClick={() => navigate(-1)}>Batal</Button>
+                    {canEdit && <Button variant="contained" color="primary" disabled={saving} onClick={handleSubmit}>{saving ? "Menyimpan..." : "Update"}</Button>}
                 </Stack>
+
             </CardContent>
         </Card>
     );

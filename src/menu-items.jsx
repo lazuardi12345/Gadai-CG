@@ -29,7 +29,7 @@ const icons = {
   SmartphoneOutlinedIcon,
   DiamondOutlinedIcon,
   InfoOutlinedIcon,
-  PeopleAltOutlinedIcon,  
+  PeopleAltOutlinedIcon,
   CategoryOutlinedIcon
 };
 
@@ -76,7 +76,7 @@ export default {
           type: 'item',
           url: '/data-nasabah',
           icon: icons.PeopleAltOutlinedIcon,
-          role: ['checker', 'hm', 'petugas'] 
+          role: ['checker', 'hm', 'petugas']
         },
         {
           id: 'type',
@@ -92,7 +92,7 @@ export default {
           type: 'item',
           url: '/detail-gadai',
           icon: icons.InfoOutlinedIcon,
-          role: ['checker', 'hm', 'petugas'] 
+          role: ['checker', 'hm', 'petugas']
         },
         {
           id: 'perpanjangan-tempo',
@@ -102,6 +102,44 @@ export default {
           icon: icons.TimerOutlinedIcon,
           role: ['checker', 'hm', 'petugas']
         },
+
+           {
+          id: 'Kerusakan Page',
+          title: 'Halaman Kerusakan',
+          type: 'item',
+          url: '/kerusakan',
+          icon: icons.TimerOutlinedIcon,
+          role: ['checker', 'hm']
+        },
+
+          {
+          id: 'Merk Hp Page',
+          title: 'Halaman Merk Hp',
+          type: 'item',
+          url: '/merk-hp',
+          icon: icons.TimerOutlinedIcon,
+          role: ['checker', 'hm']
+        },
+
+          {
+          id: 'Type Hp Page',
+          title: 'Halaman Type Hp',
+          type: 'item',
+          url: '/type-hp',
+          icon: icons.TimerOutlinedIcon,
+          role: ['checker', 'hm']
+        },
+
+
+        {
+          id: 'Grade Hp Page',
+          title: 'Halaman Grade Hp',
+          type: 'item',
+          url: '/grade-hp',
+          icon: icons.TimerOutlinedIcon,
+          role: ['checker', 'hm']
+        },
+
         {
           id: 'Approvals',
           title: 'Approval',
@@ -132,9 +170,9 @@ export default {
           type: 'item',
           url: '/gadai-hp',
           icon: icons.SmartphoneOutlinedIcon,
-          role: ['checker', 'hm', 'petugas'] 
+          role: ['checker', 'hm', 'petugas']
         },
-      
+
         {
           id: 'gadai-logam-mulia',
           title: 'Gadai Logam Mulia',
@@ -152,7 +190,7 @@ export default {
           role: ['checker', 'hm', 'petugas']
         },
 
-          {
+        {
           id: 'gadai-perhiasan',
           title: 'Gadai Perhiasan',
           type: 'item',
@@ -168,8 +206,17 @@ export default {
           url: '/notifications',
           icon: icons.NotificationsNoneOutlinedIcon,
           role: ['checker', 'hm', 'petugas']
-        },
-         {
+        }
+      ]
+    },
+
+    {
+      id: 'Page Admin',
+      title: 'Admin Information',
+      type: 'group',
+      icon: icons.AccountTreeOutlinedIcon,
+      children: [
+        {
           id: 'Admin Page',
           title: 'Laporan Admin',
           type: 'item',
@@ -177,7 +224,15 @@ export default {
           icon: icons.NotificationsNoneOutlinedIcon,
           role: ['hm', 'admin']
         },
+      ]
+    },
 
+    {
+      id: 'Lelang',
+      title: 'Pelelangan',
+      type: 'group',
+      icon: icons.AccountTreeOutlinedIcon,
+      children: [
         {
           id: 'Pelelangan',
           title: 'Data Lelang',
@@ -187,7 +242,8 @@ export default {
           role: ['hm', 'petugas', 'checker']
         }
       ]
-    }
+    },
+
   ]
 };
 

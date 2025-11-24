@@ -4,6 +4,7 @@ import React, { lazy } from 'react';
 import MainLayout from 'layout/MainLayout';
 import Loadable from 'component/Loadable';
 import ProtectedRoute from './ProtectedRoute';
+import { GraphicEqRounded } from '@mui/icons-material';
 
 const DashboardDefault = Loadable(lazy(() => import('views/Dashboard/Default')));
 
@@ -70,6 +71,16 @@ const AdminDetailPage = Loadable(lazy(() => import('views/Admin/detail')));
 
 const PelelanganPage = Loadable(lazy(() => import('views/Pelelangan/index')));
 
+const KerusakanPage = Loadable(lazy(() => import('views/Kerusakan/index')));
+
+const TypeHpPage = Loadable(lazy(() => import('views/TypeHp/index')));
+const TambahTypeHp = Loadable(lazy(() => import('views/TypeHp/TambahTypeHp')));
+
+const MerkHpGadaiPage = Loadable(lazy(() => import('views/Merk-hp/index')));
+
+const GradeHpPage = Loadable(lazy(() => import('views/GradeHp/index')));
+const TambahGradeHp = Loadable(lazy(() => import('views/GradeHp/tambah')));
+
 // ==============================|| MAIN ROUTES ||============================== //
 const MainRoutes = {
   path: '/',
@@ -123,6 +134,14 @@ const MainRoutes = {
     { path: '/admin', element: <AdminLaporanPage/> },
     { path: '/admin-detail/:detailGadaiId', element: <AdminDetailPage/> },
      { path: '/pelelangan', element: <PelelanganPage/> },
+     { path: '/kerusakan', element: <KerusakanPage/> },
+     { path: '/type-hp', element: <TypeHpPage/> },
+     { path: '/type-hp/tambah', element: <TambahTypeHp/> },
+     { path: '/merk-hp', element: <MerkHpGadaiPage/> },
+     { path: '/grade-hp', element: <GradeHpPage/> },
+     { path: '/grade-hp/tambah', element: <TambahGradeHp/> },
+
+
 
 
   ]

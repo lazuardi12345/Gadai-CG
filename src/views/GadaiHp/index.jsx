@@ -26,14 +26,15 @@ const GadaiHpPage = () => {
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
   const canAdd = userRole === 'hm' || userRole === 'checker';
-  const canView = true; // Semua role bisa lihat
+  const canView = true;
   const canEdit = userRole === 'checker' || userRole === 'hm';
   const canDelete = userRole === 'hm';
 
-const renderArrayOrString = (value) => {
-  if (!value) return '-';
-  if (Array.isArray(value)) return value.join(', '); 
-  if (typeof value === 'string') {
+  // Convert string JSON ke array jika perlu
+  const renderArrayOrString = (value) => {
+    if (!value) return '-';
+    if (Array.isArray(value)) return value.join(', ');
+
     try {
       const parsed = JSON.parse(value);
       if (Array.isArray(parsed)) return parsed.join(', ');
@@ -41,10 +42,9 @@ const renderArrayOrString = (value) => {
     } catch {
       return value;
     }
-  }
-  return '-';
-};
+  };
 
+  // Fetch data dari backend
   const fetchData = async () => {
     setLoading(true);
     setError(null);
@@ -60,6 +60,7 @@ const renderArrayOrString = (value) => {
       }
 
       const res = await axiosInstance.get(url, { params: { per_page: 1000 } });
+
       if (res.data.success) {
         setData(res.data.data);
         setFilteredData(res.data.data);
@@ -77,9 +78,9 @@ const renderArrayOrString = (value) => {
     const filtered = data.filter(item =>
     (item.nama_barang?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.imei?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.merk?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.type_hp?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.detail_gadai?.nasabah?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase()))
+      item.merk?.nama_merk?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.type_hp?.nama_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.detailGadai?.nasabah?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase()))
     );
     setFilteredData(filtered);
     setPage(0);
@@ -139,10 +140,14 @@ const renderArrayOrString = (value) => {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  {['No', 'Nama', 'IMEI', 'Merk', 'Type HP', 'Grade', 'Kelengkapan', 'Kerusakan', 'Warna', 'Kunci PW', 'Kunci PIN', 'Kunci Pola', 'RAM', 'ROM', 'Nasabah', 'Aksi']
-                    .map(head => <TableCell key={head} align="center">{head}</TableCell>)}
+                  {[
+                    'No', 'Nama', 'IMEI', 'Merk', 'Type HP', 'Grade', 'Grade Nominal', 'Kelengkapan',
+                    'Kerusakan', 'Warna', 'Kunci PW', 'Kunci PIN', 'Kunci Pola',
+                    'RAM', 'ROM', 'Nasabah', 'Aksi'
+                  ].map(head => <TableCell key={head} align="center">{head}</TableCell>)}
                 </TableRow>
               </TableHead>
+
               <TableBody>
                 {(rowsPerPage > 0
                   ? filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
@@ -152,11 +157,23 @@ const renderArrayOrString = (value) => {
                     <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
                     <TableCell>{item.nama_barang || '-'}</TableCell>
                     <TableCell>{item.imei || '-'}</TableCell>
-                    <TableCell>{item.merk || '-'}</TableCell>
-                    <TableCell>{item.type_hp || '-'}</TableCell>
-                    <TableCell>{item.grade || '-'}</TableCell>
+                    <TableCell>{item.merk?.nama_merk || '-'}</TableCell>
+                    <TableCell>{item.type_hp?.nama_type || '-'}</TableCell>
+                    <TableCell>{item.grade_type || '-'}</TableCell>
+                    <TableCell>
+                      {item.grade_nominal != null
+                        ? `Rp ${Number(item.grade_nominal).toLocaleString('id-ID')}`
+                        : '-'}
+                    </TableCell>
+
                     <TableCell>{renderArrayOrString(item.kelengkapan)}</TableCell>
-                    <TableCell>{renderArrayOrString(item.kerusakan)}</TableCell>
+                    <TableCell>
+                      {Array.isArray(item.kerusakan)
+                        ? item.kerusakan.map(k =>
+                          `${k.nama_kerusakan}${k.nominal_override ? ` (override: ${k.nominal_override})` : ''}`
+                        ).join(', ')
+                        : '-'}
+                    </TableCell>
                     <TableCell>{item.warna || '-'}</TableCell>
                     <TableCell>{item.kunci_password || '-'}</TableCell>
                     <TableCell>{item.kunci_pin || '-'}</TableCell>
@@ -164,23 +181,21 @@ const renderArrayOrString = (value) => {
                     <TableCell>{item.ram || '-'}</TableCell>
                     <TableCell>{item.rom || '-'}</TableCell>
                     <TableCell>{item.detail_gadai?.nasabah?.nama_lengkap || '-'}</TableCell>
+
+
+
                     <TableCell align="center">
                       <Stack direction="row" spacing={1} justifyContent="center">
-                        {/* Semua role bisa lihat */}
                         {canView && (
                           <IconButton color="info" onClick={() => navigate(`/detail-gadai-hp/${item.id}`)}>
                             <VisibilityIcon />
                           </IconButton>
                         )}
-
-                        {/* HM & Checker bisa edit */}
                         {canEdit && (
                           <IconButton color="primary" onClick={() => navigate(`/edit-gadai-hp/${item.id}`)}>
                             <EditIcon />
                           </IconButton>
                         )}
-
-                        {/* Hapus hanya HM */}
                         {canDelete && (
                           <IconButton color="error" onClick={() => handleDelete(item.id)}>
                             <DeleteIcon />
@@ -190,12 +205,14 @@ const renderArrayOrString = (value) => {
                     </TableCell>
                   </TableRow>
                 ))}
+
                 {filteredData.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={16} align="center">Tidak ada data ditemukan.</TableCell>
+                    <TableCell colSpan={18} align="center">Tidak ada data ditemukan.</TableCell>
                   </TableRow>
                 )}
               </TableBody>
+
             </Table>
           </Box>
         </TableContainer>
