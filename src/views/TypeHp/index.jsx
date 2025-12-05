@@ -1,25 +1,15 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
-    Card,
-    CardHeader,
-    CardContent,
-    Divider,
-    Table,
-    TableContainer,
-    TableHead,
-    TableBody,
-    TableRow,
-    TableCell,
-    TablePagination,
-    IconButton,
-    Button,
-    CircularProgress,
-    Stack,
-    Grid,
-    Typography,
-    Paper,
+    Card, CardHeader, CardContent, Divider, Table, TableContainer,
+    TableHead, TableBody, TableRow, TableCell, TablePagination,
+    IconButton, Button, CircularProgress, Stack, Grid, Typography, Paper,
+    Dialog, DialogTitle, DialogContent, DialogActions, TextField, InputAdornment
 } from "@mui/material";
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from "@mui/icons-material";
+
+import {
+    Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
+    ArrowBackIosNew, ArrowForwardIos, Search as SearchIcon, Clear as ClearIcon
+} from "@mui/icons-material";
 
 import axiosInstance from "api/axiosInstance";
 import { useNavigate } from "react-router-dom";
@@ -27,161 +17,187 @@ import { useNavigate } from "react-router-dom";
 const TypeHpPage = () => {
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem("auth_user"));
-    const role = user?.role?.toLowerCase() || "";
+    const role = (user?.role || "").toLowerCase();
 
-    const getApiUrl = () => {
-        switch (role) {
-            case "checker": return "/checker/type-hp";
-            case "petugas": return "/petugas/type-hp";
-            case "hm":
-            default: return "/type-hp";
-        }
+    const getBaseApi = () => {
+        if (role === "checker") return "/checker";
+        if (role === "petugas") return "/petugas";
+        return "";
     };
-    const apiUrl = getApiUrl();
+    const baseApi = getBaseApi();
 
     const [merkList, setMerkList] = useState([]);
     const [selectedMerk, setSelectedMerk] = useState("");
-    const [data, setData] = useState([]);
+    const [data, setData] = useState({ data: [], total: 0, per_page: 10, current_page: 1 });
     const [loading, setLoading] = useState(true);
     const [tableLoading, setTableLoading] = useState(false);
+
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
-    const [openModal, setOpenModal] = useState(false);
-    const [formData, setFormData] = useState({ merk_hp_id: "", nama_type: "" });
-    const [editingId, setEditingId] = useState(null);
-    const [submitting, setSubmitting] = useState(false);
+    const scrollRef = useRef(null);
+    const scrollLeft = () => scrollRef.current.scrollBy({ left: -200, behavior: "smooth" });
+    const scrollRight = () => scrollRef.current.scrollBy({ left: 200, behavior: "smooth" });
 
-    // ========================
-    // FETCH LIST MERK
-    // ========================
-    useEffect(() => {
-        const fetchMerk = async () => {
-            try {
-                const res = await axiosInstance.get("/merk-hp");
-                const list = res.data.data || [];
-                setMerkList(list);
-                if (list.length > 0) setSelectedMerk(list[0].id);
-            } catch {
-                alert("Gagal mengambil data merk");
-            }
-        };
-        fetchMerk();
-    }, []);
+    // Edit State
+    const [openEdit, setOpenEdit] = useState(false);
+    const [editId, setEditId] = useState(null);
+    const [form, setForm] = useState({ nama_type: "" });
 
-    // ========================
-    // FETCH TYPE PER MERK
-    // ========================
-    const fetchData = useCallback(async () => {
-        if (!selectedMerk) return;
-        setTableLoading(true);
-        try {
-            const res = await axiosInstance.get(`${apiUrl}/by-merk/${selectedMerk}`);
-            setData(res.data.data || []);
-        } catch {
-            alert("Gagal mengambil data Type HP");
-        } finally {
-            setLoading(false);
-            setTableLoading(false);
-        }
-    }, [apiUrl, selectedMerk]);
-
-    useEffect(() => { fetchData(); }, [selectedMerk, fetchData]);
-
-    // ========================
-    // MODAL & FORM
-    // ========================
-    const handleOpenModal = (item = null) => {
-        if (item) {
-            setFormData({ merk_hp_id: item.merk_hp_id, nama_type: item.nama_type });
-            setEditingId(item.id);
-        } else {
-            setFormData({ merk_hp_id: "", nama_type: "" });
-            setEditingId(null);
-        }
-        setOpenModal(true);
+    const handleOpenEdit = (item) => {
+        setEditId(item.id);
+        setForm({ nama_type: item.nama_type });
+        setOpenEdit(true);
     };
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleSubmit = async () => {
-        const { merk_hp_id, nama_type } = formData;
-        if (!merk_hp_id || !nama_type) return alert("Semua field wajib diisi");
-
+    const handleUpdate = async () => {
         try {
-            setSubmitting(true);
-            if (editingId) {
-                await axiosInstance.put(`${apiUrl}/${editingId}`, formData);
-            } else {
-                await axiosInstance.post(apiUrl, formData);
-            }
-            setOpenModal(false);
-            fetchData();
+            await axiosInstance.put(`${baseApi}/type-hp/${editId}`, form);
+            setOpenEdit(false);
+            fetchTypes(selectedMerk, page + 1, debouncedSearch);
         } catch {
-            alert("Gagal menyimpan Type HP");
-        } finally {
-            setSubmitting(false);
+            alert("Gagal update Type HP");
         }
     };
 
     const handleDelete = async (id) => {
         if (!window.confirm("Yakin ingin menghapus?")) return;
         try {
-            await axiosInstance.delete(`${apiUrl}/${id}`);
-            fetchData();
+            await axiosInstance.delete(`${baseApi}/type-hp/${id}`);
+            fetchTypes(selectedMerk, page + 1, debouncedSearch);
         } catch {
             alert("Gagal menghapus Type HP");
         }
     };
 
-    if (loading)
+    // Search State
+    const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState(search);
+
+    useEffect(() => {
+        const handler = setTimeout(() => setDebouncedSearch(search), 500);
+        return () => clearTimeout(handler);
+    }, [search]);
+
+    // Fetch Merk
+    useEffect(() => {
+        const loadMerk = async () => {
+            try {
+                const res = await axiosInstance.get(`${baseApi}/merk-hp`);
+                const list = res.data.data || [];
+                setMerkList(list);
+                if (list.length > 0) setSelectedMerk(list[0].id);
+            } catch {
+                alert("Gagal mengambil data merk");
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadMerk();
+    }, []);
+
+    // Fetch Types
+    const fetchTypes = async (merkId, p = 1, searchKeyword = "") => {
+        if (!merkId) return;
+        setTableLoading(true);
+        try {
+            const res = await axiosInstance.get(
+                `${baseApi}/type-hp/by-merk/${merkId}?page=${p}&per_page=${rowsPerPage}&search=${searchKeyword}`
+            );
+            setData(res.data);
+            setPage(p - 1);
+        } finally {
+            setTableLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchTypes(selectedMerk, 1, debouncedSearch);
+    }, [selectedMerk, rowsPerPage, debouncedSearch]);
+
+    if (loading) {
         return (
-            <Grid container justifyContent="center" alignItems="center" sx={{ height: "100vh" }}>
+            <Grid container justifyContent="center" sx={{ height: "100vh" }}>
                 <CircularProgress />
             </Grid>
         );
+    }
 
     return (
         <Card sx={{ boxShadow: 4, borderRadius: 3 }}>
             <CardHeader
-                title={<Typography variant="h6" sx={{ fontWeight: "bold" }}>Master Type HP</Typography>}
+                title={<Typography variant="h6" fontWeight="bold">Master Type HP</Typography>}
                 action={
                     role !== "petugas" && (
-                        <Button
-                            variant="contained"
-                            startIcon={<AddIcon />}
-                            onClick={() => navigate("/type-hp/tambah")} // ← arahkan ke halaman tambah
-                        >
+                        <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate("/type-hp/tambah")}>
                             Tambah Type
                         </Button>
                     )
                 }
             />
-
             <Divider />
 
             <CardContent>
-                {/* ======================== */}
-                {/* TAB MERK */}
-                {/* ======================== */}
-                <Stack direction="row" spacing={1} mb={2}>
-                    {merkList.map((m) => (
-                        <Button
-                            key={m.id}
-                            variant={selectedMerk === m.id ? "contained" : "outlined"}
-                            onClick={() => setSelectedMerk(m.id)}
-                        >
-                            {m.nama_merk}
-                        </Button>
-                    ))}
+                {/* Slider Merk */}
+                <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                    <IconButton onClick={scrollLeft}>
+                        <ArrowBackIosNew fontSize="small" />
+                    </IconButton>
+
+                    <Stack
+                        ref={scrollRef}
+                        direction="row"
+                        spacing={1}
+                        sx={{
+                            overflowX: "auto",
+                            whiteSpace: "nowrap",
+                            flex: 1,
+                            py: 1,
+                            "&::-webkit-scrollbar": { display: "none" }
+                        }}
+                    >
+                        {merkList.map((m) => (
+                            <Button
+                                key={m.id}
+                                variant={selectedMerk === m.id ? "contained" : "outlined"}
+                                onClick={() => setSelectedMerk(m.id)}
+                                sx={{ flexShrink: 0 }}
+                            >
+                                {m.nama_merk}
+                            </Button>
+                        ))}
+                    </Stack>
+
+                    <IconButton onClick={scrollRight}>
+                        <ArrowForwardIos fontSize="small" />
+                    </IconButton>
                 </Stack>
 
-                {/* ======================== */}
-                {/* TABLE */}
-                {/* ======================== */}
+                {/* Search Input */}
+                <TextField
+                    fullWidth
+                    placeholder="Cari Type HP..."
+                    size="small"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    sx={{ mb: 2 }}
+                    InputProps={{
+                        startAdornment: (
+                            <InputAdornment position="start">
+                                <SearchIcon />
+                            </InputAdornment>
+                        ),
+                        endAdornment: search && (
+                            <InputAdornment position="end">
+                                <IconButton onClick={() => setSearch("")}>
+                                    <ClearIcon />
+                                </IconButton>
+                            </InputAdornment>
+                        )
+                    }}
+                />
+
+                {/* Table */}
                 <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
                     <Table>
                         <TableHead sx={{ background: "#fafafa" }}>
@@ -191,56 +207,65 @@ const TypeHpPage = () => {
                                 {role !== "petugas" && <TableCell align="center"><b>Aksi</b></TableCell>}
                             </TableRow>
                         </TableHead>
-
                         <TableBody>
                             {tableLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={4} align="center">
-                                        <CircularProgress size={25} />
-                                    </TableCell>
-                                </TableRow>
-                            ) : data.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={4} align="center">Tidak ada data</TableCell>
-                                </TableRow>
+                                <TableRow><TableCell colSpan={3} align="center"><CircularProgress size={25} /></TableCell></TableRow>
+                            ) : data.data.length === 0 ? (
+                                <TableRow><TableCell colSpan={3} align="center">Tidak ada data</TableCell></TableRow>
                             ) : (
-                                data
-                                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                                    .map((item, index) => (
-                                        <TableRow hover key={item.id}>
-                                            <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
-                                            <TableCell>{item.nama_type}</TableCell>
-                                            {role !== "petugas" && (
-                                                <TableCell align="center">
-                                                    <Stack direction="row" spacing={1} justifyContent="center">
-                                                        <IconButton color="primary" onClick={() => handleOpenModal(item)}>
-                                                            <EditIcon />
-                                                        </IconButton>
-                                                        <IconButton color="error" onClick={() => handleDelete(item.id)}>
-                                                            <DeleteIcon />
-                                                        </IconButton>
-                                                    </Stack>
-                                                </TableCell>
-                                            )}
-                                        </TableRow>
-                                    ))
+                                data.data.map((item, index) => (
+                                    <TableRow key={item.id} hover>
+                                        <TableCell align="center">
+                                            {(data.current_page - 1) * rowsPerPage + index + 1}
+                                        </TableCell>
+                                        <TableCell>{item.nama_type}</TableCell>
+                                        {role !== "petugas" && (
+                                            <TableCell align="center">
+                                                <IconButton color="primary" onClick={() => handleOpenEdit(item)}>
+                                                    <EditIcon />
+                                                </IconButton>
+                                                <IconButton color="error" onClick={() => handleDelete(item.id)}>
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            </TableCell>
+                                        )}
+                                    </TableRow>
+                                ))
                             )}
                         </TableBody>
                     </Table>
 
                     <TablePagination
                         component="div"
-                        count={data.length}
+                        count={data.total}
                         rowsPerPage={rowsPerPage}
                         page={page}
-                        onPageChange={(_, newPage) => setPage(newPage)}
+                        onPageChange={(_, p) => fetchTypes(selectedMerk, p + 1, debouncedSearch)}
                         onRowsPerPageChange={(e) => {
                             setRowsPerPage(parseInt(e.target.value, 10));
-                            setPage(0);
+                            fetchTypes(selectedMerk, 1, debouncedSearch);
                         }}
                     />
                 </TableContainer>
             </CardContent>
+
+            {/* Modal Edit */}
+            <Dialog open={openEdit} onClose={() => setOpenEdit(false)} fullWidth maxWidth="sm">
+                <DialogTitle>Edit Type HP</DialogTitle>
+                <DialogContent>
+                    <TextField
+                        fullWidth
+                        label="Nama Type"
+                        margin="normal"
+                        value={form.nama_type}
+                        onChange={(e) => setForm({ ...form, nama_type: e.target.value })}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenEdit(false)}>Batal</Button>
+                    <Button variant="contained" onClick={handleUpdate}>Simpan</Button>
+                </DialogActions>
+            </Dialog>
         </Card>
     );
 };

@@ -23,15 +23,16 @@ import {
     TableRow,
     TableCell,
     TableContainer,
+    Collapse,
+    Tooltip,
 } from "@mui/material";
-import { ArrowBack, Close } from "@mui/icons-material";
+import { ArrowBack, Close, ExpandMore, ExpandLess } from "@mui/icons-material";
 import axiosInstance from "api/axiosInstance";
 import { AuthContext } from "AuthContex/AuthContext";
 
 // ===================================
 // HELPER FUNCTIONS
 // ===================================
-
 const getFullUrl = (path) => {
     if (!path) return null;
     if (path.startsWith("http")) return path;
@@ -60,10 +61,6 @@ const formatRp = (v) =>
 // ===================================
 // REUSABLE COMPONENTS
 // ===================================
-
-/**
- * Komponen untuk menampilkan satu baris detail.
- */
 const DetailItem = ({ label, value, xs = 12, sm = 6 }) => (
     <Grid item xs={xs} sm={sm}>
         <Typography variant="body2" color="text.secondary">{label}</Typography>
@@ -71,9 +68,6 @@ const DetailItem = ({ label, value, xs = 12, sm = 6 }) => (
     </Grid>
 );
 
-/**
- * Komponen untuk preview gambar/dokumen.
- */
 const ImagePreview = ({ selectedImage, setSelectedImage }) => (
     <Dialog open={!!selectedImage} onClose={() => setSelectedImage("")} maxWidth="lg" fullWidth>
         <DialogContent sx={{ p: 0, position: "relative", bgcolor: "#000" }}>
@@ -92,11 +86,7 @@ const ImagePreview = ({ selectedImage, setSelectedImage }) => (
             </IconButton>
             <img
                 src={selectedImage}
-                style={{
-                    width: "100%",
-                    maxHeight: "90vh",
-                    objectFit: "contain"
-                }}
+                style={{ width: "100%", maxHeight: "90vh", objectFit: "contain" }}
                 alt="Dokumen"
             />
         </DialogContent>
@@ -104,9 +94,17 @@ const ImagePreview = ({ selectedImage, setSelectedImage }) => (
 );
 
 // ===================================
+// DOKUMEN SOP HP
+// ===================================
+const DOKUMEN_SOP_HP = {
+    Android: ['body', 'imei', 'about', 'akun', 'admin', 'cam_depan', 'cam_belakang', 'rusak'],
+    Samsung: ['body', 'imei', 'about', 'samsung_account', 'admin', 'cam_depan', 'cam_belakang', 'galaxy_store'],
+    iPhone: ['body', 'imei', 'about', 'icloud', 'battery', 'utools', 'iunlocker', 'cek_pencurian']
+};
+
+// ===================================
 // MAIN COMPONENT
 // ===================================
-
 const AdminDetailPage = () => {
     const { detailGadaiId } = useParams();
     const navigate = useNavigate();
@@ -115,6 +113,7 @@ const AdminDetailPage = () => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [selectedImage, setSelectedImage] = useState("");
+    const [expandedBarang, setExpandedBarang] = useState({}); // collapse state per item
 
     const loadDetail = useCallback(async () => {
         try {
@@ -123,7 +122,6 @@ const AdminDetailPage = () => {
                 : `/admin/laporan/detail/${detailGadaiId}`;
 
             const res = await axiosInstance.get(endpoint);
-
             if (res.data.success) setData(res.data.data);
             else console.error("Gagal mengambil data detail:", res.data.message);
         } catch (e) {
@@ -159,16 +157,26 @@ const AdminDetailPage = () => {
     const nasabah = detail.nasabah || {};
 
     const barangList = [
-        ...(data.hp?.data || []).map(item => ({ category: "Handphone", ...item })),
-        ...(data.perhiasan?.data || []).map(item => ({ category: "Perhiasan", ...item })),
-        ...(data.logam_mulia?.data || []).map(item => ({ category: "Logam Mulia", ...item })),
-        ...(data.retro?.data || []).map(item => ({ category: "Retro", ...item })),
+        ...(data.hp ? [data.hp] : []).map(item => ({ category: "Handphone", ...item })),
+        ...(data.perhiasan ? [data.perhiasan] : []).map(item => ({ category: "Perhiasan", ...item })),
+        ...(data.logam_mulia ? [data.logam_mulia] : []).map(item => ({ category: "Logam Mulia", ...item })),
+        ...(data.retro ? [data.retro] : []).map(item => ({ category: "Retro", ...item })),
     ];
 
+    // ===================================
+    // DOKUMEN PENDUKUNG SESUAI SOP
+    // ===================================
     const dokumenPendukung = [];
     barangList.forEach((item) => {
         if (!item.dokumen_pendukung) return;
-        Object.entries(item.dokumen_pendukung).forEach(([key, val]) => {
+
+        // ambil SOP sesuai merk
+        const merk = item.merk?.nama_merk || "Android";
+        const sopList = DOKUMEN_SOP_HP[merk] || [];
+
+        sopList.forEach((key) => {
+            const val = item.dokumen_pendukung[key];
+            if (!val) return;
             let url = null;
             if (typeof val === "string") url = getFullUrl(val);
             else if (Array.isArray(val) && val.length > 0) url = getFullUrl(val[0]);
@@ -176,13 +184,7 @@ const AdminDetailPage = () => {
         });
     });
 
-    // Styling
-    const sectionPaperStyle = {
-        p: 3,
-        borderRadius: 2,
-        mb: 4,
-        boxShadow: 2,
-    };
+    const sectionPaperStyle = { p: 3, borderRadius: 2, mb: 4, boxShadow: 2 };
 
     return (
         <Box sx={{ maxWidth: 1000, mx: "auto", mt: 3, mb: 6 }}>
@@ -198,35 +200,24 @@ const AdminDetailPage = () => {
                 />
                 <CardContent sx={{ p: 4 }}>
                     <Stack spacing={4}>
-                        
-                        {/* =================================== */}
-                        {/* 1. INFORMASI NASABAH */}
-                        {/* =================================== */}
+                        {/* INFORMASI NASABAH */}
                         <Paper sx={sectionPaperStyle}>
                             <Typography variant="h6" fontWeight={600} gutterBottom sx={{ color: '#1976d2' }}>
-                                👤 Informasi Nasabah
+                                Informasi Nasabah
                             </Typography>
                             <Grid container spacing={3}>
                                 <DetailItem label="Nama Lengkap" value={nasabah.nama_lengkap} />
                                 <DetailItem label="NIK" value={nasabah.nik} />
                                 <DetailItem label="Alamat" value={nasabah.alamat} xs={12} sm={12} />
                                 <DetailItem label="No HP" value={nasabah.no_hp} />
-                                <DetailItem label="No Rekening" value={nasabah.no_rek} /> {/* Tampilkan No Rek */}
+                                <DetailItem label="No Rekening" value={nasabah.no_rek} />
                                 {nasabah.foto_ktp && (
                                     <Grid item xs={12}>
                                         <Typography variant="body2" color="text.secondary">Foto KTP</Typography>
                                         <Box
                                             component="img"
                                             src={getFullUrl(nasabah.foto_ktp)}
-                                            sx={{
-                                                width: 150,
-                                                height: 100,
-                                                objectFit: "cover",
-                                                borderRadius: 1,
-                                                border: "2px solid #ccc",
-                                                cursor: "pointer",
-                                                mt: 1
-                                            }}
+                                            sx={{ width: 150, height: 100, objectFit: "cover", borderRadius: 1, border: "2px solid #ccc", cursor: "pointer", mt: 1 }}
                                             onClick={() => setSelectedImage(getFullUrl(nasabah.foto_ktp))}
                                             alt="Foto KTP Nasabah"
                                         />
@@ -235,22 +226,17 @@ const AdminDetailPage = () => {
                             </Grid>
                         </Paper>
 
-                        {/* =================================== */}
-                        {/* 2. DETAIL GADAI & PERHITUNGAN */}
-                        {/* =================================== */}
+                        {/* DETAIL GADAI & PERHITUNGAN */}
                         <Paper sx={sectionPaperStyle}>
                             <Typography variant="h6" fontWeight={600} gutterBottom sx={{ color: '#d32f2f' }}>
-                            Detail Transaksi & Biaya
+                                Detail Transaksi & Biaya
                             </Typography>
                             <Grid container spacing={3}>
                                 <DetailItem label="No Gadai" value={detail.no_gadai} />
                                 <DetailItem label="Jenis Gadai" value={detail.type?.nama_type} />
                                 <DetailItem label="Tanggal Gadai" value={detail.tanggal_gadai} />
                                 <DetailItem label="Jatuh Tempo Awal" value={detail.jatuh_tempo} />
-                                
-                                {/* Pemisahan Perhitungan */}
                                 <Grid item xs={12}><Typography variant="subtitle1" fontWeight={600} sx={{ mt: 2, borderBottom: '1px solid #eee' }}>Perhitungan Biaya</Typography></Grid>
-                                
                                 <DetailItem label="Pinjaman Pokok" value={formatRp(perhitungan.pinjaman_pokok)} />
                                 <DetailItem label="Total Diterima" value={formatRp(perhitungan.total_diterima)} />
                                 <DetailItem label="Tenor Hari" value={perhitungan.tenor_hari} />
@@ -260,59 +246,108 @@ const AdminDetailPage = () => {
                             </Grid>
                         </Paper>
 
-                        {/* =================================== */}
-                        {/* 3. BARANG DIGADAI */}
-                        {/* =================================== */}
+                        {/* BARANG DIGADAI */}
                         {barangList.length > 0 && (
                             <Paper sx={sectionPaperStyle}>
-                                <Typography variant="h6" fontWeight={600} gutterBottom sx={{ color: '#004d40' }}>
-                                Barang Digadai ({barangList.length} Item)
+                                <Typography
+                                    variant="h5"
+                                    fontWeight={700}
+                                    gutterBottom
+                                    sx={{
+                                        color: '#004d40',
+                                        mb: 2,
+                                        letterSpacing: 0.5,
+                                        borderBottom: '3px solid #26a69a',
+                                        display: 'inline-block',
+                                        pb: 0.5
+                                    }}
+                                >
+                                     Barang Digadai
                                 </Typography>
-                                {barangList.map((item, idx) => (
-                                    <Box key={idx} sx={{ mt: idx > 0 ? 3 : 0, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                                        <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1, color: '#004d40' }}>
-                                            {idx + 1}. {item.category}
-                                        </Typography>
-                                        <Grid container spacing={1}>
-                                            {Object.entries(item).map(([k, v]) => {
-                                                if (
-                                                    ["id", "category", "dokumen_pendukung", "created_at", "updated_at", "deleted_at", "detail_gadai_id"].includes(k)
-                                                ) return null;
 
-                                                const label = k.replace(/_/g, " ").toUpperCase();
-                                                const valueDisplay = Array.isArray(v) ? v.join(", ") : v || "-";
-                                                
-                                                return (
-                                                    <Grid item xs={12} sm={6} md={4} key={k}>
-                                                        <Typography variant="caption" color="text.secondary">{label}</Typography>
-                                                        <Typography variant="body2">{valueDisplay}</Typography>
-                                                    </Grid>
-                                                );
-                                            })}
+                                <Grid container spacing={2}>
+                                    {barangList.map((item, idx) => (
+                                        <Grid item xs={12} key={idx}>
+                                            <Paper sx={{ p: 2, borderRadius: 2, boxShadow: 1 }}>
+                                                <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                                                    {item.category}
+                                                </Typography>
+
+                                                {/* Info Utama */}
+                                                <Grid container spacing={1} sx={{ mb: 1 }}>
+                                                    {item.category.toLowerCase() === "handphone" && (
+                                                        <>
+                                                            <Grid item xs={12} sm={6} md={4}>
+                                                                <Typography variant="caption" color="text.secondary">Merk</Typography>
+                                                                <Typography variant="body2">{item.merk?.nama_merk}</Typography>
+                                                            </Grid>
+                                                            <Grid item xs={12} sm={6} md={4}>
+                                                                <Typography variant="caption" color="text.secondary">Type</Typography>
+                                                                <Typography variant="body2">{item.type_hp?.nama_type}</Typography>
+                                                            </Grid>
+                                                            <Grid item xs={12} sm={6} md={4}>
+                                                                <Typography variant="caption" color="text.secondary">Warna</Typography>
+                                                                <Typography variant="body2">{item.warna}</Typography>
+                                                            </Grid>
+                                                            <Grid item xs={12} sm={6} md={4}>
+                                                                <Typography variant="caption" color="text.secondary">RAM / ROM</Typography>
+                                                                <Typography variant="body2">{item.ram} / {item.rom}</Typography>
+                                                            </Grid>
+                                                            <Grid item xs={12} sm={6} md={4}>
+                                                                <Typography variant="caption" color="text.secondary">IMEI</Typography>
+                                                                <Typography variant="body2">{item.imei}</Typography>
+                                                            </Grid>
+                                                            <Grid item xs={12} sm={6} md={4}>
+                                                                <Typography variant="caption" color="text.secondary">Grade</Typography>
+                                                                <Typography variant="body2">{item.grade_type}</Typography>
+                                                            </Grid>
+                                                        </>
+                                                    )}
+                                                </Grid>
+
+                                                {/* Kerusakan */}
+                                                {item.kerusakan_list?.length > 0 && (
+                                                    <Box sx={{ mt: 2 }}>
+                                                        <Typography variant="subtitle2" fontWeight={600}>Kerusakan</Typography>
+                                                        <Grid container spacing={1}>
+                                                            {item.kerusakan_list.map((kerusakan, kidx) => (
+                                                                <Grid item xs={12} sm={6} md={4} key={kidx}>
+                                                                    <Typography variant="body2">- {kerusakan.nama_kerusakan}</Typography>
+                                                                </Grid>
+                                                            ))}
+                                                        </Grid>
+                                                    </Box>
+                                                )}
+
+                                                {/* Kelengkapan */}
+                                                {item.kelengkapan_list?.length > 0 && (
+                                                    <Box sx={{ mt: 2 }}>
+                                                        <Typography variant="subtitle2" fontWeight={600}>Kelengkapan</Typography>
+                                                        <Grid container spacing={1}>
+                                                            {item.kelengkapan_list.map((kelengkapan, kidx) => (
+                                                                <Grid item xs={12} sm={6} md={4} key={kidx}>
+                                                                    <Typography variant="body2">- {kelengkapan.nama_kelengkapan}</Typography>
+                                                                </Grid>
+                                                            ))}
+                                                        </Grid>
+                                                    </Box>
+                                                )}
+                                            </Paper>
                                         </Grid>
-                                    </Box>
-                                ))}
+                                    ))}
+                                </Grid>
                             </Paper>
                         )}
 
 
-                        {/* =================================== */}
-                        {/* 4. PERPANJANGAN TEMPO */}
-                        {/* =================================== */}
+                        {/* PERPANJANGAN TEMPO */}
                         {perpanjanganTempo.length > 0 && (
                             <Paper sx={sectionPaperStyle}>
                                 <Typography variant="h6" fontWeight={600} gutterBottom sx={{ color: '#ff9800' }}>
-                                Riwayat Perpanjangan Tempo
+                                    Riwayat Perpanjangan Tempo
                                 </Typography>
                                 <TableContainer>
                                     <Table size="small">
-                                        <TableHead>
-                                            <TableRow sx={{ bgcolor: '#fff3e0' }}>
-                                                <TableCell sx={{ fontWeight: 700 }}>No</TableCell>
-                                                <TableCell sx={{ fontWeight: 700 }}>Tanggal Perpanjangan</TableCell>
-                                                <TableCell sx={{ fontWeight: 700 }}>Jatuh Tempo Baru</TableCell>
-                                            </TableRow>
-                                        </TableHead>
                                         <TableBody>
                                             {perpanjanganTempo.map((p, idx) => (
                                                 <TableRow key={idx} hover>
@@ -327,9 +362,7 @@ const AdminDetailPage = () => {
                             </Paper>
                         )}
 
-                        {/* =================================== */}
-                        {/* 5. APPROVAL HISTORY */}
-                        {/* =================================== */}
+                        {/* APPROVAL HISTORY */}
                         {approvals.length > 0 && (
                             <Paper sx={sectionPaperStyle}>
                                 <Typography variant="h6" fontWeight={600} gutterBottom sx={{ color: '#7b1fa2' }}>
@@ -345,11 +378,7 @@ const AdminDetailPage = () => {
                                                     <Chip
                                                         size="small"
                                                         label={a.status}
-                                                        sx={{
-                                                            color: "#fff",
-                                                            backgroundColor: getStatusColor(a.status),
-                                                            fontWeight: 500
-                                                        }}
+                                                        sx={{ color: "#fff", backgroundColor: getStatusColor(a.status), fontWeight: 500 }}
                                                     />
                                                 </Stack>
                                                 <Typography variant="body2">Catatan: {a.catatan || "-"}</Typography>
@@ -360,10 +389,8 @@ const AdminDetailPage = () => {
                                 </Grid>
                             </Paper>
                         )}
-                        
-                        {/* =================================== */}
-                        {/* 6. DOKUMEN PENDUKUNG */}
-                        {/* =================================== */}
+
+                        {/* DOKUMEN PENDUKUNG */}
                         {dokumenPendukung.length > 0 && (
                             <Paper sx={sectionPaperStyle}>
                                 <Typography variant="h6" fontWeight={600} gutterBottom sx={{ color: '#039be5' }}>
@@ -381,7 +408,7 @@ const AdminDetailPage = () => {
                                                 sx={{
                                                     width: "100%",
                                                     height: 120,
-                                                    objectFit: "cover", // Use cover for better layout
+                                                    objectFit: "cover",
                                                     borderRadius: 1,
                                                     border: "1px solid #ccc",
                                                     cursor: "pointer",
@@ -396,7 +423,6 @@ const AdminDetailPage = () => {
                                 </Grid>
                             </Paper>
                         )}
-
                     </Stack>
                 </CardContent>
             </Card>

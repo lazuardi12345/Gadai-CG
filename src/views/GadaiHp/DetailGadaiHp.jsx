@@ -13,18 +13,40 @@ import {
   DialogContent,
   IconButton,
   Chip,
+  Card,
+  CardActionArea,
+  CardMedia,
+  Tooltip,
+  Divider,
+  Avatar,
+  Badge,
 } from "@mui/material";
-import { ArrowBack, Close } from "@mui/icons-material";
+import { ArrowBack, Close, Download, Image } from "@mui/icons-material";
 import { useParams, useNavigate } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { AuthContext } from "AuthContex/AuthContext";
 
-// Helper: Buat URL dokumen berdasarkan base API
+// SOP Foto Dokumen
+const DOKUMEN_SOP_HP = {
+  Android: ['body', 'imei', 'about', 'akun', 'admin', 'cam_depan', 'cam_belakang', 'rusak'],
+  Samsung: ['body', 'imei', 'about', 'samsung_account', 'admin', 'cam_depan', 'cam_belakang', 'galaxy_store'],
+  iPhone: ['body', 'imei', 'about', 'icloud', 'battery', 'utools', 'iunlocker', 'cek_pencurian']
+};
+
+// Helper: Buat URL dokumen
 const getFullDokumenUrl = (path) => {
   if (!path) return null;
   if (path.startsWith("http")) return path;
   const baseUrl = import.meta.env.VITE_API_BASE_URL.replace(/\/api$/, "");
   return path.startsWith("storage/") ? `${baseUrl}/${path}` : `${baseUrl}/storage/${path}`;
+};
+
+// Small util: format currency
+const formatRupiah = (value) => {
+  if (value == null || value === "") return "-";
+  const num = Number(value);
+  if (Number.isNaN(num)) return value;
+  return `Rp ${num.toLocaleString("id-ID")}`;
 };
 
 const DetailGadaiHpPage = () => {
@@ -60,43 +82,31 @@ const DetailGadaiHpPage = () => {
 
       const rawData = res.data.data;
 
-      // Parse kelengkapan
-      let kelengkapanArray = [];
-      try {
-        if (rawData.kelengkapan) kelengkapanArray = JSON.parse(rawData.kelengkapan);
-      } catch {
-        kelengkapanArray = [];
-      }
+      // Tentukan SOP berdasarkan barang / merk / type
+      const sopKey = rawData.nama_barang || rawData.merk?.nama_merk || rawData.type_hp?.nama_type;
+      const sopDokumen = DOKUMEN_SOP_HP[sopKey] || [];
 
-      // Parse dokumen pendukung
-      let dokumenObj = {};
-      if (rawData.dokumen_pendukung) {
-        if (typeof rawData.dokumen_pendukung === "string") {
-          try {
-            dokumenObj = JSON.parse(rawData.dokumen_pendukung);
-          } catch {
-            dokumenObj = {};
-          }
-        } else {
-          dokumenObj = rawData.dokumen_pendukung;
-        }
-      }
-
-      // Ubah ke array URL per key dengan base URL backend
+      // Filter dokumen pendukung dan konversi ke url
+      const rawDokumen = rawData.dokumen_pendukung || {};
       const dokumenPendukung = {};
-      Object.entries(dokumenObj).forEach(([key, val]) => {
+
+      Object.entries(rawDokumen).forEach(([key, val]) => {
+        if (!sopDokumen.includes(key)) return; // hanya SOP
+
         let urls = [];
-        if (!val) urls = [];
-        else if (typeof val === "string") urls.push(getFullDokumenUrl(val));
+        if (typeof val === "string") urls.push(getFullDokumenUrl(val));
         else if (Array.isArray(val)) urls = val.map(getFullDokumenUrl);
+
         dokumenPendukung[key] = urls.length > 0 ? urls : null;
       });
 
       setData({
         ...rawData,
-        kelengkapan: kelengkapanArray,
+        kerusakan: rawData.kerusakan_list || [],
+        kelengkapan: rawData.kelengkapan_list || [],
         dokumen_pendukung: dokumenPendukung,
       });
+
     } catch (err) {
       setError(err.message || "Terjadi kesalahan server");
     } finally {
@@ -106,179 +116,198 @@ const DetailGadaiHpPage = () => {
 
   useEffect(() => {
     fetchDetail();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, userRole]);
 
   if (loading)
     return (
-      <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}>
+      <Stack alignItems="center" justifyContent="center" sx={{ height: "70vh" }}>
         <CircularProgress />
       </Stack>
     );
 
   if (error)
-    return (
-      <Typography color="error" variant="h6" align="center" sx={{ mt: 2 }}>
-        Error: {error}
-      </Typography>
-    );
+    return <Typography color="error" variant="h6" align="center" sx={{ mt: 2 }}>{`Error: ${error}`}</Typography>;
 
   if (!data)
-    return (
-      <Typography align="center" sx={{ mt: 2 }}>
-        Data tidak ditemukan.
-      </Typography>
-    );
+    return <Typography align="center" sx={{ mt: 2 }}>Data tidak ditemukan.</Typography>;
 
   const d = data;
   const nasabah = d.detail_gadai?.nasabah;
-  const dokumenKeys = d.dokumen_pendukung ? Object.keys(d.dokumen_pendukung) : [];
+  const dokumenKeys = Object.keys(d.dokumen_pendukung || {});
 
   return (
-    <Box sx={{ maxWidth: 1000, mx: "auto", mt: 2, mb: 6 }}>
-      <Paper elevation={3} sx={{ borderRadius: 3, overflow: "hidden" }}>
-        <CardHeader
-          title={<Typography variant="h5" fontWeight={600}>Detail Gadai HP</Typography>}
-          action={
-            <Button variant="outlined" color="primary" startIcon={<ArrowBack />} onClick={() => navigate(-1)}>
+    <Box sx={{ maxWidth: 1200, mx: "auto", mt: 3, mb: 8, px: 2 }}>
+
+      {/* Sticky Header */}
+      <Paper elevation={2} sx={{ position: "sticky", top: 16, zIndex: 20, borderRadius: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", px: 3, py: 2 }}>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Button
+              startIcon={<ArrowBack />}
+              onClick={() => navigate(-1)}
+              variant="text"
+              sx={{ textTransform: "none" }}
+            >
               Kembali
             </Button>
-          }
-          sx={{ bgcolor: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}
-        />
-        <CardContent sx={{ p: 3 }}>
-          {/* Informasi Nasabah */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>Informasi Nasabah</Typography>
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+
+            <Box>
+              <Typography variant="h6" fontWeight={700}>Detail Gadai HP</Typography>
+              <Typography variant="body2" color="text.secondary">No Gadai: {d.detail_gadai?.no_gadai || '-'}</Typography>
+            </Box>
+          </Stack>
+
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Tooltip title="Download semua dokumen (ZIP)">
+              <Button variant="outlined" size="small" startIcon={<Download />}>Download</Button>
+            </Tooltip>
+            <Tooltip title="Lihat preview gallery">
+              <Button variant="contained" size="small" startIcon={<Image />} onClick={() => {
+                // open first available image
+                const first = dokumenKeys.reduce((acc, k) => {
+                  if (acc) return acc;
+                  const v = d.dokumen_pendukung[k];
+                  return v && v.length ? v[0] : null;
+                }, null);
+                if (first) setSelectedImage(first);
+              }}>Preview</Button>
+            </Tooltip>
+          </Stack>
+        </Box>
+      </Paper>
+
+      <Grid container spacing={3}>
+        {/* Left column: summary */}
+        <Grid item xs={12} md={4}>
+          <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
+            <Stack spacing={2} alignItems="center">
+
+
+              <Box textAlign="center">
+                <Typography variant="h6" fontWeight={800}>{d.nama_barang || '-'}</Typography>
+                <Typography variant="body2" color="text.secondary">{d.merk?.nama_merk || '-'} • {d.type_hp?.nama_type || '-'}</Typography>
+              </Box>
+
+              <Divider sx={{ width: "100%" }} />
+
+              <Stack spacing={1} sx={{ width: "100%" }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="subtitle2" color="text.secondary">Grade</Typography>
+                  <Typography variant="subtitle2" fontWeight={700}>{d.grade_type || '-'}</Typography>
+                </Box>
+
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="subtitle2" color="text.secondary">Taksiran</Typography>
+                  <Typography variant="subtitle2" fontWeight={700}>
+                    {formatRupiah(d?.detail_gadai?.taksiran)}
+                  </Typography>
+                </Box>
+
+
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="subtitle2" color="text.secondary">RAM / ROM</Typography>
+                  <Typography variant="subtitle2" fontWeight={700}>{d.ram || '-'} / {d.rom || '-'}</Typography>
+                </Box>
+
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="subtitle2" color="text.secondary">Warna</Typography>
+                  <Typography variant="subtitle2">{d.warna || '-'}</Typography>
+                </Box>
+
+              </Stack>
+
+              <Divider sx={{ width: '100%' }} />
+
+              <Box sx={{ width: '100%' }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Kelengkapan</Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {d.kelengkapan.length > 0 ? d.kelengkapan.map((k, i) => (
+                    <Chip key={i} label={k.nama_kelengkapan} size="small" variant="outlined" color="success" sx={{ borderColor: 'success.main', color: 'success.main' }} />
+                  )) : <Typography variant="body2" color="text.secondary">-</Typography>}
+                </Stack>
+              </Box>
+
+              <Box sx={{ width: '100%' }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Kerusakan</Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {d.kerusakan.length > 0 ? d.kerusakan.map((k, i) => (
+                    <Chip key={i} label={k.nama_kerusakan} size="small" color="error" variant="outlined" />
+                  )) : <Typography variant="body2" color="text.secondary">-</Typography>}
+                </Stack>
+              </Box>
+
+            </Stack>
+          </Paper>
+
+          {/* Nasabah card */}
+          <Paper elevation={1} sx={{ mt: 3, p: 2, borderRadius: 3 }}>
+            <Typography variant="subtitle2" color="text.secondary">Informasi Nasabah</Typography>
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="body1" fontWeight={700}>{nasabah?.nama_lengkap || '-'}</Typography>
+              <Typography variant="body2" color="text.secondary">No Nasabah: {d.detail_gadai?.no_nasabah || '-'}</Typography>
+              <Typography variant="body2" color="text.secondary">No Gadai: {d.detail_gadai?.no_gadai || '-'}</Typography>
+              <Typography variant="body2" color="text.secondary">Tanggal: {d.detail_gadai?.tanggal_gadai || '-'}</Typography>
+            </Box>
+          </Paper>
+        </Grid>
+
+        {/* Right column: gallery & documents */}
+        <Grid item xs={12} md={8}>
+          <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
+            <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2 }}>Dokumen & Foto</Typography>
+
+            {dokumenKeys.length === 0 ? (
+              <Box sx={{ py: 6, textAlign: 'center' }}>
+                <Image sx={{ fontSize: 48, opacity: 0.4 }} />
+                <Typography variant="body2" color="text.secondary">Tidak ada dokumen tersedia sesuai SOP</Typography>
+              </Box>
+            ) : (
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}><Typography><strong>Nama:</strong> {nasabah?.nama_lengkap || "-"}</Typography></Grid>
-                <Grid item xs={12} sm={6}><Typography><strong>No Nasabah:</strong> {d.detail_gadai?.no_nasabah || "-"}</Typography></Grid>
-                <Grid item xs={12} sm={6}><Typography><strong>No Gadai:</strong> {d.detail_gadai?.no_gadai || "-"}</Typography></Grid>
-                <Grid item xs={12} sm={6}><Typography><strong>Tanggal Gadai:</strong> {d.detail_gadai?.tanggal_gadai || "-"}</Typography></Grid>
-              </Grid>
-            </Paper>
-          </Box>
+                {dokumenKeys.sort((a, b) => (DOKUMEN_SOP_HP[d.nama_barang] || []).indexOf(a) - (DOKUMEN_SOP_HP[d.nama_barang] || []).indexOf(b)).map((key) => (
+                  <Grid item xs={12} sm={6} md={6} key={key}>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Typography fontWeight={700}>{key.replace(/_/g, ' ').toUpperCase()}</Typography>
+                        <Badge badgeContent={(d.dokumen_pendukung[key] || []).length} color="primary" />
+                      </Box>
 
-          {/* Informasi HP */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>Informasi HP</Typography>
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}><Typography><strong>Nama Barang:</strong> {d.nama_barang || "-"}</Typography></Grid>
-                <Grid item xs={12} sm={6}><Typography><strong>Merk:</strong> {d.merk?.nama_merk || "-"}</Typography></Grid>
-                <Grid item xs={12} sm={6}><Typography><strong>Type:</strong> {d.type_hp?.nama_type || "-"}</Typography></Grid>
-                <Grid item xs={12} sm={6}><Typography><strong>Grade:</strong> {d.grade_type || "-"}</Typography></Grid>
-                <Grid item xs={12} sm={6}><Typography><strong>Grade Nominal:</strong> {d.grade_nominal ? `Rp ${Number(d.grade_nominal).toLocaleString("id-ID")}` : "-"}</Typography></Grid>
-                <Grid item xs={12} sm={6}><Typography><strong>RAM:</strong> {d.ram || "-"}</Typography></Grid>
-                <Grid item xs={12} sm={6}><Typography><strong>ROM:</strong> {d.rom || "-"}</Typography></Grid>
-                <Grid item xs={12} sm={6}><Typography><strong>Warna:</strong> {d.warna || "-"}</Typography></Grid>
-                <Grid item xs={12} sm={6}><Typography><strong>Kunci PIN:</strong> {d.kunci_pin || "-"}</Typography></Grid>
-                <Grid item xs={12} sm={6}><Typography><strong>Kunci Password:</strong> {d.kunci_password || "-"}</Typography></Grid>
-                <Grid item xs={12} sm={6}><Typography><strong>Kunci Pola:</strong> {d.kunci_pola || "-"}</Typography></Grid>
-
-                <Grid item xs={12}>
-                  <Grid container spacing={2}>
-                    {/* Kelengkapan */}
-                    <Grid item xs={12} sm={6}>
-                      <Typography sx={{ mb: 1 }}><strong>Kelengkapan:</strong></Typography>
-                      {d.kelengkapan && d.kelengkapan.length > 0 ? (
-                        <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                          {d.kelengkapan.map((k, idx) => (
-                            <Chip key={idx} label={k} size="small" color="primary" variant="outlined" />
-                          ))}
-                        </Stack>
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">-</Typography>
-                      )}
-                    </Grid>
-
-                    {/* Kerusakan */}
-                    <Grid item xs={12} sm={6}>
-                      <Typography sx={{ mb: 1 }}><strong>Kerusakan:</strong></Typography>
-                      {d.kerusakan && d.kerusakan.length > 0 ? (
-                        <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                          {d.kerusakan.map((k, idx) => (
-                            <Chip
-                              key={idx}
-                              label={k.nama_kerusakan}
-                              size="small"
-                              color="error"
-                              variant="outlined"
-                            />
-
-                          ))}
-                        </Stack>
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">-</Typography>
-                      )}
-                    </Grid>
-                  </Grid>
-                </Grid>
-
-
-              </Grid>
-            </Paper>
-          </Box>
-
-          {/* Dokumen Pendukung */}
-          {dokumenKeys.length > 0 && (
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="h6" fontWeight={600} gutterBottom>Dokumen Pendukung</Typography>
-              <Grid container spacing={2}>
-                {dokumenKeys.map((key) => (
-                  <Grid item xs={12} sm={4} key={key}>
-                    <Typography sx={{ mb: 1, fontSize: 14, fontWeight: 500 }}>
-                      {key.replace(/_/g, " ").toUpperCase()}
-                    </Typography>
-                    {d.dokumen_pendukung[key] ? (
-                      d.dokumen_pendukung[key].map((url, idx) => (
-                        <Box
-                          key={idx}
-                          component="img"
-                          src={url}
-                          alt={`${key}-${idx}`}
-                          sx={{
-                            width: "100%",
-                            maxHeight: 150,
-                            objectFit: "contain",
-                            borderRadius: 1,
-                            border: "1px solid #ccc",
-                            cursor: "pointer",
-                            mb: 1,
-                            "&:hover": { transform: "scale(1.05)" },
-                            transition: "transform 0.3s",
-                          }}
-                          onClick={() => setSelectedImage(url)}
-                        />
-                      ))
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">Belum ada dokumen</Typography>
-                    )}
+                      <Grid container spacing={1}>
+                        {(d.dokumen_pendukung[key] || []).map((url, idx) => (
+                          <Grid item xs={6} key={idx}>
+                            <Card sx={{ borderRadius: 2, overflow: 'hidden', cursor: 'pointer', boxShadow: 2 }}>
+                              <CardActionArea onClick={() => setSelectedImage(url)}>
+                                <CardMedia component="img" height="140" image={url} alt={`${key}-${idx}`} sx={{ objectFit: 'cover', transition: 'transform .25s', '&:hover': { transform: 'scale(1.03)' } }} />
+                              </CardActionArea>
+                            </Card>
+                          </Grid>
+                        ))}
+                      </Grid>
+                    </Paper>
                   </Grid>
                 ))}
               </Grid>
-            </Box>
-          )}
-        </CardContent>
-      </Paper>
+            )}
+
+          </Paper>
+
+          {/* Timeline / notes area (optional) */}
+          <Paper elevation={0} sx={{ mt: 3, p: 2 }}>
+            <Typography variant="caption" color="text.secondary">Catatan: Sistem hanya menampilkan dokumen sesuai SOP.</Typography>
+          </Paper>
+        </Grid>
+      </Grid>
 
       {/* Dialog Preview */}
-      <Dialog open={!!selectedImage} onClose={() => setSelectedImage("")} maxWidth="lg">
-        <DialogContent sx={{ position: "relative", p: 0 }}>
-          <IconButton
-            onClick={() => setSelectedImage("")}
-            sx={{ position: "absolute", top: 8, right: 8, zIndex: 10, bgcolor: "rgba(255,255,255,0.7)" }}
-          >
+      <Dialog open={!!selectedImage} onClose={() => setSelectedImage("")} maxWidth="xl">
+        <DialogContent sx={{ position: 'relative', p: 0, bgcolor: 'background.paper' }}>
+          <IconButton onClick={() => setSelectedImage("")} sx={{ position: 'absolute', top: 12, right: 12, zIndex: 30, bgcolor: 'rgba(255,255,255,0.9)' }}>
             <Close />
           </IconButton>
-          <Box
-            component="img"
-            src={selectedImage}
-            alt="Preview"
-            sx={{ width: "100%", height: "auto", maxHeight: "90vh", objectFit: "contain" }}
-          />
+          <Box component="img" src={selectedImage} alt="preview" sx={{ width: '100%', height: '80vh', objectFit: 'contain' }} />
         </DialogContent>
       </Dialog>
+
     </Box>
   );
 };

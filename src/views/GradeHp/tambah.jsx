@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
     Card, CardHeader, CardContent, Divider, Button,
     TextField, Stack, CircularProgress, Typography,
@@ -7,34 +7,32 @@ import {
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 
+// ======================= Helper URL API =======================
+const getApiUrl = (resource, type = "", id = "") => {
+    const user = JSON.parse(localStorage.getItem("auth_user"));
+    const role = (user?.role || "").toLowerCase();
+
+    let base = "";
+    switch (role) {
+        case "checker":
+            base = `/checker/${resource}`;
+            break;
+        case "petugas":
+            base = `/petugas/${resource}`;
+            break;
+        case "hm":
+        default:
+            base = `/${resource}`;
+    }
+
+    if (type && id) return `${base}/${type}/${id}`;
+    if (type) return `${base}/${type}`;
+    return base;
+};
+
 const TambahGradeHp = () => {
     const navigate = useNavigate();
-
-    const user = JSON.parse(localStorage.getItem("auth_user"));
-    const role = user?.role?.toLowerCase() || "";
-
-    // =======================
-    // API URL sesuai role
-    // =======================
-    const getApiUrl = () => {
-        switch (role) {
-            case "checker": return "/checker/grade-hp";
-            case "petugas": return "/petugas/grade-hp";
-            case "hm":
-            default: return "/grade-hp";
-        }
-    };
-
-    const getTypeUrl = (merkId) => {
-        switch (role) {
-            case "checker": return `/checker/type-hp/by-merk/${merkId}`;
-            case "petugas": return `/petugas/type-hp/by-merk/${merkId}`;
-            case "hm":
-            default: return `/type-hp/by-merk/${merkId}`;
-        }
-    };
-
-    const apiUrl = getApiUrl();
+    const typeSectionRef = useRef(null);
 
     const [merkList, setMerkList] = useState([]);
     const [typeList, setTypeList] = useState([]);
@@ -51,13 +49,12 @@ const TambahGradeHp = () => {
     const [loadingType, setLoadingType] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
-    // =======================
-    // FETCH MERK HP
-    // =======================
+    // ======================= FETCH MERK HP =======================
     useEffect(() => {
         const fetchMerk = async () => {
             try {
-                const res = await axiosInstance.get("/merk-hp");
+                const url = getApiUrl("merk-hp");
+                const res = await axiosInstance.get(url);
                 setMerkList(res.data.data || []);
             } catch {
                 alert("Gagal mengambil data merk");
@@ -68,9 +65,7 @@ const TambahGradeHp = () => {
         fetchMerk();
     }, []);
 
-    // =======================
-    // PILIH MERK DAN FETCH TYPE
-    // =======================
+    // ======================= PILIH MERK & FETCH TYPE =======================
     const handleSelectMerk = async (merkId) => {
         setSelectedMerk(merkId);
         setSelectedType("");
@@ -78,8 +73,18 @@ const TambahGradeHp = () => {
         setLoadingType(true);
 
         try {
-            const res = await axiosInstance.get(getTypeUrl(merkId));
-            setTypeList(res.data.data || []);
+            const url = getApiUrl("type-hp", "by-merk", merkId);
+            const res = await axiosInstance.get(url);
+
+            const typeData = res?.data?.data || [];
+            const filtered = typeData.filter(item => !item.has_grade);
+
+            setTypeList(filtered);
+
+            setTimeout(() => {
+                typeSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+            }, 300);
+
         } catch {
             alert("Gagal mengambil data type HP");
         } finally {
@@ -92,9 +97,7 @@ const TambahGradeHp = () => {
         setFormData(prev => ({ ...prev, type_hp_id: typeId }));
     };
 
-    // =======================
-    // SUBMIT GRADE
-    // =======================
+    // ======================= SUBMIT GRADE =======================
     const handleSubmit = async () => {
         if (!formData.type_hp_id) return alert("Pilih type HP dulu!");
         if (!formData.harga_grade_a || !formData.harga_grade_b || !formData.harga_grade_c) {
@@ -103,7 +106,8 @@ const TambahGradeHp = () => {
 
         setSubmitting(true);
         try {
-            const res = await axiosInstance.post(apiUrl, formData);
+            const url = getApiUrl("grade-hp");
+            const res = await axiosInstance.post(url, formData);
             if (res.data.message) {
                 alert("Grade HP berhasil ditambahkan!");
                 navigate("/grade-hp");
@@ -115,9 +119,7 @@ const TambahGradeHp = () => {
         }
     };
 
-    // =======================
-    // LOADING MERK
-    // =======================
+    // ======================= LOADING MERK =======================
     if (loadingMerk) {
         return (
             <Stack alignItems="center" mt={5}>
@@ -126,16 +128,12 @@ const TambahGradeHp = () => {
         );
     }
 
-    // =======================
-    // RENDER
-    // =======================
     return (
         <Card sx={{ maxWidth: 700, margin: "20px auto", borderRadius: 3, boxShadow: 4 }}>
             <CardHeader title="Tambah Grade HP" />
             <Divider />
             <CardContent>
                 <Stack spacing={3}>
-
                     {/* PILIH MERK */}
                     <Typography fontWeight="bold">Pilih Merk HP</Typography>
                     <Grid container spacing={2}>
@@ -161,10 +159,13 @@ const TambahGradeHp = () => {
 
                     {/* PILIH TYPE */}
                     {selectedMerk && (
-                        <>
+                        <div ref={typeSectionRef}>
                             <Typography fontWeight="bold" mt={2}>Pilih Type HP</Typography>
+
                             {loadingType ? (
                                 <CircularProgress size={25} />
+                            ) : typeList.length === 0 ? (
+                                <Typography color="error" mt={1}>Semua type HP pada merk ini sudah memiliki grade</Typography>
                             ) : (
                                 <Grid container spacing={2}>
                                     {typeList.map((t) => (
@@ -187,34 +188,25 @@ const TambahGradeHp = () => {
                                     ))}
                                 </Grid>
                             )}
-                        </>
+                        </div>
                     )}
 
                     {/* FORM GRADE */}
                     {selectedType && (
                         <>
                             <Typography fontWeight="bold" mt={2}>Masukkan Harga Grade</Typography>
-                            <TextField
-                                label="Harga Grade A"
-                                type="number"
+
+                            <TextField label="Harga Grade A" type="number"
                                 value={formData.harga_grade_a}
-                                onChange={(e) => setFormData(prev => ({ ...prev, harga_grade_a: e.target.value }))}
-                                fullWidth
-                            />
-                            <TextField
-                                label="Harga Grade B"
-                                type="number"
+                                onChange={(e) => setFormData(prev => ({ ...prev, harga_grade_a: e.target.value }))} fullWidth />
+
+                            <TextField label="Harga Grade B" type="number"
                                 value={formData.harga_grade_b}
-                                onChange={(e) => setFormData(prev => ({ ...prev, harga_grade_b: e.target.value }))}
-                                fullWidth
-                            />
-                            <TextField
-                                label="Harga Grade C"
-                                type="number"
+                                onChange={(e) => setFormData(prev => ({ ...prev, harga_grade_b: e.target.value }))} fullWidth />
+
+                            <TextField label="Harga Grade C" type="number"
                                 value={formData.harga_grade_c}
-                                onChange={(e) => setFormData(prev => ({ ...prev, harga_grade_c: e.target.value }))}
-                                fullWidth
-                            />
+                                onChange={(e) => setFormData(prev => ({ ...prev, harga_grade_c: e.target.value }))} fullWidth />
 
                             <Stack direction="row" spacing={2} mt={2}>
                                 <Button variant="outlined" fullWidth onClick={() => navigate("/grade-hp")}>

@@ -2,8 +2,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import {
   Card, CardHeader, CardContent, Divider, Table, TableContainer,
   TableHead, TableBody, TableRow, TableCell, TablePagination,
-  IconButton, TextField, Button, Stack, Box, CircularProgress, Typography,
-  Paper
+  IconButton, TextField, Button, Stack, Box, CircularProgress, Typography, Paper, Tooltip
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
@@ -23,50 +22,33 @@ const GadaiHpPage = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const canAdd = userRole === 'hm' || userRole === 'checker';
-  const canView = true;
   const canEdit = userRole === 'checker' || userRole === 'hm';
   const canDelete = userRole === 'hm';
 
-  // Convert string JSON ke array jika perlu
-  const renderArrayOrString = (value) => {
-    if (!value) return '-';
-    if (Array.isArray(value)) return value.join(', ');
-
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) return parsed.join(', ');
-      return value;
-    } catch {
-      return value;
-    }
-  };
-
-  // Fetch data dari backend
   const fetchData = async () => {
     setLoading(true);
-    setError(null);
     try {
-      let url = '';
-      if (userRole === 'checker') url = '/checker/gadai-hp';
-      else if (userRole === 'petugas') url = '/petugas/gadai-hp';
-      else if (userRole === 'hm') url = '/gadai-hp';
-      else {
-        setError('Role tidak diizinkan');
-        setLoading(false);
-        return;
-      }
+      let url = userRole === 'checker'
+        ? '/checker/gadai-hp'
+        : userRole === 'petugas'
+          ? '/petugas/gadai-hp'
+          : userRole === 'hm'
+            ? '/gadai-hp'
+            : '';
+
+      if (!url) return setError("Role tidak diizinkan");
 
       const res = await axiosInstance.get(url, { params: { per_page: 1000 } });
 
       if (res.data.success) {
         setData(res.data.data);
         setFilteredData(res.data.data);
-      } else setError(res.data.message || 'Gagal mengambil data');
+      } else setError(res.data.message || "Gagal mengambil data");
     } catch (err) {
-      setError(err.message || 'Terjadi kesalahan server');
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -76,159 +58,166 @@ const GadaiHpPage = () => {
 
   useEffect(() => {
     const filtered = data.filter(item =>
-    (item.nama_barang?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.imei?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.merk?.nama_merk?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.type_hp?.nama_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.detailGadai?.nasabah?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase()))
+      (item.nama_barang?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.imei?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.merk?.nama_merk?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.type_hp?.nama_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.detail_gadai?.nasabah?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase()))
     );
     setFilteredData(filtered);
     setPage(0);
   }, [searchTerm, data]);
 
-  const handleChangePage = (_, newPage) => setPage(newPage);
-  const handleChangeRowsPerPage = (e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); };
-
   const handleDelete = async (id) => {
-    if (!window.confirm('Apakah yakin ingin menghapus data ini?')) return;
-    try {
-      await axiosInstance.delete(`/gadai-hp/${id}`);
-      fetchData();
-    } catch (err) {
-      alert('Gagal menghapus data: ' + err.message);
-    }
+    if (!window.confirm("Apakah yakin ingin menghapus data ini?")) return;
+    await axiosInstance.delete(`/gadai-hp/${id}`);
+    fetchData();
   };
 
   if (loading) return (
-    <Stack alignItems="center" justifyContent="center" sx={{ height: '80vh' }}>
+    <Stack justifyContent="center" alignItems="center" sx={{ height: "80vh" }}>
       <CircularProgress />
     </Stack>
   );
 
   if (error) return (
-    <Typography color="error" variant="h6" align="center" sx={{ mt: 2 }}>
-      Error: {error}
-    </Typography>
+    <Typography variant="h6" color="error" align="center">Error: {error}</Typography>
   );
 
   return (
-    <Card>
-      <CardHeader
-        title="Data Gadai HP"
-        action={
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="center">
-            <TextField
-              variant="outlined"
-              size="small"
-              placeholder="Cari nama, IMEI, merk, atau nama nasabah..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ width: { xs: '100%', sm: 300 }, mb: { xs: 1, sm: 0 } }}
-            />
-            {canAdd && (
-              <Button variant="contained" color="primary" onClick={() => navigate('/tambah-gadai-hp')}>
-                Tambah
-              </Button>
-            )}
-          </Stack>
-        }
-      />
-      <Divider />
-      <CardContent>
-        <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
-          <Box sx={{ minWidth: 1400 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  {[
-                    'No', 'Nama', 'IMEI', 'Merk', 'Type HP', 'Grade', 'Grade Nominal', 'Kelengkapan',
-                    'Kerusakan', 'Warna', 'Kunci PW', 'Kunci PIN', 'Kunci Pola',
-                    'RAM', 'ROM', 'Nasabah', 'Aksi'
-                  ].map(head => <TableCell key={head} align="center">{head}</TableCell>)}
-                </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {(rowsPerPage > 0
-                  ? filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  : filteredData
-                ).map((item, index) => (
-                  <TableRow key={item.id}>
-                    <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
-                    <TableCell>{item.nama_barang || '-'}</TableCell>
-                    <TableCell>{item.imei || '-'}</TableCell>
-                    <TableCell>{item.merk?.nama_merk || '-'}</TableCell>
-                    <TableCell>{item.type_hp?.nama_type || '-'}</TableCell>
-                    <TableCell>{item.grade_type || '-'}</TableCell>
-                    <TableCell>
-                      {item.grade_nominal != null
-                        ? `Rp ${Number(item.grade_nominal).toLocaleString('id-ID')}`
-                        : '-'}
-                    </TableCell>
-
-                    <TableCell>{renderArrayOrString(item.kelengkapan)}</TableCell>
-                    <TableCell>
-                      {Array.isArray(item.kerusakan)
-                        ? item.kerusakan.map(k =>
-                          `${k.nama_kerusakan}${k.nominal_override ? ` (override: ${k.nominal_override})` : ''}`
-                        ).join(', ')
-                        : '-'}
-                    </TableCell>
-                    <TableCell>{item.warna || '-'}</TableCell>
-                    <TableCell>{item.kunci_password || '-'}</TableCell>
-                    <TableCell>{item.kunci_pin || '-'}</TableCell>
-                    <TableCell>{item.kunci_pola || '-'}</TableCell>
-                    <TableCell>{item.ram || '-'}</TableCell>
-                    <TableCell>{item.rom || '-'}</TableCell>
-                    <TableCell>{item.detail_gadai?.nasabah?.nama_lengkap || '-'}</TableCell>
-
-
-
-                    <TableCell align="center">
-                      <Stack direction="row" spacing={1} justifyContent="center">
-                        {canView && (
-                          <IconButton color="info" onClick={() => navigate(`/detail-gadai-hp/${item.id}`)}>
-                            <VisibilityIcon />
-                          </IconButton>
-                        )}
-                        {canEdit && (
-                          <IconButton color="primary" onClick={() => navigate(`/edit-gadai-hp/${item.id}`)}>
-                            <EditIcon />
-                          </IconButton>
-                        )}
-                        {canDelete && (
-                          <IconButton color="error" onClick={() => handleDelete(item.id)}>
-                            <DeleteIcon />
-                          </IconButton>
-                        )}
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))}
-
-                {filteredData.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={18} align="center">Tidak ada data ditemukan.</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-
-            </Table>
-          </Box>
-        </TableContainer>
-
-        <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
-          component="div"
-          count={filteredData.length}
-          page={page}
-          rowsPerPage={rowsPerPage}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          labelRowsPerPage="Baris per halaman:"
+    <Box sx={{ p: 2 }}>
+      <Card sx={{ borderRadius: 4, boxShadow: 5 }}>
+        <CardHeader
+          title={<Typography variant="h5" fontWeight={700}>Data Gadai HP</Typography>}
+          action={
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="center">
+              <TextField
+                size="small"
+                placeholder="Cari nama, imei, merk, type, nasabah..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                sx={{ width: { xs: "100%", sm: 350 } }}
+              />
+              {canAdd && (
+                <Button variant="contained" sx={{ borderRadius: 3, px: 3 }} onClick={() => navigate("/tambah-gadai-hp")}>
+                  + Tambah
+                </Button>
+              )}
+            </Stack>
+          }
         />
-      </CardContent>
-    </Card>
+
+        <Divider />
+
+        <CardContent>
+          <Box sx={{ overflowX: "auto" }}>
+            <TableContainer component={Paper} sx={{ borderRadius: 3, maxHeight: "70vh" }}>
+              <Table stickyHeader size="small">
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: "#ededed" }}>
+                    {[
+                      "No", "Nama", "IMEI", "Merk", "Type", "Warna",
+                      "RAM", "ROM", "Grade", "Kunci", "Kelengkapan",
+                      "Kerusakan", "Nasabah", "Aksi"
+                    ].map((head, i) => (
+                      <TableCell key={i} sx={{ fontWeight: "bold", whiteSpace: "nowrap", fontSize: 13 }}>
+                        {head}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+
+                <TableBody>
+                  {filteredData.length > 0 ? filteredData
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((item, index) => (
+                      <TableRow
+                        key={item.id}
+                        hover
+                        sx={{ "&:nth-of-type(odd)": { background: "#fafafa" } }}
+                      >
+                        <TableCell>{page * rowsPerPage + index + 1}</TableCell>
+
+                        {/* Truncate dan Tooltip untuk teks panjang */}
+                        <TableCell sx={{ maxWidth: 120, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <Tooltip title={item.nama_barang || "-"}>{item.nama_barang || "-"}</Tooltip>
+                        </TableCell>
+
+                        <TableCell>{item.imei || "-"}</TableCell>
+                        <TableCell sx={{ maxWidth: 100, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <Tooltip title={item.merk?.nama_merk || "-"}>{item.merk?.nama_merk || "-"}</Tooltip>
+                        </TableCell>
+                        <TableCell>{item.type_hp?.nama_type || "-"}</TableCell>
+                        <TableCell>{item.warna || "-"}</TableCell>
+                        <TableCell>{item.ram || "-"}</TableCell>
+                        <TableCell>{item.rom || "-"}</TableCell>
+                        <TableCell>{item.grade_type || "-"}</TableCell>
+                        <TableCell>{item.kunci_password || item.kunci_pin || item.kunci_pola || "-"}</TableCell>
+
+                        <TableCell sx={{ maxWidth: 150, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <Tooltip title={item.kelengkapan_list?.map(k => k.nama_kelengkapan).join(", ") || "-"}>
+                            {item.kelengkapan_list?.map(k => k.nama_kelengkapan).join(", ") || "-"}
+                          </Tooltip>
+                        </TableCell>
+
+                        <TableCell sx={{ maxWidth: 150, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <Tooltip title={item.kerusakan_list?.map(k => k.nama_kerusakan).join(", ") || "-"}>
+                            {item.kerusakan_list?.map(k => k.nama_kerusakan).join(", ") || "-"}
+                          </Tooltip>
+                        </TableCell>
+
+                        <TableCell sx={{ maxWidth: 120, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <Tooltip title={item.detail_gadai?.nasabah?.nama_lengkap || "-"}>
+                            {item.detail_gadai?.nasabah?.nama_lengkap || "-"}
+                          </Tooltip>
+                        </TableCell>
+
+                        <TableCell>
+                          <Stack direction="row" spacing={1}>
+                            <Tooltip title="Lihat Detail">
+                              <IconButton color="info" onClick={() => navigate(`/detail-gadai-hp/${item.id}`)}>
+                                <VisibilityIcon />
+                              </IconButton>
+                            </Tooltip>
+                            {canEdit && (
+                              <Tooltip title="Edit">
+                                <IconButton color="primary" onClick={() => navigate(`/edit-gadai-hp/${item.id}`)}>
+                                  <EditIcon />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {canDelete && (
+                              <Tooltip title="Hapus">
+                                <IconButton color="error" onClick={() => handleDelete(item.id)}>
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    )) : (
+                    <TableRow>
+                      <TableCell colSpan={14} align="center">Tidak ada data ditemukan.</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+
+          <TablePagination
+            rowsPerPageOptions={[10, 25, 50]}
+            component="div"
+            count={filteredData.length}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+          />
+        </CardContent>
+      </Card>
+    </Box>
   );
 };
 

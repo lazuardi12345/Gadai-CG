@@ -15,7 +15,6 @@ import {
 import templateBg from "assets/images/SBG-HP.jpg";
 import { AuthContext } from "AuthContex/AuthContext";
 
-
 Font.register({
     family: "Roboto",
     fonts: [
@@ -29,51 +28,51 @@ Font.register({
     ],
 });
 
-
 const cleanText = (text) => {
     if (!text) return "-";
 
-    
     if (Array.isArray(text)) {
         text = text.join(", ");
     }
 
-    
     if (typeof text === "string") {
         try {
             const parsed = JSON.parse(text);
             if (Array.isArray(parsed)) text = parsed.join(", ");
         } catch {
-            
+            // do nothing
         }
     }
 
     return String(text)
-        .replace(/\s{2,}/g, " ") 
-        .replace(/\/\s*\//g, "/") 
+        .replace(/\s{2,}/g, " ")
+        .replace(/\/\s*\//g, "/")
         .trim();
 };
 
-
+// ===== Revisi format data HP sesuai API terbaru =====
 const formatHpDetails = (hp) => {
     if (!hp) return "-";
 
+    const merk = hp.merk?.nama_merk || "";
+    const typeHp = hp.type_hp?.nama_type || "";
+    const grade = hp.grade_type || "";
+
+    const kerusakan = (hp.kerusakan_list || []).map(k => k.nama_kerusakan).join(", ");
+    const kelengkapan = (hp.kelengkapan_list || []).map(k => k.nama_kelengkapan).join(", ");
+
     const data = [
         hp.nama_barang,
-
-        [hp.merk, hp.type_hp].filter(Boolean).join("/"),
-
-        [hp.grade, hp.imei].filter(Boolean).join("/"),
-
-        [hp.ram, hp.rom].filter(Boolean).join("/"),
-        hp.warna,
-    
-        [hp.kelengkapan, hp.kerusakan].filter(Boolean).join("/"),
-        hp.password
+        `${merk}/${typeHp}`,
+        `${grade}/${hp.imei || ""}`,
+        `${hp.ram || ""}/${hp.rom || ""}`,
+        hp.warna || "",
+        kelengkapan || "",
+        kerusakan || "",
+        hp.kunci_password || hp.kunci_pin || hp.kunci_pola || ""
     ];
 
-
-    return data.map(cleanText).filter(text => text !== "-").join(", ");
+    return data.map(cleanText).filter(text => text !== "").join(", ");
 };
 
 const SafeText = ({ children, style }) => {
@@ -83,7 +82,6 @@ const SafeText = ({ children, style }) => {
             : "-";
     return <Text style={style}>{content}</Text>;
 };
-
 
 const formatRupiah = (number) => {
     if (!number) return "-";
@@ -202,25 +200,25 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {cleanText(hp.nama_barang)}
                     </SafeText>
                     <SafeText style={{ position: "absolute", top: 156, left: 178, fontSize: 7 }}>
-                        {`${cleanText(hp.grade)}/${cleanText(hp.imei)}`}
+                        {`${cleanText(hp.grade_type)}/${cleanText(hp.imei)}`}
                     </SafeText>
                     <SafeText style={{ position: "absolute", top: 167, left: 93, fontSize: 6 }}>
-                        {`${cleanText(hp.merk)}/${cleanText(hp.type_hp)}`}
+                        {`${cleanText(hp.merk?.nama_merk)}/${cleanText(hp.type_hp?.nama_type)}`}
                     </SafeText>
                     <SafeText style={{ position: "absolute", top: 167, left: 178, fontSize: 6 }}>
                         {`${cleanText(hp.warna)}`}
                     </SafeText>
                     <SafeText style={{ position: "absolute", top: 178, left: 178, fontSize: 6 }}>
-                        {`${cleanText(hp.password)}`}
+                        {`${cleanText(hp.kunci_password || hp.kunci_pin || hp.kunci_pola)}`}
                     </SafeText>
                     <SafeText style={{ position: "absolute", top: 178, left: 93, fontSize: 7 }}>
                         {`${cleanText(hp.ram)}/${cleanText(hp.rom)}`}
                     </SafeText>
                     <SafeText style={{ position: "absolute", top: 188, left: 93, fontSize: 7 }}>
-                        {cleanText(hp.kelengkapan)}
+                        {(hp.kelengkapan_list || []).map(k => k.nama_kelengkapan).join(", ")}
                     </SafeText>
                     <SafeText style={{ position: "absolute", top: 195, left: 93, fontSize: 7 }}>
-                        {cleanText(hp.kerusakan)}
+                        {(hp.kerusakan_list || []).map(k => k.nama_kerusakan).join(", ")}
                     </SafeText>
 
                     {/* Nilai Pinjaman */}
@@ -244,13 +242,12 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {`${terbilang(data.uang_pinjaman)} Rupiah`}
                     </SafeText>
 
-
                     {/* Data Barcode / Kanan atas */}
                     <SafeText style={{ position: "absolute", top: 110, left: 430, fontSize: 8, fontWeight: "bold" }}>
                         {data.no_gadai}
                     </SafeText>
-                    
-                    {/* DETAIL HP KANAN (SUDAH DIPERBAIKI) */}
+
+                    {/* DETAIL HP KANAN */}
                     <SafeText 
                         style={{ 
                             position: "absolute", 
@@ -264,9 +261,9 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                     >
                         {formatHpDetails(hp)} 
                     </SafeText>
-                    
+
                     {/* Tanda tangan */}
-                    <SafeText style={{ position: "absolute", top: 239, left: 46, fontSize: 7, }}>
+                    <SafeText style={{ position: "absolute", top: 239, left: 46, fontSize: 7 }}>
                         {nasabah.nama_lengkap}
                     </SafeText>
                 </View>
@@ -274,7 +271,6 @@ const SuratBuktiGadaiPDF = ({ data }) => {
         </Document>
     );
 };
-
 
 const PrintSuratGadaiPage = () => {
     const { id } = useParams();

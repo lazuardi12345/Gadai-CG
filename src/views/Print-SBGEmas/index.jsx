@@ -88,47 +88,52 @@ const terbilang = (angka) => {
 const toText = (value) => {
     if (!value) return "-";
 
+    // Jika array dan berisi objek → ambil nama/info nya
     if (Array.isArray(value)) {
-    
-        return value.filter(Boolean).map(String).join(", ");
+        return value
+            .map(v => typeof v === "object" ? (v.nama_kelengkapan || v.nama || v.name || JSON.stringify(v)) : v)
+            .filter(Boolean)
+            .join(", ");
     }
 
-    if (typeof value === "string") {
-        try {
-            const parsed = JSON.parse(value);
-            if (Array.isArray(parsed)) return parsed.filter(Boolean).map(String).join(", ");
-            return String(parsed);
-        } catch {
-            return value;
-        }
+    if (typeof value === "object") {
+        return value.nama_kelengkapan || value.nama || value.name || JSON.stringify(value);
     }
 
     return String(value);
 };
 
 
+
 const formatItemDetails = (item, typeDisplay) => {
     if (!item) return "-";
-    
 
-    const kelengkapanText = toText(item.kelengkapan);
+    // Ambil kelengkapan sesuai jenis emas
+    const kelengkapan =
+        item.kelengkapan ||
+        item.kelengkapanEmas ||       // logam mulia
+        item.kelengkapan;             // retro
 
+    const kelengkapanText = toText(kelengkapan);
 
-    const karatBerat = [toText(item.karat), toText(item.berat)].filter(text => text !== "-").join("/");
-
+    const karatBerat = [toText(item.karat), toText(item.berat)]
+        .filter(text => text !== "-")
+        .join("/");
 
     const parts = [
-        item.nama_barang, 
-        typeDisplay, 
+        item.nama_barang,
+        typeDisplay,
         kelengkapanText,
-        karatBerat, 
-        item.kode_cap, 
-        item.potongan_batu
-    ].map(toText).filter(text => text !== "-"); 
-
+        karatBerat,
+        item.kode_cap,
+        item.potongan_batu,
+    ]
+        .map(toText)
+        .filter(text => text !== "-");
 
     return parts.join(", ");
 };
+
 
 
 
@@ -136,8 +141,8 @@ const SuratBuktiGadaiPDF = ({ data }) => {
     const nasabah = data?.nasabah || {};
    
     const item = data?.perhiasan || data?.logam_mulia || data?.retro || {};
-    const typeDisplay =
-        item.type_retro || item.type_logam_mulia || item.type_perhiasan || "";
+    const typeDisplay = data?.type?.nama_type || "-";
+
 
     return (
         <Document>
@@ -241,7 +246,8 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {toText(typeDisplay)}
                     </Text>
                     <Text style={{ position: "absolute", top: 182, left: 95, fontSize: 7 }}>
-                        {toText(item.kelengkapan)}
+                       {toText(item.kelengkapan || item.kelengkapanEmas || item.retroKelengkapan)}
+
                     </Text>
 
                     <Text
@@ -352,20 +358,24 @@ const PrintSuratGadaiEmasPage = () => {
 
     const [dataGadai, setDataGadai] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [errorMsg, setErrorMsg] = useState("");   // <-- DITAMBAHKAN
 
     const fetchData = async () => {
         setLoading(true);
+        setErrorMsg("");
+
         try {
             let url = "";
             if (userRole === "checker") url = `/checker/detail-gadai/${id}`;
             else if (userRole === "petugas") url = `/petugas/detail-gadai/${id}`;
-            else if (userRole === "hm") url = `/hm/detail-gadai/${id}`;
+            else if (userRole === "hm") url = `/detail-gadai/${id}`;
             else url = `/detail-gadai/${id}`;
 
             const res = await axiosInstance.get(url);
             setDataGadai(res.data.data);
         } catch (err) {
-            console.error(" Gagal memuat data:", err);
+            console.error("Gagal memuat data gadai:", err);
+            setErrorMsg(err.response?.data?.message || err.message);
         } finally {
             setLoading(false);
         }
@@ -374,6 +384,16 @@ const PrintSuratGadaiEmasPage = () => {
     useEffect(() => {
         fetchData();
     }, [id, userRole]);
+
+    if (loading)
+        return <CircularProgress sx={{ display: "block", mx: "auto", mt: 10 }} />;
+
+    if (errorMsg)                                   // <-- DITAMBAHKAN
+        return <Typography align="center" color="error">{errorMsg}</Typography>;
+
+    if (!dataGadai)
+        return <Typography align="center">Data gadai tidak ditemukan.</Typography>;
+
 
     const handlePrintPDF = async () => {
         if (!dataGadai) return;

@@ -12,17 +12,17 @@ const TambahTypeHp = () => {
     const user = JSON.parse(localStorage.getItem("auth_user"));
     const role = user?.role?.toLowerCase() || "";
 
-    const getApiUrl = () => {
-        switch (role) {
-            case "checker": return "/checker/type-hp";
-            case "petugas": return "/petugas/type-hp";
-            case "hm":
-            default: return "/type-hp";
-        }
+    // ================= BASE API SESUAI ROLE =================
+    const getBaseApi = () => {
+        if (role === "checker") return "/checker";
+        if (role === "petugas") return "/petugas";
+        return ""; 
     };
 
-    const apiUrl = getApiUrl();
+    const baseApi = getBaseApi();
+    const apiUrl = `${baseApi}/type-hp`;
 
+    // ================= STATE =================
     const [merkList, setMerkList] = useState([]);
     const [formData, setFormData] = useState({
         merk_hp_id: "",
@@ -32,13 +32,14 @@ const TambahTypeHp = () => {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
 
-    // Ambil list Merek HP
+    // ========== FETCH MERK SESUAI ROLE ==============
     useEffect(() => {
         const fetchMerk = async () => {
             try {
-                const res = await axiosInstance.get("/merk-hp");
+                const res = await axiosInstance.get(`${baseApi}/merk-hp`);
                 setMerkList(res.data.data || []);
             } catch (err) {
+                console.error(err);
                 alert("Gagal mengambil data merk");
             } finally {
                 setLoading(false);
@@ -46,8 +47,9 @@ const TambahTypeHp = () => {
         };
 
         fetchMerk();
-    }, []);
+    }, [baseApi]);
 
+    // ============= SUBMIT =============
     const handleSubmit = async () => {
         if (!formData.merk_hp_id || !formData.nama_type) {
             alert("Semua field wajib diisi");
@@ -57,12 +59,14 @@ const TambahTypeHp = () => {
         setSubmitting(true);
         try {
             const res = await axiosInstance.post(apiUrl, formData);
+
             if (res.data.message) {
                 alert("Type HP berhasil ditambahkan");
                 navigate("/type-hp");
             }
         } catch (err) {
-            alert("Gagal menyimpan");
+            console.error(err);
+            alert("Gagal menyimpan data");
         } finally {
             setSubmitting(false);
         }
@@ -92,9 +96,7 @@ const TambahTypeHp = () => {
                         {merkList.map((m) => (
                             <Grid item xs={6} sm={4} key={m.id}>
                                 <Paper
-                                    onClick={() =>
-                                        setFormData(prev => ({ ...prev, merk_hp_id: m.id }))
-                                    }
+                                    onClick={() => setFormData(prev => ({ ...prev, merk_hp_id: m.id }))}
                                     sx={{
                                         padding: 2,
                                         textAlign: "center",
@@ -119,9 +121,7 @@ const TambahTypeHp = () => {
                         label="Nama Type HP"
                         name="nama_type"
                         value={formData.nama_type}
-                        onChange={(e) =>
-                            setFormData(prev => ({ ...prev, nama_type: e.target.value }))
-                        }
+                        onChange={(e) => setFormData(prev => ({ ...prev, nama_type: e.target.value }))}
                         fullWidth
                     />
 
@@ -129,7 +129,6 @@ const TambahTypeHp = () => {
                         <Button variant="outlined" fullWidth onClick={() => navigate("/type-hp")}>
                             Batal
                         </Button>
-
                         <Button
                             variant="contained"
                             fullWidth

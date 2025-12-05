@@ -4,8 +4,9 @@ import {
     Table, TableContainer, TableHead, TableBody,
     TableRow, TableCell, TablePagination,
     Stack, Box, CircularProgress, Paper,
-    Typography, TextField, Chip, Tabs, Tab
+    Typography, TextField, Chip, Tabs, Tab, Tooltip
 } from "@mui/material";
+import { Check, Close as CloseIcon } from "@mui/icons-material";
 import axiosInstance from "api/axiosInstance";
 import { AuthContext } from "AuthContex/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -16,24 +17,18 @@ const AdminLaporanPage = () => {
 
     const [data, setData] = useState([]);
     const [filtered, setFiltered] = useState([]);
-
     const [types, setTypes] = useState([]);
     const [activeTab, setActiveTab] = useState("all");
-
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-
     const [searchTerm, setSearchTerm] = useState("");
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
-    // Endpoint disesuaikan
     const endpoint = user?.role === "hm" ? "/laporan" : "/admin/laporan";
 
-    // Utility function untuk lowercasing dan safe access
     const safe = (v) => (v ?? "").toString().toLowerCase();
 
-    // Utility function untuk format Rupiah
     const formatRp = (val) =>
         new Intl.NumberFormat("id-ID", {
             style: "currency",
@@ -47,7 +42,6 @@ const AdminLaporanPage = () => {
     const fetchData = async () => {
         try {
             const res = await axiosInstance.get(endpoint);
-
             if (res.data?.success) {
                 const list = Array.isArray(res.data.data) ? res.data.data : [];
                 setData(list);
@@ -65,21 +59,18 @@ const AdminLaporanPage = () => {
     /** ==========================
      * FETCH DATA TYPE
      =========================== */
-const fetchTypes = async () => {
-    // 1. Tentukan endpoint berdasarkan role
-    const typeEndpoint = user?.role === "hm" ? "/type" : "/admin/type"; 
-    
-    try {
-        // 2. Gunakan endpoint yang sudah ditentukan
-        const res = await axiosInstance.get(typeEndpoint); 
-
-        if (res.data?.success) {
-            setTypes(res.data.data); 
+    const fetchTypes = async () => {
+        const typeEndpoint = user?.role === "hm" ? "/type" : "/admin/type";
+        try {
+            const res = await axiosInstance.get(typeEndpoint);
+            if (res.data?.success) {
+                setTypes(res.data.data);
+            }
+        } catch (e) {
+            console.error("Gagal load types:", e);
         }
-    } catch (e) {
-        console.error("Gagal load types:", e);
-    }
-};
+    };
+
     useEffect(() => {
         fetchData();
         fetchTypes();
@@ -91,15 +82,12 @@ const fetchTypes = async () => {
     useEffect(() => {
         let result = [...data];
 
-        // FILTER PER TAB TYPE
         if (activeTab !== "all") {
             result = result.filter(
-                // Menggunakan properti 'type' dari response controller
-                (item) => safe(item.type) === safe(activeTab) 
+                (item) => safe(item.type) === safe(activeTab)
             );
         }
 
-        // FILTER SEARCH
         const search = safe(searchTerm);
         result = result.filter(
             (item) =>
@@ -112,10 +100,20 @@ const fetchTypes = async () => {
     }, [activeTab, searchTerm, data]);
 
     const handleChangePage = (_, newPage) => setPage(newPage);
-
     const handleChangeRowsPerPage = (e) => {
         setRowsPerPage(parseInt(e.target.value, 10));
         setPage(0);
+    };
+
+    /** ==========================
+     * STATUS ICON & COLOR
+     =========================== */
+    const getStatusIcon = (val) => {
+        if (!val) return null;
+        const v = val.toLowerCase();
+        if (v.includes("approved")) return <Check sx={{ color: "white" }} />;
+        if (v.includes("rejected")) return <CloseIcon sx={{ color: "white" }} />;
+        return null;
     };
 
     const getStatusColor = (val) => {
@@ -166,13 +164,11 @@ const fetchTypes = async () => {
                 sx={{ px: 2 }}
             >
                 <Tab label="Semua" value="all" />
-
                 {types.map((t) => (
                     <Tab
                         key={t.id}
                         label={t.nama_type}
-                        // Nilai tab harus sama dengan item.type di data laporan (lowercased)
-                        value={t.nama_type.toLowerCase()} 
+                        value={t.nama_type.toLowerCase()}
                     />
                 ))}
             </Tabs>
@@ -188,7 +184,7 @@ const fetchTypes = async () => {
                                     <TableCell>No</TableCell>
                                     <TableCell>No Gadai</TableCell>
                                     <TableCell>Nama Nasabah</TableCell>
-                                    <TableCell>Tipe</TableCell> 
+                                    <TableCell>Tipe</TableCell>
                                     <TableCell align="right">Pinjaman</TableCell>
                                     <TableCell align="center">Tenor</TableCell>
                                     <TableCell align="right">Admin</TableCell>
@@ -210,9 +206,7 @@ const fetchTypes = async () => {
                                         <TableCell>{page * rowsPerPage + idx + 1}</TableCell>
                                         <TableCell>{row.no_gadai}</TableCell>
                                         <TableCell>{row.nama_nasabah}</TableCell>
-                                
-                                        <TableCell>{row.type}</TableCell> 
-
+                                        <TableCell>{row.type}</TableCell>
                                         <TableCell align="right">{formatRp(row.pinjaman_pokok)}</TableCell>
                                         <TableCell align="center">{row.tenor_hari}</TableCell>
                                         <TableCell align="right">{formatRp(row.admin_fee)}</TableCell>
@@ -221,30 +215,28 @@ const fetchTypes = async () => {
                                         <TableCell align="right">{formatRp(row.total_diterima)}</TableCell>
 
                                         <TableCell align="center">
-                                            <Chip
-                                                label={row.acc_checker || "-"}
-                                                color={getStatusColor(row.acc_checker)}
-                                                size="small"
-                                            />
+                                            <Tooltip title={row.acc_checker || "Pending"}>
+                                                <Chip
+                                                    icon={getStatusIcon(row.acc_checker)}
+                                                    color={getStatusColor(row.acc_checker)}
+                                                    size="small"
+                                                />
+                                            </Tooltip>
                                         </TableCell>
 
                                         <TableCell align="center">
-                                            <Chip
-                                                label={row.acc_hm || "-"}
-                                                color={getStatusColor(row.acc_hm)}
-                                                size="small"
-                                            />
+                                            <Tooltip title={row.acc_hm || "Pending"}>
+                                                <Chip
+                                                    icon={getStatusIcon(row.acc_hm)}
+                                                    color={getStatusColor(row.acc_hm)}
+                                                    size="small"
+                                                />
+                                            </Tooltip>
                                         </TableCell>
 
                                         <TableCell align="center">
                                             <button
-                                                onClick={() =>
-                                                    navigate(
-                                                        user?.role === "hm"
-                                                            ? `/admin-detail/${row.id}`
-                                                            : `/admin-detail/${row.id}`
-                                                    )
-                                                }
+                                                onClick={() => navigate(`/admin-detail/${row.id}`)}
                                                 style={{
                                                     padding: "5px 12px",
                                                     border: "none",
@@ -269,7 +261,6 @@ const fetchTypes = async () => {
                                     </TableRow>
                                 )}
                             </TableBody>
-
                         </Table>
                     </Box>
                 </TableContainer>

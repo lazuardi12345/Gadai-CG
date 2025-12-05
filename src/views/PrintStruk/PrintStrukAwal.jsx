@@ -135,6 +135,8 @@ const PrintStrukPage = () => {
   let barangNama = "-";
   let barangDetail = "-";
   let labelBarangDetail = "-";
+  let kerusakanList = [];
+  let kelengkapanList = [];
 
   const toText = (value) => {
     if (!value) return "-";
@@ -154,16 +156,56 @@ const PrintStrukPage = () => {
   const type = (typeNama || "").toLowerCase();
 
   // === Handphone ===
-  if (type === "handphone" && detail.hp) {
-    const hp = detail.hp;
-    barangNama = hp?.nama_barang || "Handphone";
-    const merk = (hp?.merk || "").trim();
-    const type_hp = (hp?.type_hp || "").trim();
-    const ram = (hp?.ram || "").trim();
-    const rom = (hp?.rom || "").trim();
-    barangDetail = `Merk/Type: ${merk} / ${type_hp}\nRAM/ROM: ${ram} / ${rom}`;
+  if (type === "handphone" || type === "hp") {
+    const hpData = detail?.hp || {};
+
+    barangNama = hpData?.nama_barang || "Handphone";
+
+    const merk = detail?.hp?.merk?.nama_merk || "-";
+    const typehp = detail?.hp?.type_hp?.nama_type || "-";
+
+    const ram = hpData?.ram || "-";
+    const rom = hpData?.rom || "-";
+    const grade = hpData?.grade_type || "-";
+
+    const lines = [
+      { label: "Merk/Type", value: `${merk} / ${typehp}` },
+      { label: "RAM", value: ram },
+      { label: "ROM", value: rom },
+      { label: "Grade", value: grade }
+    ];
+
+
+    const maxLabelLength = Math.max(...lines.map(l => l.label.length));
+
+    barangDetail = lines
+      .map(l => `${l.label.padEnd(maxLabelLength, " ")} : ${l.value}`)
+      .join("\n");
+
+
+    const kolomNominal = 15;
+    const kolomNama = 40;
+
+    kerusakanList = (detail?.hp?.kerusakan_list || []).map((k) => {
+      const nominal = k.pivot?.nominal_override ?? k.nominal;
+      const nama = (k.nama_kerusakan || "-").padEnd(kolomNama - kolomNominal, " ");
+      return nama + formatRupiah(nominal).padStart(kolomNominal, " ");
+    });
+
+    kelengkapanList = (detail?.hp?.kelengkapan_list || []).map((k) => {
+      const nominal = k.pivot?.nominal_override ?? k.nominal;
+      const nama = (k.nama_kelengkapan || "-").padEnd(kolomNama - kolomNominal, " ");
+      return nama + formatRupiah(nominal).padStart(kolomNominal, " ");
+    });
+
+
+
+
+
     labelBarangDetail = "Detail Handphone";
   }
+
+
 
   // === Perhiasan ===
   else if (type === "perhiasan") {
@@ -173,6 +215,11 @@ const PrintStrukPage = () => {
     const berat = p?.berat ?? "-";
     barangDetail = `Karat: ${karat} / Berat: ${berat}`;
     labelBarangDetail = "Detail Perhiasan";
+
+    kelengkapanList = (p?.kelengkapan || []).map(k => ({
+      nama: k.nama_kelengkapan || "-",
+      nominal: 0,
+    }));
   }
 
   // === Logam Mulia ===
@@ -183,6 +230,11 @@ const PrintStrukPage = () => {
     const berat = lm?.berat ?? "-";
     barangDetail = `Karat: ${karat} / Berat: ${berat}`;
     labelBarangDetail = "Detail Logam Mulia";
+
+    kelengkapanList = (lm?.kelengkapan_emas || []).map(k => ({
+      nama: k.nama_kelengkapan || "-",
+      nominal: 0,
+    }));
   }
 
   // === Retro ===
@@ -193,7 +245,14 @@ const PrintStrukPage = () => {
     const berat = r?.berat ?? "-";
     barangDetail = `Karat: ${karat} / Berat: ${berat}`;
     labelBarangDetail = "Detail Retro";
+
+    kelengkapanList = (r?.kelengkapan || []).map(k => ({
+      nama: k.nama_kelengkapan || "-",
+      nominal: 0,
+    }));
   }
+
+
 
   // === Default ===
   else {
@@ -203,152 +262,187 @@ const PrintStrukPage = () => {
   }
 
 
-const handlePrint = () => {
-  const printWindow = window.open("", "", "width=400,height=600");
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Struk Gadai</title>
-        <style>
-          /* Atur untuk print thermal */
-          @media print {
-            @page { 
-              size: 80mm auto; 
-              margin: 0; 
+  const handlePrint = () => {
+    const printWindow = window.open("", "", "width=400,height=600");
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Struk Gadai</title>
+          <style>
+            /* Atur untuk print thermal */
+            @media print {
+              @page { 
+                size: 80mm auto; 
+                margin: 0; 
+              }
+
+              html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 80mm;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+
+              * {
+                margin: 0 !important;
+                padding: 0 !important;
+                box-sizing: border-box;
+              }
+
+              body::before,
+              body::after { 
+                content: none !important; 
+                display: none !important; 
+              }
+
+              .print-box {
+                margin: 0 !important;
+                padding: 0 !important;
+                transform: translateY(-5px); /* geser konten naik supaya pas */
+              }
+
+              img {
+                display: block;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                width: 120px;
+              }
+
+              .row {
+                display: flex;
+                justify-content: space-between;
+                margin: 1px 0 !important;
+              }
+
+              .center {
+                text-align: center;
+                margin: 0 !important;
+                padding: 0 !important;
+              }
+
+              .bold { font-weight: 700; }
+
+              pre {
+                margin: 0 !important;
+                white-space: pre-wrap;
+                word-break: break-word;
+              }
+
+              hr {
+                border: none;
+                border-top: 1px dashed #000;
+                margin: 2px 0 !important;
+              }
+
+              .footer, .thanks {
+                text-align: center;
+                margin: 0 !important;
+                padding: 0 !important;
+              }
             }
 
+            /* Font dan style umum */
             html, body {
-              margin: 0 !important;
-              padding: 0 !important;
-              width: 80mm;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
+              font-family: "Courier New", monospace;
+              font-size: 11px;
+              font-weight: 600;
+              color: #000;
+              line-height: 1.25;
             }
+          </style>
+        </head>
+        <body>
+          <div class="print-box">
+            <div class="center">
+              <img src="${logo}" alt="Logo" />
+              <div>No Transaksi</div>
+              <div class="bold">${detail?.no_gadai || "-"}</div>
+            </div>
 
-            * {
-              margin: 0 !important;
-              padding: 0 !important;
-              box-sizing: border-box;
-            }
+            <div class="row"><span>Hari, Tanggal</span><span>${tanggalStr}</span></div>
+            <div class="row"><span>Waktu</span><span>${jamStr}</span></div>
+            <div class="row"><span>Petugas</span><span>${petugas}</span></div>
 
-            body::before,
-            body::after { 
-              content: none !important; 
-              display: none !important; 
-            }
+            <div class="center bold" style="margin: 4px 0;">TRANSAKSI GADAI</div>
 
-            .print-box {
-              margin: 0 !important;
-              padding: 0 !important;
-              transform: translateY(-5px); /* geser konten naik supaya pas */
-            }
+            <div class="row"><span>Harga Taksiran</span><span>${formatRupiah(detail?.taksiran)}</span></div>
+            <div class="row"><span>Harga Pinjaman</span><span>${formatRupiah(detail?.uang_pinjaman)}</span></div>
+            <div class="row"><span>Barang Gadai</span><span>${typeNama}</span></div>
+            <hr />
 
-            img {
-              display: block;
-              margin: 0 auto !important;
-              padding: 0 !important;
-              width: 120px;
-            }
+            <div class="row"><span>Nama Barang</span><span>${barangNama}</span></div>
+            <div class="row"><span>${labelBarangDetail}</span><span><pre>${barangDetail}</pre></span></div>
+            <hr />
 
-            .row {
-              display: flex;
-              justify-content: space-between;
-              margin: 1px 0 !important;
-            }
+            <div><b>Kerusakan:</b></div>
+${kerusakanList.length
+        ? `<table style="width:100%; border-collapse: collapse; font-family: 'Courier New', monospace; font-size:11px; font-weight:600;">
+      ${kerusakanList
+          .map(
+            (k) => `<tr>
+                    <td>${k.nama}</td>
+                    <td style="text-align:right">${formatRupiah(k.nominal)}</td>
+                  </tr>`
+          )
+          .join("")}
+    </table>`
+        : "-"
+      }
 
-            .center {
-              text-align: center;
-              margin: 0 !important;
-              padding: 0 !important;
-            }
 
-            .bold { font-weight: 700; }
+<div><b>Kelengkapan:</b></div>
+${kelengkapanList.length
+        ? `<table style="width:100%; border-collapse: collapse; font-family: 'Courier New', monospace; font-size:11px; font-weight:600;">
+      ${kelengkapanList
+          .map(
+            (k) => `<tr>
+                    <td>${k.nama}</td>
+                    <td style="text-align:right">${formatRupiah(k.nominal)}</td>
+                  </tr>`
+          )
+          .join("")}
+    </table>`
+        : "-"
+      }
 
-            pre {
-              margin: 0 !important;
-              white-space: pre-wrap;
-              word-break: break-word;
-            }
 
-            hr {
-              border: none;
-              border-top: 1px dashed #000;
-              margin: 2px 0 !important;
-            }
 
-            .footer, .thanks {
-              text-align: center;
-              margin: 0 !important;
-              padding: 0 !important;
-            }
-          }
 
-          /* Font dan style umum */
-          html, body {
-            font-family: "Courier New", monospace;
-            font-size: 11px;
-            font-weight: 600;
-            color: #000;
-            line-height: 1.25;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="print-box">
-          <div class="center">
-            <img src="${logo}" alt="Logo" />
-            <div>No Transaksi</div>
-            <div class="bold">${detail?.no_gadai || "-"}</div>
+
+            <div class="row"><span>Pokok Pinjaman</span><span>${formatRupiah(pinjaman)}</span></div>
+            <div class="row"><span>Jasa Sewa (${jenisSkema} ${(persenJasa * 100).toFixed(1)}%)</span><span>${formatRupiah(jasaSewa)}</span></div>
+            <div class="row"><span>Administrasi</span><span>${formatRupiah(admin)}</span></div>
+            <div class="row"><span>Asuransi</span><span>${formatRupiah(asuransi)}</span></div>
+            <div class="row bold"><span>Total Diterima</span><span>${formatRupiah(totalDiterima)}</span></div>
+            <hr />
+
+            <div class="row"><span>Tanggal Gadai</span><span>${detail?.tanggal_gadai || "-"}</span></div>
+            <div class="row"><span>Jatuh Tempo</span><span>${detail?.jatuh_tempo || "-"}</span></div>
+            <hr />
+
+            <div class="footer">
+              * Biaya admin minimal Rp 5.000 (HP) dan Rp 10.000 (Emas/Perhiasan)
+            </div>
+
+            <div class="thanks">
+              <div>Terima kasih atas kepercayaan Anda!</div>
+              <div>Gadai cepat, aman, dan terpercaya di</div>
+              <div class="bold">CG GADAI.</div>
+            </div>
           </div>
 
-          <div class="row"><span>Hari, Tanggal</span><span>${tanggalStr}</span></div>
-          <div class="row"><span>Waktu</span><span>${jamStr}</span></div>
-          <div class="row"><span>Petugas</span><span>${petugas}</span></div>
-
-          <div class="center bold" style="margin: 4px 0;">TRANSAKSI GADAI</div>
-
-          <div class="row"><span>Harga Taksiran</span><span>${formatRupiah(detail?.taksiran)}</span></div>
-          <div class="row"><span>Harga Pinjaman</span><span>${formatRupiah(detail?.uang_pinjaman)}</span></div>
-          <div class="row"><span>Barang Gadai</span><span>${typeNama}</span></div>
-          <hr />
-
-          <div class="row"><span>Nama Barang</span><span>${barangNama}</span></div>
-          <div class="row"><span>${labelBarangDetail}</span><span><pre>${barangDetail}</pre></span></div>
-          <hr />
-
-          <div class="row"><span>Pokok Pinjaman</span><span>${formatRupiah(pinjaman)}</span></div>
-          <div class="row"><span>Jasa Sewa (${jenisSkema} ${(persenJasa * 100).toFixed(1)}%)</span><span>${formatRupiah(jasaSewa)}</span></div>
-          <div class="row"><span>Administrasi</span><span>${formatRupiah(admin)}</span></div>
-          <div class="row"><span>Asuransi</span><span>${formatRupiah(asuransi)}</span></div>
-          <div class="row bold"><span>Total Diterima</span><span>${formatRupiah(totalDiterima)}</span></div>
-          <hr />
-
-          <div class="row"><span>Tanggal Gadai</span><span>${detail?.tanggal_gadai || "-"}</span></div>
-          <div class="row"><span>Jatuh Tempo</span><span>${detail?.jatuh_tempo || "-"}</span></div>
-          <hr />
-
-          <div class="footer">
-            * Biaya admin minimal Rp 5.000 (HP) dan Rp 10.000 (Emas/Perhiasan)
-          </div>
-
-          <div class="thanks">
-            <div>Terima kasih atas kepercayaan Anda!</div>
-            <div>Gadai cepat, aman, dan terpercaya di</div>
-            <div class="bold">CG GADAI.</div>
-          </div>
-        </div>
-
-        <script>
-          window.onload = () => {
-            window.print();
-            window.close();
-          };
-        </script>
-      </body>
-    </html>
-  `);
-  printWindow.document.close();
-};
+          <script>
+            window.onload = () => {
+              window.print();
+              window.close();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
 
 
@@ -373,6 +467,90 @@ const handlePrint = () => {
           <div>Nama Barang: {barangNama}</div>
           <pre>{labelBarangDetail}: {barangDetail}</pre>
           <hr />
+
+          <div>
+            <div><b>Kerusakan:</b></div>
+            {kerusakanList.length ? (
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <tbody>
+                  {detail.hp.kerusakan_list.map((k, i) => (
+                    <tr key={i}>
+                      <td>{k.nama_kerusakan || "-"}</td>
+                      <td style={{ textAlign: "right" }}>
+                        {formatRupiah(k.pivot?.nominal_override ?? k.nominal)}
+                      </td>
+                    </tr>
+                  ))}
+
+                </tbody>
+              </table>
+            ) : "-"}
+
+            <div style={{ marginTop: "4px" }}><b>Kelengkapan:</b></div>
+            {/* === Kelengkapan khusus Handphone === */}
+            {(type === "hp" || type === "handphone") && detail?.hp?.kelengkapan_list?.length > 0 && (
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <tbody>
+                  {detail.hp.kelengkapan_list.map((k, i) => (
+                    <tr key={i}>
+                      <td>{k.nama_kelengkapan || "-"}</td>
+                      <td style={{ textAlign: "right" }}>
+                        {formatRupiah(k.pivot?.nominal_override ?? k.nominal)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {/* === Kelengkapan Perhiasan === */}
+            {type === "perhiasan" && detail?.perhiasan?.kelengkapan?.length > 0 && (
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <tbody>
+                  {detail.perhiasan.kelengkapan.map((k, i) => (
+                    <tr key={i}>
+                      <td>{k.nama_kelengkapan || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {/* === Kelengkapan Logam Mulia === */}
+            {type === "logam mulia" && detail?.logam_mulia?.kelengkapan_emas?.length > 0 && (
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <tbody>
+                  {detail.logam_mulia.kelengkapan_emas.map((k, i) => (
+                    <tr key={i}>
+                      <td>{k.nama_kelengkapan || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {/* === Kelengkapan Retro === */}
+            {type === "retro" && detail?.retro?.kelengkapan?.length > 0 && (
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <tbody>
+                  {detail.retro.kelengkapan.map((k, i) => (
+                    <tr key={i}>
+                      <td>{k.nama_kelengkapan || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {/* Jika semua kosong */}
+            {((type === "hp" && !detail?.hp?.kelengkapan_list?.length) ||
+              (type === "retro" && !detail?.retro?.kelengkapan?.length) ||
+              (type === "perhiasan" && !detail?.perhiasan?.kelengkapan?.length) ||
+              (type === "logam mulia" && !detail?.logam_mulia?.kelengkapan_emas?.length)) && "-"}
+
+          </div>
+
+
           <div>Pokok Pinjaman {formatRupiah(pinjaman)}</div>
           <div>Jasa Sewa ({jenisSkema} {(persenJasa * 100).toFixed(1)}%) {formatRupiah(jasaSewa)}</div>
           <div>Administrasi {formatRupiah(admin)}</div>

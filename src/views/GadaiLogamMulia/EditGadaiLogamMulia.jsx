@@ -1,28 +1,15 @@
 import React, { useEffect, useState, useContext } from "react";
 import {
-  Card,
-  CardHeader,
-  CardContent,
-  Grid,
-  TextField,
-  Button,
-  Stack,
-  CircularProgress,
-  Autocomplete,
-  Box,
-  Typography,
-  FormGroup,
-  FormControlLabel,
-  Checkbox,
-  Alert,
+  Box, Grid, Typography, Stack, Button, CircularProgress, Paper,
+  Chip, Divider, Card, CardActionArea, CardMedia, IconButton, TextField, Dialog
 } from "@mui/material";
-import { useNavigate, useParams } from "react-router-dom";
+import { ArrowBack, Close } from "@mui/icons-material";
+import { useParams, useNavigate } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { AuthContext } from "AuthContex/AuthContext";
 
-const KELENGKAPAN_LIST = ["Sertifikat", "Nota", "Kartu Garansi", ];
-
-const DOKUMEN_PENDUKUNG_SOP = [
+// SOP Dokumen Logam Mulia
+const DOKUMEN_SOP_LOGAM = [
   { key: "emas_timbangan", label: "Emas + Timbangan" },
   { key: "gosokan_timer", label: "Gosokan + Timer 1 Menit" },
   { key: "gosokan_ktp", label: "Gosokan + KTP" },
@@ -32,81 +19,70 @@ const DOKUMEN_PENDUKUNG_SOP = [
   { key: "ukuran_batu", label: "Ukuran Batu (Metmess)" },
 ];
 
+const getFullUrl = (path) =>
+  path ? (path.startsWith("http") ? path : `${window.location.origin}/storage/${path}`) : null;
+
 const EditGadaiLogamMuliaPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
-  const userRole = (user?.role || "").toLowerCase();
+  const role = (user?.role || "").toLowerCase();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [nasabahs, setNasabahs] = useState([]);
-  const [selectedNasabah, setSelectedNasabah] = useState(null);
-
+  const [allKelengkapan, setAllKelengkapan] = useState([]);
   const [form, setForm] = useState({
     nama_barang: "",
-    type_logam_mulia: "",
-    kelengkapan: [],
     kode_cap: "",
     karat: "",
     potongan_batu: "",
     berat: "",
-    detail_gadai_id: "",
-    dokumen_pendukung: {},
+    kelengkapan: [],
+    dokumen_pendukung: {}
   });
+  const [nasabah, setNasabah] = useState(null);
+  const [selectedImage, setSelectedImage] = useState("");
 
-  // Ambil data awal
+  // Fetch data awal
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const urlGet =
-          userRole === "checker"
-            ? `/checker/gadai-logam-mulia/${id}`
-            : `/gadai-logam-mulia/${id}`;
+        const urlKelengkapan = role === "checker" ? "/checker/kelengkapan-emas" : "/kelengkapan-emas";
+        const resKelengkapan = await axiosInstance.get(urlKelengkapan);
+        const kelengkapanData = Array.isArray(resKelengkapan.data.data) ? resKelengkapan.data.data : [];
+        setAllKelengkapan(kelengkapanData);
 
-        const urlNasabah =
-          userRole === "checker" ? "/checker/data-nasabah" : "/data-nasabah";
+        const urlGadai = role === "checker"
+          ? `/checker/gadai-logam-mulia/${id}`
+          : `/gadai-logam-mulia/${id}`;
+        const resGadai = await axiosInstance.get(urlGadai);
+        const data = resGadai.data.data;
 
-        const [resLogam, resNasabah] = await Promise.all([
-          axiosInstance.get(urlGet),
-          axiosInstance.get(urlNasabah),
-        ]);
-
-        const data = resLogam.data.data;
-
-        const kelengkapan = Array.isArray(data.kelengkapan)
-          ? data.kelengkapan
-          : data.kelengkapan
-          ? [data.kelengkapan]
-          : [];
+        setNasabah(data.detail_gadai?.nasabah || null);
 
         const dokumenPendukung = {};
-        if (data.dokumen_pendukung) {
-          Object.entries(data.dokumen_pendukung).forEach(([key, val]) => {
-            dokumenPendukung[key] = val
-              ? { url: val.startsWith("http") ? val : `${window.location.origin}/storage/${val}` }
-              : null;
-          });
-        }
+        DOKUMEN_SOP_LOGAM.forEach(({ key }) => {
+          const val = data.dokumen_pendukung?.[key];
+          dokumenPendukung[key] = val ? { url: getFullUrl(val) } : null;
+        });
 
         setForm({
           nama_barang: data.nama_barang || "",
-          type_logam_mulia: data.type_logam_mulia || "",
-          kelengkapan,
           kode_cap: data.kode_cap || "",
           karat: data.karat || "",
           potongan_batu: data.potongan_batu || "",
           berat: data.berat || "",
-          detail_gadai_id: data.detail_gadai_id || "",
-          dokumen_pendukung: dokumenPendukung,
+          kelengkapan: Array.isArray(data.kelengkapan_list)
+            ? data.kelengkapan_list.map(k => ({
+              id: k.id,
+              nama_kelengkapan: k.nama_kelengkapan
+            }))
+            : [],
+
+          dokumen_pendukung: dokumenPendukung
         });
 
-        setNasabahs(resNasabah.data.data || []);
-        const nasabahFound = resNasabah.data.data.find(
-          (n) => n.id === data.detail_gadai?.nasabah?.id
-        );
-        setSelectedNasabah(nasabahFound || null);
       } catch (err) {
         console.error(err);
         alert("Gagal mengambil data gadai logam mulia");
@@ -114,73 +90,61 @@ const EditGadaiLogamMuliaPage = () => {
         setLoading(false);
       }
     };
-
     fetchData();
-  }, [id, userRole]);
+  }, [id, role]);
 
+  // Handle input
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleCheckboxChange = (value) => {
-    setForm((prev) => {
-      const exists = prev.kelengkapan.includes(value);
-      return {
-        ...prev,
-        kelengkapan: exists
-          ? prev.kelengkapan.filter((v) => v !== value)
-          : [...prev.kelengkapan, value],
-      };
+  // Checkbox kelengkapan
+  const handleCheckboxChange = (item) => {
+    setForm(prev => {
+      const exists = prev.kelengkapan.find(k => k.id === item.id);
+      if (exists) {
+        return { ...prev, kelengkapan: prev.kelengkapan.filter(k => k.id !== item.id) };
+      } else {
+        return { ...prev, kelengkapan: [...prev.kelengkapan, { ...item, nominal_override: "" }] };
+      }
     });
   };
 
-  const handleDokumenChange = (key, file) => {
-    setForm((prev) => ({
+  // Nominal override
+  const handleNominalChange = (id, value) => {
+    setForm(prev => ({
       ...prev,
-      dokumen_pendukung: {
-        ...prev.dokumen_pendukung,
-        [key]: file ? { file, url: URL.createObjectURL(file) } : null,
-      },
+      kelengkapan: prev.kelengkapan.map(k => k.id === id ? { ...k, nominal_override: value } : k)
     }));
   };
 
+  // Dokumen
+  const handleDokumenChange = (key, file) => {
+    setForm(prev => ({
+      ...prev,
+      dokumen_pendukung: { ...prev.dokumen_pendukung, [key]: file ? { file, url: URL.createObjectURL(file) } : null }
+    }));
+  };
+
+  // Submit
   const handleSubmit = async () => {
-    if (!form.detail_gadai_id) {
-      alert("Silakan pilih Nasabah terlebih dahulu.");
-      return;
-    }
+    const dataForm = new FormData();
+    dataForm.append("_method", "PUT");
+    ["nama_barang", "kode_cap", "karat", "potongan_batu", "berat"].forEach(key => dataForm.append(key, form[key]));
+    form.kelengkapan.forEach((item, i) => {
+      dataForm.append(`kelengkapan[${i}][id]`, item.id);
+    });
+    Object.entries(form.dokumen_pendukung).forEach(([k, val]) => {
+      if (val?.file instanceof File) dataForm.append(`dokumen_pendukung[${k}]`, val.file);
+    });
 
     try {
       setSaving(true);
-      const data = new FormData();
-      data.append("_method", "PUT");
-
-      [
-        "nama_barang",
-        "type_logam_mulia",
-        "kode_cap",
-        "karat",
-        "potongan_batu",
-        "berat",
-        "detail_gadai_id",
-      ].forEach((key) => data.append(key, form[key]));
-
-      form.kelengkapan.forEach((item, i) => data.append(`kelengkapan[${i}]`, item));
-
-      Object.entries(form.dokumen_pendukung).forEach(([k, val]) => {
-        if (val?.file instanceof File) data.append(`dokumen_pendukung[${k}]`, val.file);
-      });
-
-      const urlSubmit =
-        userRole === "checker"
-          ? `/checker/gadai-logam-mulia/${id}`
-          : `/gadai-logam-mulia/${id}`;
-
-      const res = await axiosInstance.post(urlSubmit, data, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
+      const urlSubmit = role === "checker"
+        ? `/checker/gadai-logam-mulia/${id}`
+        : `/gadai-logam-mulia/${id}`;
+      const res = await axiosInstance.post(urlSubmit, dataForm, { headers: { "Content-Type": "multipart/form-data" } });
       if (res.data.success) {
         alert("Data berhasil diperbarui!");
         navigate("/gadai-logam-mulia");
@@ -190,212 +154,128 @@ const EditGadaiLogamMuliaPage = () => {
     } catch (err) {
       console.error(err.response?.data || err);
       alert(err.response?.data?.message || "Terjadi kesalahan saat menyimpan data.");
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
-  if (loading)
-    return (
-      <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}>
-        <CircularProgress />
-      </Stack>
-    );
+  if (loading) return <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}><CircularProgress /></Stack>;
+
+  const dokumenKeys = Object.keys(form.dokumen_pendukung || {});
 
   return (
-    <Card sx={{ p: 2 }}>
-      <CardHeader title="Edit Gadai Logam Mulia" />
-      <CardContent>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+    <Box sx={{ maxWidth: 1200, mx: "auto", mt: 3, mb: 8, px: 2 }}>
+      {/* Header */}
+      <Paper elevation={2} sx={{ position: "sticky", top: 16, zIndex: 20, borderRadius: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", px: 3, py: 2 }}>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Button startIcon={<ArrowBack />} onClick={() => navigate(-1)} variant="text">Kembali</Button>
+            <Typography variant="h6" fontWeight={700}>Edit Gadai Logam Mulia</Typography>
+          </Stack>
+        </Box>
+      </Paper>
+
+      <Grid container spacing={3}>
+        {/* Left column */}
+        <Grid item xs={12} md={4}>
+          <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
             <Stack spacing={2}>
-              <TextField
-                label="Nama Barang"
-                name="nama_barang"
-                value={form.nama_barang}
-                onChange={handleInputChange}
-                fullWidth
-              />
-              <TextField
-                label="Type Logam Mulia"
-                name="type_logam_mulia"
-                value={form.type_logam_mulia}
-                onChange={handleInputChange}
-                fullWidth
-              />
-              <TextField
-                label="Kode Cap"
-                name="kode_cap"
-                value={form.kode_cap}
-                onChange={handleInputChange}
-                fullWidth
-              />
-              <Typography variant="subtitle1">Kelengkapan:</Typography>
-              <FormGroup row>
-                {KELENGKAPAN_LIST.map((item) => (
-                  <FormControlLabel
-                    key={item}
-                    control={
-                      <Checkbox
-                        checked={form.kelengkapan.includes(item)}
-                        onChange={() => handleCheckboxChange(item)}
-                      />
-                    }
-                    label={item}
+              <TextField label="Nama Barang" name="nama_barang" value={form.nama_barang} onChange={handleInputChange} fullWidth />
+              <TextField label="Kode Cap" name="kode_cap" value={form.kode_cap} onChange={handleInputChange} fullWidth />
+              <TextField label="Karat" name="karat" value={form.karat} onChange={handleInputChange} fullWidth />
+              <TextField label="Potongan Batu" name="potongan_batu" value={form.potongan_batu} onChange={handleInputChange} fullWidth />
+              <TextField label="Berat" name="berat" value={form.berat} onChange={handleInputChange} fullWidth />
+
+              <Divider sx={{ my: 1 }} />
+              <Typography variant="subtitle2">Kelengkapan</Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                {allKelengkapan.map(k => (
+                  <Chip
+                    key={k.id}
+                    label={k.nama_kelengkapan}
+                    color={form.kelengkapan.some(f => f.id === k.id) ? "success" : "default"}
+                    onClick={() => handleCheckboxChange(k)}
+                    clickable
                   />
                 ))}
-              </FormGroup>
-            </Stack>
-          </Grid>
+              </Stack>
 
-          <Grid item xs={12} md={6}>
-            <Stack spacing={2}>
-              <TextField
-                label="Karat"
-                name="karat"
-                value={form.karat}
-                onChange={handleInputChange}
-                fullWidth
-              />
-              <TextField
-                label="Potongan Batu"
-                name="potongan_batu"
-                value={form.potongan_batu}
-                onChange={handleInputChange}
-                fullWidth
-              />
-              <TextField
-                label="Berat"
-                name="berat"
-                value={form.berat}
-                onChange={handleInputChange}
-                fullWidth
-              />
-              <Autocomplete
-                options={nasabahs}
-                getOptionLabel={(option) => option.nama_lengkap || ""}
-                value={selectedNasabah}
-                onChange={(e, newValue) => {
-                  setSelectedNasabah(newValue);
-                  setForm((prev) => ({
-                    ...prev,
-                    detail_gadai_id: newValue ? newValue.id : "",
-                  }));
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Cari Nasabah"
-                    placeholder="Ketik nama nasabah..."
-                    fullWidth
-                  />
-                )}
-              />
-              {selectedNasabah && (
-                <Box
-                  sx={{
-                    mt: 1,
-                    p: 1.5,
-                    border: "1px solid #ddd",
-                    borderRadius: 1,
-                    bgcolor: "#fafafa",
-                  }}
-                >
-                  <strong>Detail Nasabah:</strong>
-                  <div>Nama: {selectedNasabah.nama_lengkap}</div>
-                  <div>No HP: {selectedNasabah.no_hp}</div>
-                  <div>Alamat: {selectedNasabah.alamat}</div>
-                </Box>
+              {form.kelengkapan.map(k => (
+                <TextField
+                  key={k.id}
+                  label={`Nominal ${k.nama_kelengkapan}`}
+                  type="number"
+                  value={k.nominal_override || ""}
+                  onChange={(e) => handleNominalChange(k.id, e.target.value)}
+                  fullWidth
+                  sx={{ mt: 1 }}
+                />
+              ))}
+
+
+              {nasabah && (
+                <Paper variant="outlined" sx={{ p: 2, mt: 2 }}>
+                  <Typography variant="subtitle2">Informasi Nasabah</Typography>
+                  <Typography fontWeight={700}>{nasabah.nama_lengkap}</Typography>
+                  <Typography variant="body2">NIK: {nasabah.nik}</Typography>
+                  <Typography variant="body2">No HP: {nasabah.no_hp}</Typography>
+                  <Typography variant="body2">No Rek: {nasabah.no_rek}</Typography>
+                </Paper>
               )}
             </Stack>
-          </Grid>
-
-          <Grid item xs={12}>
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Upload file dokumen pendukung pemeriksaan logam mulia.
-            </Alert>
-          </Grid>
-          {DOKUMEN_PENDUKUNG_SOP.map((item) => (
-            <Grid item xs={12} sm={6} key={item.key}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                {item.label}
-              </Typography>
-              <Box
-                sx={{
-                  p: 2,
-                  border: "1px dashed #ccc",
-                  borderRadius: 2,
-                  bgcolor: "#fafafa",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                }}
-              >
-                {form.dokumen_pendukung[item.key]?.url ? (
-                  <Box
-                    component="img"
-                    src={form.dokumen_pendukung[item.key].url}
-                    alt={item.label}
-                    sx={{
-                      maxWidth: "150px",
-                      maxHeight: "150px",
-                      mb: 1,
-                      borderRadius: 1,
-                      objectFit: "contain",
-                    }}
-                  />
-                ) : (
-                  <Typography variant="body2" sx={{ mb: 1, color: "#888" }}>
-                    Belum ada file
-                  </Typography>
-                )}
-                <Stack direction="row" spacing={1}>
-                  <Button variant="contained" component="label" size="small">
-                    Upload
-                    <input
-                      type="file"
-                      hidden
-                      accept="image/*"
-                      onChange={(e) =>
-                        handleDokumenChange(item.key, e.target.files[0])
-                      }
-                    />
-                  </Button>
-                  {form.dokumen_pendukung[item.key]?.url && (
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      size="small"
-                      onClick={() => handleDokumenChange(item.key, null)}
-                    >
-                      Hapus
-                    </Button>
-                  )}
-                </Stack>
-              </Box>
-            </Grid>
-          ))}
+          </Paper>
         </Grid>
 
-        <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 4 }}>
-          <Button
-            variant="outlined"
-            color="secondary"
-            onClick={() => navigate("/gadai-logam-mulia")}
-          >
-            Batal
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleSubmit}
-            disabled={saving}
-          >
-            {saving ? "Menyimpan..." : "Update"}
-          </Button>
-        </Stack>
-      </CardContent>
-    </Card>
+        {/* Right column: dokumen */}
+        <Grid item xs={12} md={8}>
+          <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
+            <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2 }}>Dokumen & Foto</Typography>
+            {dokumenKeys.length === 0 ? (
+              <Box sx={{ py: 6, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">Tidak ada dokumen tersedia sesuai SOP</Typography>
+              </Box>
+            ) : (
+              <Grid container spacing={2}>
+                {dokumenKeys.map(key => (
+                  <Grid item xs={12} sm={6} key={key}>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                      <Typography fontWeight={700}>{DOKUMEN_SOP_LOGAM.find(d => d.key === key)?.label || key}</Typography>
+                      <Grid container spacing={1}>
+                        {form.dokumen_pendukung[key]?.url && (
+                          <Grid item xs={6}>
+                            <Card sx={{ borderRadius: 2, overflow: 'hidden', cursor: 'pointer' }}>
+                              <CardActionArea onClick={() => setSelectedImage(form.dokumen_pendukung[key].url)}>
+                                <CardMedia component="img" height="140" image={form.dokumen_pendukung[key].url} alt={key} />
+                              </CardActionArea>
+                            </Card>
+                            <Button variant="outlined" color="error" size="small" fullWidth sx={{ mt: 1 }} onClick={() => handleDokumenChange(key, null)}>Hapus</Button>
+                          </Grid>
+                        )}
+                        <Grid item xs={6}>
+                          <Button variant="contained" component="label" fullWidth size="small" sx={{ mt: 1 }}>
+                            Upload
+                            <input type="file" hidden accept="image/*" onChange={e => handleDokumenChange(key, e.target.files[0])} />
+                          </Button>
+                        </Grid>
+                      </Grid>
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
+
+            <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 3 }}>
+              <Button variant="outlined" color="secondary" onClick={() => navigate("/gadai-logam-mulia")}>Batal</Button>
+              <Button variant="contained" color="primary" onClick={handleSubmit} disabled={saving}>{saving ? "Menyimpan..." : "Update"}</Button>
+            </Stack>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Dialog Preview */}
+      <Dialog open={!!selectedImage} onClose={() => setSelectedImage("")} maxWidth="xl">
+        <IconButton onClick={() => setSelectedImage("")} sx={{ position: 'absolute', top: 12, right: 12, zIndex: 30, bgcolor: 'rgba(255,255,255,0.9)' }}><Close /></IconButton>
+        <Box component="img" src={selectedImage} alt="preview" sx={{ width: '100%', height: '80vh', objectFit: 'contain' }} />
+      </Dialog>
+    </Box>
   );
 };
 

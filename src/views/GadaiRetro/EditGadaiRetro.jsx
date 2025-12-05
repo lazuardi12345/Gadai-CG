@@ -1,29 +1,15 @@
 import React, { useEffect, useState, useContext } from "react";
 import {
-  Card,
-  CardHeader,
-  CardContent,
-  Grid,
-  TextField,
-  Button,
-  Stack,
-  CircularProgress,
-  Autocomplete,
-  Box,
-  Typography,
-  FormGroup,
-  FormControlLabel,
-  Checkbox,
-  Alert,
+  Box, Grid, Typography, Stack, Button, CircularProgress, Paper,
+  Chip, Divider, Card, CardActionArea, CardMedia, IconButton, Dialog,
+  TextField
 } from "@mui/material";
-import { useNavigate, useParams } from "react-router-dom";
+import { ArrowBack, Close } from "@mui/icons-material";
+import { useParams, useNavigate } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { AuthContext } from "AuthContex/AuthContext";
 
-const KELENGKAPAN_LIST = ["Sertifikat", "Nota", "Kartu Garansi",];
-
-
-const DOKUMEN_PENDUKUNG_SOP = [
+const DOKUMEN_SOP_RETRO = [
   { key: "emas_timbangan", label: "Emas + Timbangan" },
   { key: "gosokan_timer", label: "Gosokan + Timer 1 Menit" },
   { key: "gosokan_ktp", label: "Gosokan + KTP" },
@@ -33,20 +19,23 @@ const DOKUMEN_PENDUKUNG_SOP = [
   { key: "ukuran_batu", label: "Ukuran Batu (Metmess)" },
 ];
 
+const getFullUrl = (path) =>
+  path ? (path.startsWith("http") ? path : `${window.location.origin}/storage/${path}`) : null;
+
 const EditGadaiRetroPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
-  const userRole = (user?.role || "").toLowerCase();
+  const role = (user?.role || "").toLowerCase();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [nasabahs, setNasabahs] = useState([]);
-  const [selectedNasabah, setSelectedNasabah] = useState(null);
+  const [allKelengkapan, setAllKelengkapan] = useState([]);
+  const [nasabah, setNasabah] = useState(null);
+  const [selectedImage, setSelectedImage] = useState("");
 
   const [form, setForm] = useState({
     nama_barang: "",
-    type_retro: "",
     kelengkapan: [],
     kode_cap: "",
     karat: "",
@@ -56,60 +45,54 @@ const EditGadaiRetroPage = () => {
     dokumen_pendukung: {},
   });
 
-
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
- 
-        const urlGet = userRole === "checker"
-          ? `/checker/gadai-retro/${id}`
-          : `/gadai-retro/${id}`;
-
-
-        const urlNasabah = userRole === "checker"
-          ? `/checker/data-nasabah`
-          : `/data-nasabah`;
-
-        const [resRetro, resNasabah] = await Promise.all([
-          axiosInstance.get(urlGet),
-          axiosInstance.get(urlNasabah),
+        const urlKelengkapan = role === "checker" ? "/checker/kelengkapan-emas" : "/kelengkapan-emas";
+        const urlGadai = role === "checker" ? `/checker/gadai-retro/${id}` : `/gadai-retro/${id}`;
+        const [resKelengkapan, resGadai] = await Promise.all([
+          axiosInstance.get(urlKelengkapan),
+          axiosInstance.get(urlGadai),
         ]);
 
-        const data = resRetro.data.data;
+        // Simpan semua kelengkapan
+        const kelengkapanData = Array.isArray(resKelengkapan.data.data) ? resKelengkapan.data.data : [];
+        setAllKelengkapan(kelengkapanData);
 
-        const kelengkapan = Array.isArray(data.kelengkapan)
-          ? data.kelengkapan
-          : data.kelengkapan
-          ? [data.kelengkapan]
+        const data = resGadai.data.data;
+
+        // Simpan nasabah
+        const nasabahData = data.detail_gadai?.nasabah || null;
+        setNasabah(nasabahData);
+
+        // Mapping kelengkapan
+        const kelengkapanList = Array.isArray(data.kelengkapan_list)
+          ? data.kelengkapan_list.map(k => k.nama_kelengkapan)
           : [];
 
+        // Ambil dokumen_pendukung pertama dari array
+        const dokumenObj = data.dokumen_pendukung || {};
         const dokumenPendukung = {};
-        if (data.dokumen_pendukung) {
-          Object.entries(data.dokumen_pendukung).forEach(([key, val]) => {
-            dokumenPendukung[key] = val
-              ? { url: val.startsWith("http") ? val : `${window.location.origin}/storage/${val}` }
-              : null;
-          });
-        }
 
+        DOKUMEN_SOP_RETRO.forEach(({ key }) => {
+          dokumenPendukung[key] = dokumenObj[key]
+            ? { url: getFullUrl(dokumenObj[key]) }
+            : null;
+        });
+
+
+        // Mapping form dengan aman
         setForm({
           nama_barang: data.nama_barang || "",
-          type_retro: data.type_retro || "",
-          kelengkapan,
+          kelengkapan: kelengkapanList,
           kode_cap: data.kode_cap || "",
           karat: data.karat || "",
           potongan_batu: data.potongan_batu || "",
           berat: data.berat || "",
-          detail_gadai_id: data.detail_gadai_id || "",
+          detail_gadai_id: data.detail_gadai?.id || data.detail_gadai_id || "",
           dokumen_pendukung: dokumenPendukung,
         });
-
-        setNasabahs(resNasabah.data.data || []);
-        const nasabahFound = resNasabah.data.data.find(
-          (n) => n.id === data.detail_gadai?.nasabah?.id
-        );
-        setSelectedNasabah(nasabahFound || null);
 
       } catch (err) {
         console.error(err);
@@ -118,25 +101,22 @@ const EditGadaiRetroPage = () => {
         setLoading(false);
       }
     };
-
     fetchData();
-  }, [id, userRole]);
+  }, [id, role]);
 
-  const handleInputChange = (e) => {
+
+  const handleInputChange = e => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
   const handleCheckboxChange = (value) => {
-    setForm(prev => {
-      const exists = prev.kelengkapan.includes(value);
-      return {
-        ...prev,
-        kelengkapan: exists
-          ? prev.kelengkapan.filter(v => v !== value)
-          : [...prev.kelengkapan, value],
-      };
-    });
+    setForm(prev => ({
+      ...prev,
+      kelengkapan: prev.kelengkapan.includes(value)
+        ? prev.kelengkapan.filter(v => v !== value)
+        : [...prev.kelengkapan, value]
+    }));
   };
 
   const handleDokumenChange = (key, file) => {
@@ -149,168 +129,151 @@ const EditGadaiRetroPage = () => {
     }));
   };
 
-  const handleSubmit = async () => {
-    if (!form.detail_gadai_id) {
-      alert("Silakan pilih Nasabah terlebih dahulu.");
-      return;
-    }
+const handleSubmit = async () => {
+  try {
+    setSaving(true);
 
-    try {
-      setSaving(true);
-      const data = new FormData();
-      data.append("_method", "PUT");
+    const dataForm = new FormData();
+    dataForm.append("_method", "PUT");
 
-      ["nama_barang", "type_retro", "kode_cap", "karat", "potongan_batu", "berat", "detail_gadai_id"]
-        .forEach(key => data.append(key, form[key]));
+    // Field biasa
+    ["nama_barang", "kode_cap", "karat", "potongan_batu", "berat"]
+      .forEach(key => dataForm.append(key, form[key] ?? ""));
 
-      form.kelengkapan.forEach((item, i) => data.append(`kelengkapan[${i}]`, item));
+    // Kirim kelengkapan sebagai array ID
+    form.kelengkapan.forEach((nama, i) => {
+      const item = allKelengkapan.find(k => k.nama_kelengkapan === nama);
+      if (item) dataForm.append(`kelengkapan[${i}]`, item.id);
+    });
 
-      Object.entries(form.dokumen_pendukung).forEach(([k, val]) => {
-        if (val?.file instanceof File) data.append(`dokumen_pendukung[${k}]`, val.file);
-      });
-
-      const urlSubmit = userRole === "checker"
-        ? `/checker/gadai-retro/${id}`
-        : `/gadai-retro/${id}`;
-
-      const res = await axiosInstance.post(urlSubmit, data, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      if (res.data.success) {
-        alert("Data berhasil diperbarui!");
-        navigate("/gadai-retro");
-      } else {
-        alert(res.data.message || "Gagal memperbarui data.");
+    // Dokumen Pendukung - kirim hanya file baru
+    Object.entries(form.dokumen_pendukung).forEach(([key, val]) => {
+      if (val?.file instanceof File) {
+        dataForm.append(`dokumen_pendukung[${key}]`, val.file);
       }
-    } catch (err) {
-      console.error(err.response?.data || err);
-      alert(err.response?.data?.message || "Terjadi kesalahan saat menyimpan data.");
-    } finally {
-      setSaving(false);
-    }
-  };
+    });
 
-  if (loading) return (
-    <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}>
-      <CircularProgress />
-    </Stack>
-  );
+    const urlSubmit = role === "checker"
+      ? `/checker/gadai-retro/${id}`
+      : `/gadai-retro/${id}`;
+
+    const res = await axiosInstance.post(urlSubmit, dataForm, {
+      headers: { "Content-Type": "multipart/form-data" }
+    });
+
+    if (res.data.success) {
+      alert("Data berhasil diperbarui!");
+      navigate("/gadai-retro");
+    } else {
+      alert(res.data.message || "Gagal memperbarui data.");
+    }
+
+  } catch (err) {
+    console.error(err.response?.data || err);
+    alert(err.response?.data?.message || "Terjadi kesalahan.");
+  } finally {
+    setSaving(false);
+  }
+};
+
+
+  if (loading) return <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}><CircularProgress /></Stack>;
 
   return (
-    <Card sx={{ p: 2 }}>
-      <CardHeader title="Edit Gadai Retro" />
-      <CardContent>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+    <Box sx={{ maxWidth: 1200, mx: "auto", mt: 3, mb: 8, px: 2 }}>
+      <Paper elevation={2} sx={{ position: "sticky", top: 16, zIndex: 20, borderRadius: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", px: 3, py: 2 }}>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Button startIcon={<ArrowBack />} onClick={() => navigate(-1)} variant="text">Kembali</Button>
+            <Typography variant="h6" fontWeight={700}>Edit Gadai Retro</Typography>
+          </Stack>
+        </Box>
+      </Paper>
+
+      <Grid container spacing={3}>
+        {/* Left column */}
+        <Grid item xs={12} md={4}>
+          <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
             <Stack spacing={2}>
-              <TextField
-                label="Nama Barang"
-                name="nama_barang"
-                value={form.nama_barang}
-                onChange={handleInputChange}
-                fullWidth
-              />
-              <TextField
-                label="Type Retro"
-                name="type_retro"
-                value={form.type_retro}
-                onChange={handleInputChange}
-                fullWidth
-              />
-              <TextField
-                label="Kode Cap"
-                name="kode_cap"
-                value={form.kode_cap}
-                onChange={handleInputChange}
-                fullWidth
-              />
-              <Typography variant="subtitle1">Kelengkapan:</Typography>
-              <FormGroup row>
-                {KELENGKAPAN_LIST.map(item => (
-                  <FormControlLabel
-                    key={item}
-                    control={<Checkbox checked={form.kelengkapan.includes(item)} onChange={() => handleCheckboxChange(item)} />}
-                    label={item}
+              <TextField label="Nama Barang" name="nama_barang" value={form.nama_barang} onChange={handleInputChange} fullWidth />
+              <TextField label="Kode Cap" name="kode_cap" value={form.kode_cap} onChange={handleInputChange} fullWidth />
+              <TextField label="Karat" name="karat" value={form.karat} onChange={handleInputChange} fullWidth />
+              <TextField label="Potongan Batu" name="potongan_batu" value={form.potongan_batu} onChange={handleInputChange} fullWidth />
+              <TextField label="Berat" name="berat" value={form.berat} onChange={handleInputChange} fullWidth />
+
+              <Divider sx={{ my: 1 }} />
+              <Typography variant="subtitle2">Kelengkapan</Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                {allKelengkapan.map(k => (
+                  <Chip
+                    key={k.id}
+                    label={k.nama_kelengkapan}
+                    color={form.kelengkapan.includes(k.nama_kelengkapan) ? "success" : "default"}
+                    onClick={() => handleCheckboxChange(k.nama_kelengkapan)}
+                    clickable
                   />
                 ))}
-              </FormGroup>
+              </Stack>
+
+              {nasabah && (
+                <Paper variant="outlined" sx={{ p: 2, mt: 2 }}>
+                  <Typography variant="subtitle2">Informasi Nasabah</Typography>
+                  <Typography fontWeight={700}>{nasabah.nama_lengkap}</Typography>
+                  <Typography variant="body2">NIK: {nasabah.nik}</Typography>
+                  <Typography variant="body2">No HP: {nasabah.no_hp}</Typography>
+                  <Typography variant="body2">No Rek: {nasabah.no_rek}</Typography>
+                </Paper>
+              )}
             </Stack>
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <Stack spacing={2}>
-              <TextField
-                label="Karat"
-                name="karat"
-                value={form.karat}
-                onChange={handleInputChange}
-                fullWidth
-              />
-              <TextField
-                label="Potongan Batu"
-                name="potongan_batu"
-                value={form.potongan_batu}
-                onChange={handleInputChange}
-                fullWidth
-              />
-              <TextField
-                label="Berat"
-                name="berat"
-                value={form.berat}
-                onChange={handleInputChange}
-                fullWidth
-              />
-              <Autocomplete
-                options={nasabahs}
-                getOptionLabel={o => o.nama_lengkap || ""}
-                value={selectedNasabah}
-                onChange={(e, val) => {
-                  setSelectedNasabah(val);
-                  setForm(prev => ({ ...prev, detail_gadai_id: val ? val.id : "" }));
-                }}
-                renderInput={(params) => <TextField {...params} label="Cari Nasabah" placeholder="Ketik nama nasabah..." fullWidth />}
-              />
-            </Stack>
-          </Grid>
-
-          <Grid item xs={12}>
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Upload file dokumen pendukung pemeriksaan retro.
-            </Alert>
-          </Grid>
-          {DOKUMEN_PENDUKUNG_SOP.map(item => (
-            <Grid item xs={12} sm={6} key={item.key}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>{item.label}</Typography>
-              <Box sx={{ p: 2, border: "1px dashed #ccc", borderRadius: 2, bgcolor: "#fafafa", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                {form.dokumen_pendukung[item.key]?.url ? (
-                  <Box component="img" src={form.dokumen_pendukung[item.key].url} alt={item.label} sx={{ maxWidth: "150px", maxHeight: "150px", mb: 1, borderRadius: 1, objectFit: "contain" }} />
-                ) : (
-                  <Typography variant="body2" sx={{ mb: 1, color: "#888" }}>Belum ada file</Typography>
-                )}
-                <Stack direction="row" spacing={1}>
-                  <Button variant="contained" component="label" size="small">
-                    Upload
-                    <input type="file" hidden accept="image/*" onChange={e => handleDokumenChange(item.key, e.target.files[0])} />
-                  </Button>
-                  {form.dokumen_pendukung[item.key]?.url && (
-                    <Button variant="outlined" color="error" size="small" onClick={() => handleDokumenChange(item.key, null)}>Hapus</Button>
-                  )}
-                </Stack>
-              </Box>
-            </Grid>
-          ))}
-
+          </Paper>
         </Grid>
 
-        <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 4 }}>
-          <Button variant="outlined" color="secondary" onClick={() => navigate("/gadai-retro")}>Batal</Button>
-          <Button variant="contained" color="primary" onClick={handleSubmit} disabled={saving}>
-            {saving ? "Menyimpan..." : "Update"}
-          </Button>
-        </Stack>
-      </CardContent>
-    </Card>
+        {/* Right column */}
+        <Grid item xs={12} md={8}>
+          <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
+            <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2 }}>Dokumen & Foto</Typography>
+            <Grid container spacing={2}>
+              {Object.keys(form.dokumen_pendukung || {}).map(key => (
+                <Grid item xs={12} sm={6} key={key}>
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                    <Typography fontWeight={700}>{DOKUMEN_SOP_RETRO.find(d => d.key === key)?.label || key}</Typography>
+                    <Grid container spacing={1}>
+                      {form.dokumen_pendukung[key]?.url && (
+                        <Grid item xs={6}>
+                          <Card sx={{ borderRadius: 2, overflow: 'hidden', cursor: 'pointer' }}>
+                            <CardActionArea onClick={() => setSelectedImage(form.dokumen_pendukung[key].url)}>
+                              <CardMedia component="img" height="140" image={form.dokumen_pendukung[key].url} alt={key} />
+                            </CardActionArea>
+                          </Card>
+                          <Button variant="outlined" color="error" size="small" fullWidth sx={{ mt: 1 }} onClick={() => handleDokumenChange(key, null)}>Hapus</Button>
+                        </Grid>
+                      )}
+                      <Grid item xs={6}>
+                        <Button variant="contained" component="label" fullWidth size="small" sx={{ mt: 1 }}>
+                          Upload
+                          <input type="file" hidden accept="image/*" onChange={e => handleDokumenChange(key, e.target.files[0])} />
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </Grid>
+              ))}
+            </Grid>
+
+            <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 3 }}>
+              <Button variant="outlined" color="secondary" onClick={() => navigate("/gadai-retro")}>Batal</Button>
+              <Button variant="contained" color="primary" onClick={handleSubmit} disabled={saving}>{saving ? "Menyimpan..." : "Update"}</Button>
+            </Stack>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Dialog Preview */}
+      <Dialog open={!!selectedImage} onClose={() => setSelectedImage("")} maxWidth="xl">
+        <IconButton onClick={() => setSelectedImage("")} sx={{ position: 'absolute', top: 12, right: 12, zIndex: 30, bgcolor: 'rgba(255,255,255,0.9)' }}><Close /></IconButton>
+        <Box component="img" src={selectedImage} alt="preview" sx={{ width: '100%', height: '80vh', objectFit: 'contain' }} />
+      </Dialog>
+    </Box>
   );
 };
 

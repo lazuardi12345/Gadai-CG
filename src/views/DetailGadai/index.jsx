@@ -197,7 +197,7 @@ const getApprovalColor = (status) => {
             <Button variant="contained" color="primary" onClick={() => setPage(0)}>
               Cari
             </Button>
-            {canEdit && (
+            {/* {canEdit && (
               <Button
                 variant="contained"
                 color="primary"
@@ -205,7 +205,7 @@ const getApprovalColor = (status) => {
               >
                 + Tambah
               </Button>
-            )}
+            )} */}
           </Stack>
         }
       />
