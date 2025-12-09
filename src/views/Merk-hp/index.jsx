@@ -1,35 +1,21 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
-    Card,
-    CardHeader,
-    CardContent,
-    Divider,
-    Table,
-    TableContainer,
-    TableHead,
-    TableBody,
-    TableRow,
-    TableCell,
-    TablePagination,
-    IconButton,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Button,
-    CircularProgress,
-    Stack,
-    Grid,
-    Typography,
-    TextField,
-    Paper,
+    Card, CardHeader, CardContent, Divider, Table, TableContainer,
+    TableHead, TableBody, TableRow, TableCell, TablePagination,
+    IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
+    Button, CircularProgress, Stack, Grid, Typography, TextField,
+    Paper, InputAdornment
 } from "@mui/material";
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from "@mui/icons-material";
+
+import {
+    Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
+    Search as SearchIcon, Clear as ClearIcon
+} from "@mui/icons-material";
+
 import axiosInstance from "api/axiosInstance";
 
 const MerkHpGadaiPage = () => {
 
-    // Ambil role user
     const user = JSON.parse(localStorage.getItem("auth_user"));
     const role = user?.role?.toLowerCase() || "";
 
@@ -45,9 +31,9 @@ const MerkHpGadaiPage = () => {
     const apiUrl = getApiUrl(role);
 
     const [merkData, setMerkData] = useState([]);
+    const [filteredData, setFilteredData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [tableLoading, setTableLoading] = useState(false);
-    const [error, setError] = useState(null);
 
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -57,28 +43,40 @@ const MerkHpGadaiPage = () => {
     const [editingId, setEditingId] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
-    // Fetch data
+    // Search
+    const [search, setSearch] = useState("");
+
+    // Fetch Data Merk
     const fetchData = useCallback(async () => {
         setTableLoading(true);
         try {
             const res = await axiosInstance.get(apiUrl);
-
-            if (res.data.success !== false) {
-                setMerkData(res.data.data || []);
-            } else {
-                setError("Gagal mengambil data");
-            }
-        } catch (err) {
-            setError("Terjadi kesalahan");
+            const list = res.data.data || [];
+            setMerkData(list);
+            setFilteredData(list);
+        } catch {
+            alert("Gagal mengambil data merk");
         } finally {
             setTableLoading(false);
             setLoading(false);
         }
     }, [apiUrl]);
 
-    useEffect(() => { fetchData(); }, [fetchData]);
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
-    // Open modal add / edit
+    // Search filter
+    useEffect(() => {
+        const keyword = search.toLowerCase();
+        const filter = merkData.filter((item) =>
+            item.nama_merk.toLowerCase().includes(keyword)
+        );
+        setFilteredData(filter);
+        setPage(0);
+    }, [search, merkData]);
+
+    // Modal Handler
     const handleOpenModal = (merk = null) => {
         if (merk) {
             setFormData({ nama_merk: merk.nama_merk });
@@ -90,102 +88,93 @@ const MerkHpGadaiPage = () => {
         setOpenModal(true);
     };
 
-    const handleFormChange = (e) => {
-        setFormData({ nama_merk: e.target.value });
-    };
-
-    // Submit data
     const handleSubmit = async () => {
-        const { nama_merk } = formData;
-
-        if (!nama_merk.trim()) {
-            alert("Nama merk wajib diisi");
-            return;
-        }
+        if (!formData.nama_merk.trim()) return alert("Nama merk wajib diisi");
 
         try {
             setSubmitting(true);
-            let res;
 
             if (editingId) {
-                res = await axiosInstance.put(`${apiUrl}/${editingId}`, {
-                    nama_merk,
-                });
+                await axiosInstance.put(`${apiUrl}/${editingId}`, { nama_merk: formData.nama_merk });
             } else {
-                res = await axiosInstance.post(apiUrl, {
-                    nama_merk,
-                });
+                await axiosInstance.post(apiUrl, { nama_merk: formData.nama_merk });
             }
 
-            if (res.data.success !== false) {
-                setOpenModal(false);
-                fetchData();
-            } else {
-                alert(res.data.message || "Gagal menyimpan");
-            }
-        } catch (err) {
-            alert("Terjadi kesalahan server");
+            setOpenModal(false);
+            fetchData();
+        } catch {
+            alert("Gagal menyimpan data");
         } finally {
             setSubmitting(false);
         }
     };
 
-    // Delete
     const handleDelete = async (id) => {
         if (!window.confirm("Yakin ingin menghapus?")) return;
 
         try {
-            const res = await axiosInstance.delete(`${apiUrl}/${id}`);
-
-            if (res.data.success !== false) {
-                fetchData();
-            } else {
-                alert("Gagal menghapus");
-            }
-        } catch (err) {
-            alert("Terjadi kesalahan server");
+            await axiosInstance.delete(`${apiUrl}/${id}`);
+            fetchData();
+        } catch {
+            alert("Gagal menghapus");
         }
     };
 
-    // Pagination handler
+    // Pagination
     const handleChangePage = (_, newPage) => setPage(newPage);
     const handleChangeRowsPerPage = (e) => {
         setRowsPerPage(parseInt(e.target.value, 10));
         setPage(0);
     };
 
-    // Loading UI
-    if (loading)
+    if (loading) {
         return (
             <Grid container justifyContent="center" alignItems="center" sx={{ height: "100vh" }}>
                 <CircularProgress />
             </Grid>
         );
-
-    // Error
-    if (error) return <Typography color="error" align="center">{error}</Typography>;
+    }
 
     return (
         <Card sx={{ boxShadow: 4, borderRadius: 3 }}>
             <CardHeader
-                title={<Typography variant="h6" sx={{ fontWeight: "bold" }}>Master Merk HP</Typography>}
+                title={<Typography variant="h6" fontWeight="bold">Master Merk HP</Typography>}
                 action={
                     role !== "petugas" && (
-                        <Button
-                            variant="contained"
-                            startIcon={<AddIcon />}
-                            sx={{ textTransform: "none", borderRadius: 2 }}
-                            onClick={() => handleOpenModal()}
-                        >
+                        <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenModal()}>
                             Tambah Merk
                         </Button>
                     )
                 }
             />
-
             <Divider />
 
             <CardContent>
+
+                {/* Search */}
+                <TextField
+                    fullWidth
+                    placeholder="Cari Merk HP..."
+                    size="small"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    sx={{ mb: 2 }}
+                    InputProps={{
+                        startAdornment: (
+                            <InputAdornment position="start">
+                                <SearchIcon />
+                            </InputAdornment>
+                        ),
+                        endAdornment: search && (
+                            <InputAdornment position="end">
+                                <IconButton onClick={() => setSearch("")}>
+                                    <ClearIcon />
+                                </IconButton>
+                            </InputAdornment>
+                        )
+                    }}
+                />
+
                 <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
                     <Table>
                         <TableHead sx={{ background: "#fafafa" }}>
@@ -199,43 +188,37 @@ const MerkHpGadaiPage = () => {
                         </TableHead>
 
                         <TableBody>
-                            {merkData.length > 0 ? (
-                                merkData
+                            {tableLoading ? (
+                                <TableRow><TableCell colSpan={3} align="center"><CircularProgress size={25} /></TableCell></TableRow>
+                            ) : filteredData.length === 0 ? (
+                                <TableRow><TableCell colSpan={3} align="center">Tidak ada data</TableCell></TableRow>
+                            ) : (
+                                filteredData
                                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                                     .map((item, index) => (
                                         <TableRow hover key={item.id}>
-                                            <TableCell align="center">
-                                                {page * rowsPerPage + index + 1}
-                                            </TableCell>
+                                            <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
                                             <TableCell>{item.nama_merk}</TableCell>
 
                                             {role !== "petugas" && (
                                                 <TableCell align="center">
-                                                    <Stack direction="row" spacing={1} justifyContent="center">
-                                                        <IconButton color="primary" onClick={() => handleOpenModal(item)}>
-                                                            <EditIcon />
-                                                        </IconButton>
-                                                        <IconButton color="error" onClick={() => handleDelete(item.id)}>
-                                                            <DeleteIcon />
-                                                        </IconButton>
-                                                    </Stack>
+                                                    <IconButton color="primary" onClick={() => handleOpenModal(item)}>
+                                                        <EditIcon />
+                                                    </IconButton>
+                                                    <IconButton color="error" onClick={() => handleDelete(item.id)}>
+                                                        <DeleteIcon />
+                                                    </IconButton>
                                                 </TableCell>
                                             )}
                                         </TableRow>
                                     ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell align="center" colSpan={3}>
-                                        Tidak ada data
-                                    </TableCell>
-                                </TableRow>
                             )}
                         </TableBody>
                     </Table>
 
                     <TablePagination
                         rowsPerPageOptions={[5, 10, 25]}
-                        count={merkData.length}
+                        count={filteredData.length}
                         rowsPerPage={rowsPerPage}
                         page={page}
                         component="div"
@@ -246,31 +229,24 @@ const MerkHpGadaiPage = () => {
             </CardContent>
 
             {/* MODAL */}
-            {role !== "petugas" && (
-                <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="sm" fullWidth>
-                    <DialogTitle sx={{ fontWeight: "bold" }}>
-                        {editingId ? "Edit Merk" : "Tambah Merk"}
-                    </DialogTitle>
-                    <DialogContent>
-                        <Stack spacing={2} sx={{ mt: 1 }}>
-                            <TextField
-                                label="Nama Merk"
-                                name="nama_merk"
-                                value={formData.nama_merk}
-                                onChange={handleFormChange}
-                                fullWidth
-                                autoFocus
-                            />
-                        </Stack>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setOpenModal(false)}>Batal</Button>
-                        <Button variant="contained" onClick={handleSubmit} disabled={submitting}>
-                            {submitting ? <CircularProgress size={22} /> : "Simpan"}
-                        </Button>
-                    </DialogActions>
-                </Dialog>
-            )}
+            <Dialog open={openModal} onClose={() => setOpenModal(false)} fullWidth maxWidth="sm">
+                <DialogTitle>{editingId ? "Edit Merk" : "Tambah Merk"}</DialogTitle>
+                <DialogContent>
+                    <TextField
+                        fullWidth
+                        label="Nama Merk"
+                        margin="normal"
+                        value={formData.nama_merk}
+                        onChange={(e) => setFormData({ nama_merk: e.target.value })}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenModal(false)}>Batal</Button>
+                    <Button variant="contained" disabled={submitting} onClick={handleSubmit}>
+                        {submitting ? <CircularProgress size={20} /> : "Simpan"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Card>
     );
 };

@@ -203,7 +203,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {`${cleanText(hp.grade_type)}/${cleanText(hp.imei)}`}
                     </SafeText>
                     <SafeText style={{ position: "absolute", top: 167, left: 93, fontSize: 6 }}>
-                        {`${cleanText(hp.merk?.nama_merk)}/${cleanText(hp.type_hp?.nama_type)}`}
+                        {`${cleanText(hp.type_hp?.nama_type)}`}
                     </SafeText>
                     <SafeText style={{ position: "absolute", top: 167, left: 178, fontSize: 6 }}>
                         {`${cleanText(hp.warna)}`}
@@ -212,7 +212,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {`${cleanText(hp.kunci_password || hp.kunci_pin || hp.kunci_pola)}`}
                     </SafeText>
                     <SafeText style={{ position: "absolute", top: 178, left: 93, fontSize: 7 }}>
-                        {`${cleanText(hp.ram)}/${cleanText(hp.rom)}`}
+                        {`${cleanText(hp.ram)}/${cleanText(hp.rom)} GB`}
                     </SafeText>
                     <SafeText style={{ position: "absolute", top: 188, left: 93, fontSize: 7 }}>
                         {(hp.kelengkapan_list || []).map(k => k.nama_kelengkapan).join(", ")}

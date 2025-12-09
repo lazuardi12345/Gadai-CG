@@ -4,11 +4,13 @@ import {
     Table, TableContainer, TableHead, TableBody,
     TableRow, TableCell, TablePagination,
     IconButton, Button, CircularProgress,
-    Stack, Grid, Typography, Paper
+    Stack, Grid, Typography, Paper, TextField
 } from "@mui/material";
 
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
-         ArrowBackIosNew, ArrowForwardIos } from "@mui/icons-material";
+import {
+    Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
+    ArrowBackIosNew, ArrowForwardIos
+} from "@mui/icons-material";
 
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
@@ -30,6 +32,8 @@ const GradeHpPage = () => {
 
     const [merkList, setMerkList] = useState([]);
     const [selectedMerk, setSelectedMerk] = useState("");
+    const [searchMerk, setSearchMerk] = useState("");
+    const [searchType, setSearchType] = useState("");
 
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -104,6 +108,16 @@ const GradeHpPage = () => {
         );
     }
 
+    // Filter merk berdasarkan search
+    const filteredMerk = merkList.filter(m =>
+        m.nama_merk.toLowerCase().includes(searchMerk.toLowerCase())
+    );
+
+    // Filter data type berdasarkan pencarian
+    const filteredData = data.filter(item =>
+        item.type?.nama_type?.toLowerCase().includes(searchType.toLowerCase())
+    );
+
     return (
         <Card sx={{ boxShadow: 4, borderRadius: 3 }}>
             <CardHeader
@@ -123,6 +137,25 @@ const GradeHpPage = () => {
             <Divider />
 
             <CardContent>
+                {/* SEARCH INPUTS */}
+                <Stack direction="row" spacing={2} mb={2}>
+                    <TextField
+                        label="Cari Merk..."
+                        size="small"
+                        value={searchMerk}
+                        onChange={(e) => setSearchMerk(e.target.value)}
+                        sx={{ width: 250 }}
+                    />
+
+                    <TextField
+                        label="Cari Type..."
+                        size="small"
+                        value={searchType}
+                        onChange={(e) => setSearchType(e.target.value)}
+                        sx={{ width: 250 }}
+                    />
+                </Stack>
+
                 {/* SLIDER SELECTION MERK */}
                 <Stack direction="row" alignItems="center" mb={2} spacing={1}>
                     <IconButton onClick={scrollLeft}>
@@ -141,7 +174,7 @@ const GradeHpPage = () => {
                             "&::-webkit-scrollbar": { display: "none" }
                         }}
                     >
-                        {merkList.map((m) => (
+                        {filteredMerk.map((m) => (
                             <Button
                                 key={m.id}
                                 variant={selectedMerk === m.id ? "contained" : "outlined"}
@@ -173,38 +206,44 @@ const GradeHpPage = () => {
 
                         <TableBody>
                             {tableLoading ? (
-                                <TableRow><TableCell colSpan={6} align="center"><CircularProgress size={25} /></TableCell></TableRow>
-                            ) : data.length === 0 ? (
-                                <TableRow><TableCell colSpan={6} align="center">Tidak ada data</TableCell></TableRow>
+                                <TableRow>
+                                    <TableCell colSpan={6} align="center"><CircularProgress size={25} /></TableCell>
+                                </TableRow>
+                            ) : filteredData.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} align="center">Tidak ada data</TableCell>
+                                </TableRow>
                             ) : (
-                                data.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item, index) => (
-                                    <TableRow key={item.id} hover>
-                                        <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
-                                        <TableCell>{item.type?.nama_type || "-"}</TableCell>
-                                        <TableCell>{formatRupiah(item.harga_grade_a)}</TableCell>
-                                        <TableCell>{formatRupiah(item.harga_grade_b)}</TableCell>
-                                        <TableCell>{formatRupiah(item.harga_grade_c)}</TableCell>
-                                        {role !== "petugas" && (
-                                            <TableCell align="center">
-                                                <Stack direction="row" spacing={1} justifyContent="center">
-                                                    <IconButton color="primary" onClick={() => navigate(`/grade-hp/edit/${item.id}`)}>
-                                                        <EditIcon />
-                                                    </IconButton>
-                                                    <IconButton color="error" onClick={() => handleDelete(item.id)}>
-                                                        <DeleteIcon />
-                                                    </IconButton>
-                                                </Stack>
-                                            </TableCell>
-                                        )}
-                                    </TableRow>
-                                ))
+                                filteredData
+                                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                                    .map((item, index) => (
+                                        <TableRow key={item.id} hover>
+                                            <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
+                                            <TableCell>{item.type?.nama_type || "-"}</TableCell>
+                                            <TableCell>{formatRupiah(item.harga_grade_a)}</TableCell>
+                                            <TableCell>{formatRupiah(item.harga_grade_b)}</TableCell>
+                                            <TableCell>{formatRupiah(item.harga_grade_c)}</TableCell>
+                                            {role !== "petugas" && (
+                                                <TableCell align="center">
+                                                    <Stack direction="row" spacing={1} justifyContent="center">
+                                                        <IconButton color="primary" onClick={() => navigate(`/grade-hp/edit/${item.id}`)}>
+                                                            <EditIcon />
+                                                        </IconButton>
+                                                        <IconButton color="error" onClick={() => handleDelete(item.id)}>
+                                                            <DeleteIcon />
+                                                        </IconButton>
+                                                    </Stack>
+                                                </TableCell>
+                                            )}
+                                        </TableRow>
+                                    ))
                             )}
                         </TableBody>
                     </Table>
 
                     <TablePagination
                         component="div"
-                        count={data.length}
+                        count={filteredData.length}
                         rowsPerPage={rowsPerPage}
                         page={page}
                         onPageChange={(_, newPage) => setPage(newPage)}
