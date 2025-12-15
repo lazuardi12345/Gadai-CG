@@ -14,6 +14,10 @@ import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+// atau kalau mau pakai icon lain:
+import RepeatIcon from '@mui/icons-material/Repeat';
+import AutorenewIcon from '@mui/icons-material/Autorenew';
 
 // daftar icon
 const icons = {
@@ -30,7 +34,10 @@ const icons = {
   TimerOutlinedIcon,
   NotificationsNoneOutlinedIcon,
   CheckCircleOutlineOutlinedIcon,
-  BuildOutlinedIcon
+  BuildOutlinedIcon,
+  RestartAltIcon,
+  RepeatIcon,
+  AutorenewIcon
 };
 
 // ==============================|| MENU ITEMS ||============================== //
@@ -88,6 +95,32 @@ export default {
             }
           ]
         },
+
+        {
+      id: 'gadai-ulang',
+      title: 'Gadai Ulang',
+      type: 'collapse',
+      icon: icons.RestartAltIcon, 
+      role: ['checker', 'hm', 'petugas'],
+      children: [
+        {
+          id: 'gadai-ulang-hp',
+          title: 'HP',
+          type: 'item',
+          url: '/gadai-ulang-hp',
+          icon: icons.SmartphoneOutlinedIcon,
+          role: ['checker', 'hm', 'petugas']
+        },
+        {
+          id: 'gadai-ulang-emas',
+          title: 'Emas',
+          type: 'item',
+          url: '/gadai-ulang-emas',
+          icon: icons.DiamondOutlinedIcon,
+          role: ['checker', 'hm', 'petugas']
+        }
+      ]
+    },
         {
           id: 'data-nasabah',
           title: 'Data Nasabah',

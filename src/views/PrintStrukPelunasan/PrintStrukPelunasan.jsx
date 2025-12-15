@@ -127,22 +127,35 @@ const PrintStrukPelunasanPage = () => {
     barangDetail = "-",
     labelBarangDetail = "-";
 
-  const cleanText = (val) =>
-    (val || "").replace(/,|\/+/g, "").replace(/\s+/g, " ").trim();
+  const cleanText = (val) => {
+  if (val === null || val === undefined) return "-";
+  if (typeof val === "object") return "-";
+  return String(val)
+    .replace(/,|\/+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
 
   switch (typeNama) {
-    case "handphone":
-    case "elektronik":
-      if (detail.hp) {
-        barangNama = cleanText(detail.hp.nama_barang);
-        const merk = cleanText(detail.hp.merk);
-        const typeHp = cleanText(detail.hp.type_hp);
-        const ram = cleanText(detail.hp.ram);
-        const rom = cleanText(detail.hp.rom);
-        barangDetail = `${merk} / ${typeHp}\n${ram} / ${rom}`;
-        labelBarangDetail = "Merk / Type | RAM / ROM";
-      }
-      break;
+   case "handphone":
+case "elektronik":
+  if (detail.hp) {
+    barangNama = cleanText(detail.hp.nama_barang);
+
+    const merk = cleanText(detail.hp.merk?.nama_merk);
+    const typeHp = cleanText(detail.hp.type_hp?.nama_type);
+    const ram = cleanText(detail.hp.ram);
+    const rom = cleanText(detail.hp.rom);
+
+    barangDetail = 
+      `MERK / TYPE : ${merk} / ${typeHp}\n` +
+      `ROM / RAM   : ${rom} / ${ram}`;
+
+    labelBarangDetail = ""; 
+  }
+  break;
+
     case "perhiasan":
     case "logam mulia":
     case "retro":
@@ -313,4 +326,3 @@ const handlePrint = () => {
 };
 
 export default PrintStrukPelunasanPage;
- 

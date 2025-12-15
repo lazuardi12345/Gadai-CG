@@ -87,6 +87,9 @@ const TambahGradeHp = Loadable(lazy(() => import('views/GradeHp/tambah')));
 const KelengkapanEmasPage = Loadable(lazy(() => import('views/KelengkapanEmas/index')));
 
 const GadaiEmasFormPage = Loadable(lazy(() => import('views/GadaiEmas/index')));
+
+const GadaiUlangHpPage = Loadable(lazy(() => import('views/GadaiUlang/GadaiUlangHp')));
+const GadaiUlangEmasPage = Loadable(lazy(() => import('views/GadaiUlang/GadaiUlangEmas')));
 // ==============================|| MAIN ROUTES ||============================== //
 const MainRoutes = {
   path: '/',
@@ -148,7 +151,9 @@ const MainRoutes = {
      { path: '/grade-hp/tambah', element: <TambahGradeHp/> },
      { path: '/kelengkapan', element: <KelengkapanPage/> },
      { path: '/kelengkapan-emas', element: <KelengkapanEmasPage/> },
-     { path: '/gadai-emas', element: <GadaiEmasFormPage/> },
+     { path: '/gadai-emas', element: <GadaiEmasFormPage/> },  
+     { path: '/gadai-ulang-hp', element: <GadaiUlangHpPage/> },
+     { path: '/gadai-ulang-emas', element: <GadaiUlangEmasPage/> },
 
 
 

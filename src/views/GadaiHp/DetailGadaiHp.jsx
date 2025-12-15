@@ -183,61 +183,108 @@ const DetailGadaiHpPage = () => {
           <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
             <Stack spacing={2} alignItems="center">
 
+  <Box textAlign="center">
+    <Typography variant="h6" fontWeight={800}>{d.nama_barang || '-'}</Typography>
+    <Typography variant="body2" color="text.secondary">
+      {d.merk?.nama_merk || '-'} • {d.type_hp?.nama_type || '-'}
+    </Typography>
+  </Box>
 
-              <Box textAlign="center">
-                <Typography variant="h6" fontWeight={800}>{d.nama_barang || '-'}</Typography>
-                <Typography variant="body2" color="text.secondary">{d.merk?.nama_merk || '-'} • {d.type_hp?.nama_type || '-'}</Typography>
-              </Box>
+  <Divider sx={{ width: "100%" }} />
 
-              <Divider sx={{ width: "100%" }} />
+  <Stack spacing={1} sx={{ width: "100%" }}>
 
-              <Stack spacing={1} sx={{ width: "100%" }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="subtitle2" color="text.secondary">Grade</Typography>
-                  <Typography variant="subtitle2" fontWeight={700}>{d.grade_type || '-'}</Typography>
-                </Box>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+      <Typography variant="subtitle2" color="text.secondary">Grade</Typography>
+      <Typography variant="subtitle2" fontWeight={700}>{d.grade_type || '-'}</Typography>
+    </Box>
 
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="subtitle2" color="text.secondary">Taksiran</Typography>
-                  <Typography variant="subtitle2" fontWeight={700}>
-                    {formatRupiah(d?.detail_gadai?.taksiran)}
-                  </Typography>
-                </Box>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+      <Typography variant="subtitle2" color="text.secondary">Taksiran</Typography>
+      <Typography variant="subtitle2" fontWeight={700}>
+        {formatRupiah(d?.detail_gadai?.taksiran)}
+      </Typography>
+    </Box>
 
+    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+      <Typography variant="subtitle2" color="text.secondary">RAM / ROM</Typography>
+      <Typography variant="subtitle2" fontWeight={700}>{d.ram || '-'} / {d.rom || '-'}</Typography>
+    </Box>
 
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="subtitle2" color="text.secondary">RAM / ROM</Typography>
-                  <Typography variant="subtitle2" fontWeight={700}>{d.ram || '-'} / {d.rom || '-'}</Typography>
-                </Box>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+      <Typography variant="subtitle2" color="text.secondary">Warna</Typography>
+      <Typography variant="subtitle2">{d.warna || '-'}</Typography>
+    </Box>
 
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="subtitle2" color="text.secondary">Warna</Typography>
-                  <Typography variant="subtitle2">{d.warna || '-'}</Typography>
-                </Box>
+    {/* Bagian Kunci */}
+    <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
+      Kunci
+    </Typography>
 
-              </Stack>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+      <Typography variant="body2" color="text.secondary">Password</Typography>
+      <Typography variant="body2" fontWeight={600}>
+        {d.kunci_password && d.kunci_password !== "null" ? d.kunci_password : '-'}
+      </Typography>
+    </Box>
 
-              <Divider sx={{ width: '100%' }} />
+    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+      <Typography variant="body2" color="text.secondary">PIN</Typography>
+      <Typography variant="body2" fontWeight={600}>
+        {d.kunci_pin && d.kunci_pin !== "null" ? d.kunci_pin : '-'}
+      </Typography>
+    </Box>
 
-              <Box sx={{ width: '100%' }}>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Kelengkapan</Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                  {d.kelengkapan.length > 0 ? d.kelengkapan.map((k, i) => (
-                    <Chip key={i} label={k.nama_kelengkapan} size="small" variant="outlined" color="success" sx={{ borderColor: 'success.main', color: 'success.main' }} />
-                  )) : <Typography variant="body2" color="text.secondary">-</Typography>}
-                </Stack>
-              </Box>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+      <Typography variant="body2" color="text.secondary">Pola</Typography>
+      <Typography variant="body2" fontWeight={600}>
+        {d.kunci_pola && d.kunci_pola !== "null" ? d.kunci_pola : '-'}
+      </Typography>
+    </Box>
 
-              <Box sx={{ width: '100%' }}>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Kerusakan</Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                  {d.kerusakan.length > 0 ? d.kerusakan.map((k, i) => (
-                    <Chip key={i} label={k.nama_kerusakan} size="small" color="error" variant="outlined" />
-                  )) : <Typography variant="body2" color="text.secondary">-</Typography>}
-                </Stack>
-              </Box>
+  </Stack>
 
-            </Stack>
+  <Divider sx={{ width: '100%' }} />
+
+  <Box sx={{ width: '100%' }}>
+    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+      Kelengkapan
+    </Typography>
+    <Stack direction="row" spacing={1} flexWrap="wrap">
+      {d.kelengkapan.length > 0 ? (
+        d.kelengkapan.map((k, i) => (
+          <Chip
+            key={i}
+            label={k.nama_kelengkapan}
+            size="small"
+            variant="outlined"
+            color="success"
+            sx={{ borderColor: 'success.main', color: 'success.main' }}
+          />
+        ))
+      ) : (
+        <Typography variant="body2" color="text.secondary">-</Typography>
+      )}
+    </Stack>
+  </Box>
+
+  <Box sx={{ width: '100%' }}>
+    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+      Kerusakan
+    </Typography>
+    <Stack direction="row" spacing={1} flexWrap="wrap">
+      {d.kerusakan.length > 0 ? (
+        d.kerusakan.map((k, i) => (
+          <Chip key={i} label={k.nama_kerusakan} size="small" color="error" variant="outlined" />
+        ))
+      ) : (
+        <Typography variant="body2" color="text.secondary">-</Typography>
+      )}
+    </Stack>
+  </Box>
+
+</Stack>
+
           </Paper>
 
           {/* Nasabah card */}
@@ -313,3 +360,4 @@ const DetailGadaiHpPage = () => {
 };
 
 export default DetailGadaiHpPage;
+
