@@ -1,223 +1,175 @@
 import React, { useEffect, useState } from "react";
 import {
-  Card, CardHeader, CardContent, Divider, Table, TableHead,
-  TableBody, TableRow, TableCell, TablePagination, IconButton,
+  Card, CardHeader, CardContent, Table, TableHead,
+  TableBody, TableRow, TableCell, TablePagination,
   TextField, Button, CircularProgress, Stack, Chip, Typography,
-  TableContainer, Paper
+  TableContainer, Dialog, DialogTitle, DialogContent, 
+  DialogActions, Box, MenuItem, Tabs, Tab
 } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
+import { 
+  Print as PrintIcon, 
+  CloudUpload as UploadIcon 
+} from "@mui/icons-material";
 import axiosInstance from "api/axiosInstance";
 import { useNavigate } from "react-router-dom";
 
 const PerpanjanganTempoPage = () => {
   const navigate = useNavigate();
   const [data, setData] = useState([]);
-  const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [tabValue, setTabValue] = useState(0);
+
+  // Modal State
+  const [openBayar, setOpenBayar] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [metodeBayar, setMetodeBayar] = useState("cash");
+  const [fileBukti, setFileBukti] = useState(null); // State untuk file
+  const [processLoading, setProcessLoading] = useState(false);
 
   const user = JSON.parse(localStorage.getItem("auth_user"));
-  const userRole = user?.role?.toLowerCase() || ""; // "hm", "checker", "petugas"
-
-  const apiBaseUrl = userRole === "checker"
-    ? "/checker/perpanjangan-tempo"
-    : userRole === "petugas"
-    ? "/petugas/perpanjangan-tempo"
-    : "/perpanjangan-tempo";
+  const userRole = user?.role?.toLowerCase() || "";
+  const apiBaseUrl = userRole === "checker" ? "/checker/perpanjangan-tempo" : (userRole === "petugas" ? "/petugas/perpanjangan-tempo" : "/perpanjangan-tempo");
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const res = await axiosInstance.get(apiBaseUrl);
-      if (res.data.success) {
-        setData(res.data.data);
-        setFilteredData(res.data.data);
-      } else {
-        setError(res.data.message || "Gagal mengambil data");
-      }
-    } catch (err) {
-      console.error(err);
-      setError(err.message || "Terjadi kesalahan server");
-    } finally {
-      setLoading(false);
-    }
+      if (res.data.success) setData(res.data.data);
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [userRole]);
+  useEffect(() => { fetchData(); }, [userRole]);
 
-  // Filter realtime
-  useEffect(() => {
-    const filtered = data.filter(
-      item =>
-        item.detail_gadai?.no_gadai?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.detail_gadai?.no_nasabah?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.detail_gadai?.nasabah?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredData(filtered);
-    setPage(0);
-  }, [searchTerm, data]);
+  const filteredData = data.filter(item => {
+    const matchSearch = item.detail_gadai?.no_gadai?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        item.detail_gadai?.nasabah?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase());
+    const statusFilter = tabValue === 0 ? "pending" : "lunas";
+    return matchSearch && item.status_bayar === statusFilter;
+  });
 
-  const handleChangePage = (_, newPage) => setPage(newPage);
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm("Yakin ingin menghapus data perpanjangan ini?")) return;
+  const handleProsesBayar = async () => {
+    setProcessLoading(true);
     try {
-      const res = await axiosInstance.delete(`${apiBaseUrl}/${id}`);
-      if (res.data.success) setData(prev => prev.filter(item => item.id !== id));
-      else alert(res.data.message || "Gagal menghapus data perpanjangan");
-    } catch (err) {
-      alert(err.message || "Terjadi kesalahan server");
+      const formData = new FormData();
+      formData.append("metode_pembayaran", metodeBayar);
+      // Kirim file jika ada (terutama untuk transfer)
+      if (fileBukti) {
+        formData.append("bukti_transfer", fileBukti);
+      }
+
+      const res = await axiosInstance.post(`${apiBaseUrl}/${selectedItem.id}/bayar?_method=PATCH`, formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+
+      if (res.data.success) {
+        setOpenBayar(false);
+        setFileBukti(null); // Reset file
+        fetchData();
+        navigate(`/print-struk-perpanjangan/${selectedItem.detail_gadai_id}`);
+      }
+    } catch (err) { 
+      alert(err.response?.data?.message || "Gagal proses pembayaran"); 
+    } finally { 
+      setProcessLoading(false); 
     }
   };
 
-  if (loading) return (
-    <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}>
-      <CircularProgress />
-    </Stack>
-  );
-
-  if (error) return (
-    <Typography color="error" variant="h6" align="center" sx={{ mt: 2 }}>
-      Error: {error}
-    </Typography>
-  );
+  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>;
 
   return (
-    <Card>
+    <Card sx={{ borderRadius: 3 }}>
       <CardHeader
-        title="Data Perpanjangan Tempo"
+        title={<Typography variant="h6" fontWeight="bold">Data Perpanjangan Tempo</Typography>}
         action={
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="center">
-            <TextField
-              variant="outlined"
-              size="small"
-              placeholder="Cari no gadai / no nasabah / nama nasabah..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              sx={{ width: { xs: "100%", sm: 300 }, mb: { xs: 1, sm: 0 } }}
-            />
-            {["hm", "checker", "petugas"].includes(userRole) && (
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() =>
-                  navigate(
-                    userRole === "checker"
-                      ? "/tambah-perpanjangan-tempo"
-                      : userRole === "petugas"
-                      ? "/tambah-perpanjangan-tempo"
-                      : "/tambah-perpanjangan-tempo"
-                  )
-                }
-              >
-                Tambah
-              </Button>
-            )}
+          <Stack direction="row" spacing={2}>
+            <TextField size="small" placeholder="Cari..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            <Button variant="contained" onClick={() => navigate("/tambah-perpanjangan-tempo")}>Tambah</Button>
           </Stack>
         }
       />
-      <Divider />
-      <CardContent>
-        <TableContainer component={Paper} sx={{ overflowX: "auto" }}>
-          <Table size="small" sx={{ minWidth: 800 }}>
-            <TableHead>
+      
+      <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ px: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Tab label={`Pending (${data.filter(i => i.status_bayar === 'pending').length})`} />
+        <Tab label={`Lunas (${data.filter(i => i.status_bayar === 'lunas').length})`} />
+      </Tabs>
+
+      <CardContent sx={{ p: 0 }}>
+        <TableContainer>
+          <Table size="small">
+            <TableHead sx={{ bgcolor: "#f8f9fa" }}>
               <TableRow>
-                {[
-                  "No",
-                  "No Gadai",
-                  "No Nasabah",
-                  "Tanggal Gadai",
-                  "Jatuh Tempo Lama",
-                  "Tanggal Perpanjangan",
-                  "Jatuh Tempo Baru",
-                  "Nasabah",
-                  "Status Gadai",
-                  "Aksi",
-                ].map(head => (
-                  <TableCell key={head} align="center">{head}</TableCell>
+                {["No", "No Gadai", "Nasabah", "Jatuh Tempo Baru", "Total Tagihan", "Status", "Aksi"].map(h => (
+                  <TableCell key={h} align="center" sx={{ fontWeight: 'bold' }}>{h}</TableCell>
                 ))}
               </TableRow>
             </TableHead>
             <TableBody>
-              {(rowsPerPage > 0
-                ? filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                : filteredData
-              ).map((item, index) => (
-                <TableRow key={item.id}>
+              {filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item, index) => (
+                <TableRow key={item.id} hover>
                   <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
-                  <TableCell>{item.detail_gadai?.no_gadai || "-"}</TableCell>
-                  <TableCell>{item.detail_gadai?.no_nasabah || "-"}</TableCell>
-                  <TableCell>{item.detail_gadai?.tanggal_gadai || "-"}</TableCell>
-                  <TableCell>{item.detail_gadai?.jatuh_tempo || "-"}</TableCell>
-                  <TableCell>{item.tanggal_perpanjangan || "-"}</TableCell>
-                  <TableCell>{item.jatuh_tempo_baru || "-"}</TableCell>
-                  <TableCell>{item.detail_gadai?.nasabah?.nama_lengkap || "-"}</TableCell>
+                  <TableCell align="center"><strong>{item.detail_gadai?.no_gadai}</strong></TableCell>
+                  <TableCell>{item.detail_gadai?.nasabah?.nama_lengkap}</TableCell>
+                  <TableCell align="center" sx={{ color: 'primary.main', fontWeight: 'bold' }}>{item.jatuh_tempo_baru}</TableCell>
+                  <TableCell align="right">Rp {Number(item.nominal_admin).toLocaleString("id-ID")}</TableCell>
                   <TableCell align="center">
-                    <Chip
-                      label={item.detail_gadai?.status?.toUpperCase() || "-"}
-                      color={
-                        item.detail_gadai?.status === "proses" ? "warning" :
-                        item.detail_gadai?.status === "selesai" ? "info" :
-                        item.detail_gadai?.status === "lunas" ? "success" : "default"
-                      }
-                      size="small"
-                    />
+                    <Chip label={item.status_bayar.toUpperCase()} color={item.status_bayar === 'lunas' ? 'success' : 'warning'} size="small" />
                   </TableCell>
                   <TableCell align="center">
-                    {["hm", "checker"].includes(userRole) && (
-                      <>
-                        <IconButton
-                          color="primary"
-                          onClick={() =>
-                            navigate(
-                              userRole === "checker"
-                                ? `/edit-perpanjangan-tempo/${item.id}`
-                                : userRole === "petugas"
-                                ? `/edit-perpanjangan-tempo/${item.id}`
-                                : `/edit-perpanjangan-tempo/${item.id}`
-                            )
-                          }
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton color="error" onClick={() => handleDelete(item.id)}>
-                          <DeleteIcon />
-                        </IconButton>
-                      </>
-                    )}
+                    <Stack direction="row" spacing={1} justifyContent="center">
+                      {item.status_bayar === "pending" ? (
+                        <Button variant="contained" size="small" color="success" onClick={() => { setSelectedItem(item); setOpenBayar(true); }}>Bayar</Button>
+                      ) : (
+                        <Button variant="outlined" size="small" startIcon={<PrintIcon />} onClick={() => navigate(`/print-struk-perpanjangan/${item.detail_gadai_id}`)}>Struk</Button>
+                      )}
+                    </Stack>
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredData.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={10} align="center">
-                    Tidak ada data perpanjangan ditemukan.
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
-          component="div"
-          count={filteredData.length}
-          page={page}
-          rowsPerPage={rowsPerPage}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
+        <TablePagination component="div" count={filteredData.length} rowsPerPage={rowsPerPage} page={page} onPageChange={(e, p) => setPage(p)} />
       </CardContent>
+
+      <Dialog open={openBayar} onClose={() => setOpenBayar(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>Konfirmasi Pembayaran</DialogTitle>
+        <DialogContent>
+           <Box sx={{ p: 2, bgcolor: '#f0f4f8', textAlign: 'center', borderRadius: 2, mb: 2 }}>
+             <Typography variant="caption">Total Tagihan Perpanjangan</Typography>
+             <Typography variant="h5" fontWeight="bold">Rp {Number(selectedItem?.nominal_admin).toLocaleString("id-ID")}</Typography>
+           </Box>
+           
+           <Stack spacing={2}>
+             <TextField select fullWidth label="Metode" value={metodeBayar} onChange={e => setMetodeBayar(e.target.value)}>
+               <MenuItem value="cash">Cash</MenuItem>
+               <MenuItem value="transfer">Transfer</MenuItem>
+             </TextField>
+
+             {metodeBayar === "transfer" && (
+               <Button
+                 variant="outlined"
+                 component="label"
+                 fullWidth
+                 startIcon={<UploadIcon />}
+                 color={fileBukti ? "success" : "primary"}
+               >
+                 {fileBukti ? fileBukti.name : "Upload Bukti Transfer"}
+                 <input type="file" hidden accept="image/*" onChange={(e) => setFileBukti(e.target.files[0])} />
+               </Button>
+             )}
+           </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenBayar(false)}>Batal</Button>
+          <Button variant="contained" color="success" onClick={handleProsesBayar} disabled={processLoading || (metodeBayar === 'transfer' && !fileBukti)}>
+            {processLoading ? "Memproses..." : "Bayar & Cetak"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 };

@@ -35,15 +35,19 @@ const handleLogin = async (values, { setSubmitting, setErrors }) => {
     login(user, token);
 
     // Redirect berdasarkan role
-    if (user.role === 'petugas') {
+if (user.role === 'petugas') {
       navigate('/full-submit', { replace: true });
     } else if (user.role === 'checker') {
-      navigate('/data-nasabah', { replace: true }); // <-- cek disini
+
+      navigate('/brangkas-dashboard', { replace: true }); 
+    } else if (user.role === 'admin') {
+      navigate('/brangkas-dashboard', { replace: true });
     } else if (user.role === 'hm') {
       navigate('/dashboard/default', { replace: true });
     } else {
-      navigate('/dashboard/default', { replace: true }); // fallback
+      navigate('/dashboard/default', { replace: true }); 
     }
+
 
   } catch (err) {
     console.error(err);

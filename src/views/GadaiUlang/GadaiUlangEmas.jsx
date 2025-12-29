@@ -350,17 +350,19 @@ const GadaiUlangEmasPage = () => {
             </Grid>
 
             <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Potongan Batu (gram)"
-                name="potongan_batu"
-                type="number"
-                value={barang.potongan_batu}
-                onChange={handleBarangChange}
-                placeholder="Contoh: 0.5"
-              />
-            </Grid>
+  <TextField
+    fullWidth
+    size="small"
+    label="Potongan Batu (gram)"
+    name="potongan_batu"
+    type="text"
+    value={barang.potongan_batu}
+    onChange={handleBarangChange}
+    placeholder="Contoh: 2/10 atau 10/100"
+    helperText="Gunakan format pecahan, contoh: 2/10"
+  />
+</Grid>
+
 
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>Taksiran & Pinjaman</Typography>

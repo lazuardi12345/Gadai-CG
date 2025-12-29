@@ -176,8 +176,8 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                     <Text
                         style={{
                             position: "absolute",
-                            top: 71,
-                            left: 190,
+                            top: 69,
+                            left: 183,
                             fontSize: 12,
                             fontWeight: "bold",
                         }}
@@ -186,27 +186,27 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                     </Text>
              
                     <Text
-                        style={{ position: "absolute", top: 98, left: 95, fontSize: 7 }}
+                        style={{ position: "absolute", top: 92, left: 85, fontSize: 7 }}
                     >
                         {data.no_nasabah}
                     </Text>
                     <Text
-                        style={{ position: "absolute", top: 106.5, left: 95, fontSize: 7 }}
+                        style={{ position: "absolute", top: 102, left: 85, fontSize: 7 }}
                     >
                         {nasabah.nik}
                     </Text>
                     <Text
-                        style={{ position: "absolute", top: 115, left: 95, fontSize: 7 }}
+                        style={{ position: "absolute", top: 110, left: 85, fontSize: 7 }}
                     >
                         {nasabah.nama_lengkap}
                     </Text>
                     <Text
-                        style={{ position: "absolute", top: 123, left: 95, fontSize: 7 }}
+                        style={{ position: "absolute", top: 120, left: 85, fontSize: 7 }}
                     >
                         {nasabah.alamat}
                     </Text>
                     <Text
-                        style={{ position: "absolute", top: 132, left: 95, fontSize: 7 }}
+                        style={{ position: "absolute", top: 137, left: 85, fontSize: 7 }}
                     >
                         {nasabah.no_hp}
                     </Text>
@@ -236,32 +236,32 @@ const SuratBuktiGadaiPDF = ({ data }) => {
 
               
                     <Text
-                        style={{ position: "absolute", top: 158, left: 95, fontSize: 7 }}
+                        style={{ position: "absolute", top: 161, left: 85, fontSize: 7 }}
                     >
                         {toText(item.nama_barang)}
                     </Text>
                     <Text
-                        style={{ position: "absolute", top: 168, left: 95, fontSize: 7 }}
+                        style={{ position: "absolute", top: 174, left: 85, fontSize: 7 }}
                     >
                         {toText(typeDisplay)}
                     </Text>
-                    <Text style={{ position: "absolute", top: 182, left: 95, fontSize: 7 }}>
-                       {toText(item.kelengkapan || item.kelengkapanEmas || item.retroKelengkapan)}
+                    <Text style={{ position: "absolute", top: 185, left: 85, fontSize: 7 }}>
+  {toText(item.kelengkapan_emas)}
+</Text>
 
-                    </Text>
 
                     <Text
-                        style={{ position: "absolute", top: 170, left: 193, fontSize: 7 }}
+                        style={{ position: "absolute", top: 173, left: 185, fontSize: 7 }}
                     >
                         {toText(item.karat)}/{toText(item.berat)}
                     </Text>
                     <Text
-                        style={{ position: "absolute", top: 158, left: 193, fontSize: 7 }}
+                        style={{ position: "absolute", top: 160, left: 185, fontSize: 7 }}
                     >
                         {toText(item.kode_cap)}
                     </Text>
                     <Text
-                        style={{ position: "absolute", top: 182, left: 193, fontSize: 7 }}
+                        style={{ position: "absolute", top: 185, left: 185, fontSize: 7 }}
                     >
                         {toText(item.potongan_batu)}
                     </Text>
@@ -307,8 +307,8 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                     <Text
                         style={{
                             position: "absolute",
-                            top: 241,
-                            left: 70,
+                            top: 237,
+                            left: 50,
                             fontSize: 8,
                             fontWeight: "bold",
                             width: 100,

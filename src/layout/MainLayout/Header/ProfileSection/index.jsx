@@ -8,7 +8,7 @@ import { AuthContext } from 'AuthContex/AuthContext';
 
 const ProfileSection = () => {
   const navigate = useNavigate();
-  const { user, logout } = useContext(AuthContext); // Ambil user dan logout dari context
+  const { user, logout } = useContext(AuthContext); 
   const [open, setOpen] = useState(false);
   const anchorRef = useRef(null);
 

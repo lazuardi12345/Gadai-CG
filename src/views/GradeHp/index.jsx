@@ -4,54 +4,55 @@ import {
     Table, TableContainer, TableHead, TableBody,
     TableRow, TableCell, TablePagination,
     IconButton, Button, CircularProgress,
-    Stack, Grid, Typography, Paper, TextField
+    Stack, Grid, Typography, Paper, TextField,
+    Dialog, DialogTitle, DialogContent, DialogActions,
+    Box, Chip, Avatar
 } from "@mui/material";
 
 import {
-    Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
-    ArrowBackIosNew, ArrowForwardIos
+    ArrowBackIosNew, ArrowForwardIos, 
+    Visibility as VisibilityIcon,
+    Smartphone as PhoneIcon, 
+    Inventory as BoxIcon,     
+    PhonelinkErase as NoBoxIcon 
 } from "@mui/icons-material";
 
-import { useNavigate } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 
 const GradeHpPage = () => {
-    const navigate = useNavigate();
+    // 1. Auth & API Configuration
+    const authData = JSON.parse(localStorage.getItem("auth_user"));
+    const role = authData?.role?.toLowerCase() || "";
 
-    const user = JSON.parse(localStorage.getItem("auth_user"));
-    const role = user?.role?.toLowerCase() || "";
-
-    const getBaseApi = () => {
+    const getBaseApi = useCallback(() => {
         if (role === "checker") return "/checker";
         if (role === "petugas") return "/petugas";
-        return "";
-    };
+        return ""; 
+    }, [role]);
 
     const baseApi = getBaseApi();
     const apiUrl = `${baseApi}/grade-hp`;
 
+    // 2. State Management
     const [merkList, setMerkList] = useState([]);
     const [selectedMerk, setSelectedMerk] = useState("");
     const [searchMerk, setSearchMerk] = useState("");
     const [searchType, setSearchType] = useState("");
-
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [tableLoading, setTableLoading] = useState(false);
-
+    
+    // Pagination State
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
+    // Modal State
+    const [openDetailModal, setOpenDetailModal] = useState(false);
+    const [selectedDetail, setSelectedDetail] = useState(null);
+
     const scrollRef = useRef(null);
 
-    const scrollLeft = () => {
-        scrollRef.current.scrollBy({ left: -200, behavior: "smooth" });
-    };
-
-    const scrollRight = () => {
-        scrollRef.current.scrollBy({ left: 200, behavior: "smooth" });
-    };
-
+    // 3. Data Fetching
     useEffect(() => {
         const loadMerk = async () => {
             try {
@@ -60,8 +61,7 @@ const GradeHpPage = () => {
                 setMerkList(list);
                 if (list.length > 0) setSelectedMerk(list[0].id);
             } catch (err) {
-                console.error(err);
-                alert("Gagal mengambil Merk HP");
+                console.error("Gagal load merk", err);
             }
         };
         loadMerk();
@@ -73,9 +73,9 @@ const GradeHpPage = () => {
         try {
             const res = await axiosInstance.get(`${apiUrl}/by-merk/${selectedMerk}`);
             setData(res.data.data || []);
+            setPage(0); 
         } catch (err) {
-            console.error(err);
-            alert("Gagal mengambil data Grade HP");
+            console.error("Gagal fetch data grade", err);
         } finally {
             setTableLoading(false);
             setLoading(false);
@@ -84,177 +84,260 @@ const GradeHpPage = () => {
 
     useEffect(() => {
         fetchData();
-    }, [selectedMerk, fetchData]);
+    }, [fetchData]);
 
-    const formatRupiah = (v) =>
-        v ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(v) : "-";
-
-    const handleDelete = async (id) => {
-        if (!window.confirm("Yakin ingin menghapus data ini?")) return;
-        try {
-            await axiosInstance.delete(`${apiUrl}/${id}`);
-            fetchData();
-        } catch (err) {
-            console.error(err);
-            alert("Gagal menghapus data");
-        }
+    // 4. Handlers
+    const handleChangePage = (event, newPage) => {
+        setPage(newPage);
     };
 
-    if (loading) {
-        return (
-            <Grid container justifyContent="center" sx={{ height: "100vh" }}>
-                <CircularProgress />
-            </Grid>
-        );
-    }
+    const handleChangeRowsPerPage = (event) => {
+        setRowsPerPage(parseInt(event.target.value, 10));
+        setPage(0);
+    };
 
-    // Filter merk berdasarkan search
-    const filteredMerk = merkList.filter(m =>
+    const formatRupiah = (v) =>
+        v ? new Intl.NumberFormat("id-ID", { 
+            style: "currency", 
+            currency: "IDR", 
+            minimumFractionDigits: 0 
+        }).format(v) : "Rp 0";
+
+    // 5. Filter & Pagination Logic
+    const filteredMerk = merkList.filter(m => 
         m.nama_merk.toLowerCase().includes(searchMerk.toLowerCase())
     );
-
-    // Filter data type berdasarkan pencarian
-    const filteredData = data.filter(item =>
-        item.type?.nama_type?.toLowerCase().includes(searchType.toLowerCase())
+    
+    const filteredData = data.filter(item => 
+        item.harga_hp?.type_hp?.nama_type?.toLowerCase().includes(searchType.toLowerCase())
     );
 
+    const paginatedData = filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
+    if (loading) return <Box display="flex" justifyContent="center" mt={10}><CircularProgress /></Box>;
+
     return (
-        <Card sx={{ boxShadow: 4, borderRadius: 3 }}>
-            <CardHeader
-                title={<Typography variant="h6" fontWeight="bold">Master Grade HP</Typography>}
-                action={
-                    role !== "petugas" && (
-                        <Button
-                            variant="contained"
-                            startIcon={<AddIcon />}
-                            onClick={() => navigate("/grade-hp/tambah")}
-                        >
-                            Tambah Grade
-                        </Button>
-                    )
-                }
-            />
-            <Divider />
-
-            <CardContent>
-                {/* SEARCH INPUTS */}
-                <Stack direction="row" spacing={2} mb={2}>
-                    <TextField
-                        label="Cari Merk..."
-                        size="small"
-                        value={searchMerk}
-                        onChange={(e) => setSearchMerk(e.target.value)}
-                        sx={{ width: 250 }}
-                    />
-
-                    <TextField
-                        label="Cari Type..."
-                        size="small"
-                        value={searchType}
-                        onChange={(e) => setSearchType(e.target.value)}
-                        sx={{ width: 250 }}
-                    />
-                </Stack>
-
-                {/* SLIDER SELECTION MERK */}
-                <Stack direction="row" alignItems="center" mb={2} spacing={1}>
-                    <IconButton onClick={scrollLeft}>
-                        <ArrowBackIosNew fontSize="small" />
-                    </IconButton>
-
-                    <Stack
-                        ref={scrollRef}
-                        direction="row"
-                        spacing={1}
-                        sx={{
-                            overflowX: "auto",
-                            whiteSpace: "nowrap",
-                            flex: 1,
-                            py: 1,
-                            "&::-webkit-scrollbar": { display: "none" }
-                        }}
-                    >
-                        {filteredMerk.map((m) => (
-                            <Button
-                                key={m.id}
-                                variant={selectedMerk === m.id ? "contained" : "outlined"}
-                                onClick={() => setSelectedMerk(m.id)}
-                                sx={{ flexShrink: 0 }}
-                            >
-                                {m.nama_merk}
-                            </Button>
-                        ))}
+        <>
+            <Card sx={{ borderRadius: 3, boxShadow: "0 4px 20px rgba(0,0,0,0.05)" }}>
+                <CardHeader 
+                    title={<Typography variant="h6" fontWeight="bold">Daftar Grade & Taksiran HP</Typography>} 
+                    sx={{ pb: 0 }}
+                />
+                <CardContent>
+                    {/* Search Section */}
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={2} mb={3} mt={1}>
+                        <TextField 
+                            label="Cari Merk..." 
+                            size="small" 
+                            fullWidth
+                            value={searchMerk} 
+                            onChange={(e) => setSearchMerk(e.target.value)} 
+                        />
+                        <TextField 
+                            label="Cari Type..." 
+                            size="small" 
+                            fullWidth
+                            value={searchType} 
+                            onChange={(e) => {
+                                setSearchType(e.target.value);
+                                setPage(0);
+                            }} 
+                        />
                     </Stack>
 
-                    <IconButton onClick={scrollRight}>
-                        <ArrowForwardIos fontSize="small" />
-                    </IconButton>
-                </Stack>
+                    {/* Merk Slider */}
+                    <Stack direction="row" alignItems="center" mb={3} spacing={1}>
+                        <IconButton onClick={() => scrollRef.current.scrollBy({ left: -200, behavior: "smooth" })}><ArrowBackIosNew /></IconButton>
+                        <Box ref={scrollRef} sx={{ display: "flex", overflowX: "hidden", gap: 1, flex: 1, py: 1 }}>
+                            {filteredMerk.map((m) => (
+                                <Button 
+                                    key={m.id} 
+                                    variant={selectedMerk === m.id ? "contained" : "outlined"} 
+                                    onClick={() => setSelectedMerk(m.id)} 
+                                    sx={{ borderRadius: 5, flexShrink: 0, textTransform: 'none', px: 3 }}
+                                >
+                                    {m.nama_merk}
+                                </Button>
+                            ))}
+                        </Box>
+                        <IconButton onClick={() => scrollRef.current.scrollBy({ left: 200, behavior: "smooth" })}><ArrowForwardIos /></IconButton>
+                    </Stack>
 
-                <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
-                    <Table>
-                        <TableHead sx={{ background: "#fafafa" }}>
-                            <TableRow>
-                                <TableCell align="center"><b>No</b></TableCell>
-                                <TableCell><b>Type</b></TableCell>
-                                <TableCell><b>Grade A</b></TableCell>
-                                <TableCell><b>Grade B</b></TableCell>
-                                <TableCell><b>Grade C</b></TableCell>
-                                {role !== "petugas" && <TableCell align="center"><b>Aksi</b></TableCell>}
-                            </TableRow>
-                        </TableHead>
-
-                        <TableBody>
-                            {tableLoading ? (
+                    {/* Table Section */}
+                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, border: '1px solid #eee' }}>
+                        <Table>
+                            <TableHead sx={{ bgcolor: "#f8f9fa" }}>
                                 <TableRow>
-                                    <TableCell colSpan={6} align="center"><CircularProgress size={25} /></TableCell>
+                                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>No</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>Type HP</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>Harga Pasar</TableCell>
+                                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>Grade A (Dus)</TableCell>
+                                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>Grade B (Dus)</TableCell>
+                                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>Grade C (Dus)</TableCell>
+                                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>Aksi</TableCell>
                                 </TableRow>
-                            ) : filteredData.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} align="center">Tidak ada data</TableCell>
-                                </TableRow>
-                            ) : (
-                                filteredData
-                                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                                    .map((item, index) => (
+                            </TableHead>
+                            <TableBody>
+                                {tableLoading ? (
+                                    <TableRow><TableCell colSpan={7} align="center" sx={{ py: 3 }}><CircularProgress size={24} /></TableCell></TableRow>
+                                ) : paginatedData.length > 0 ? (
+                                    paginatedData.map((item, index) => (
                                         <TableRow key={item.id} hover>
                                             <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
-                                            <TableCell>{item.type?.nama_type || "-"}</TableCell>
-                                            <TableCell>{formatRupiah(item.harga_grade_a)}</TableCell>
-                                            <TableCell>{formatRupiah(item.harga_grade_b)}</TableCell>
-                                            <TableCell>{formatRupiah(item.harga_grade_c)}</TableCell>
-                                            {role !== "petugas" && (
-                                                <TableCell align="center">
-                                                    <Stack direction="row" spacing={1} justifyContent="center">
-                                                        <IconButton color="primary" onClick={() => navigate(`/grade-hp/edit/${item.id}`)}>
-                                                            <EditIcon />
-                                                        </IconButton>
-                                                        <IconButton color="error" onClick={() => handleDelete(item.id)}>
-                                                            <DeleteIcon />
-                                                        </IconButton>
-                                                    </Stack>
-                                                </TableCell>
-                                            )}
+                                            <TableCell>
+                                                <Typography variant="body2" fontWeight="bold">
+                                                    {item.harga_hp?.type_hp?.nama_type}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell sx={{ color: 'primary.main', fontWeight: 600 }}>
+                                                {formatRupiah(item.harga_hp?.harga_barang)}
+                                            </TableCell>
+                                            <TableCell align="center">{formatRupiah(item.grade_a_dus)}</TableCell>
+                                            <TableCell align="center">{formatRupiah(item.grade_b_dus)}</TableCell>
+                                            <TableCell align="center">{formatRupiah(item.grade_c_dus)}</TableCell>
+                                            <TableCell align="center">
+                                                <IconButton 
+                                                    color="info" 
+                                                    size="small"
+                                                    onClick={() => { setSelectedDetail(item); setOpenDetailModal(true); }}
+                                                >
+                                                    <VisibilityIcon fontSize="small" />
+                                                </IconButton>
+                                            </TableCell>
                                         </TableRow>
                                     ))
-                            )}
-                        </TableBody>
-                    </Table>
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={7} align="center" sx={{ py: 5 }}>
+                                            <Typography variant="body2" color="text.secondary">Data tidak tersedia</Typography>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
 
                     <TablePagination
                         component="div"
                         count={filteredData.length}
-                        rowsPerPage={rowsPerPage}
                         page={page}
-                        onPageChange={(_, newPage) => setPage(newPage)}
-                        onRowsPerPageChange={(e) => {
-                            setRowsPerPage(parseInt(e.target.value, 10));
-                            setPage(0);
-                        }}
+                        onPageChange={handleChangePage}
+                        rowsPerPage={rowsPerPage}
+                        onRowsPerPageChange={handleChangeRowsPerPage}
+                        rowsPerPageOptions={[5, 10, 25]}
+                        labelRowsPerPage="Tampilkan:"
                     />
-                </TableContainer>
-            </CardContent>
-        </Card>
+                </CardContent>
+            </Card>
+
+            {/* MODAL DETAIL - FIXED ERROR NULL */}
+            <Dialog 
+                open={openDetailModal} 
+                onClose={() => setOpenDetailModal(false)} 
+                fullWidth 
+                maxWidth="sm"
+                PaperProps={{ sx: { borderRadius: 4, px: 1 } }}
+            >
+                <DialogTitle sx={{ pb: 0 }}>
+                    <Stack direction="row" spacing={2} alignItems="center" pt={1}>
+                        <Avatar sx={{ bgcolor: 'primary.main', width: 50, height: 50 }}>
+                            <PhoneIcon />
+                        </Avatar>
+                        <Box>
+                            <Typography variant="h6" fontWeight="800">Detail Taksiran</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                {selectedDetail?.harga_hp?.type_hp?.nama_type || "Memuat..."}
+                            </Typography>
+                        </Box>
+                    </Stack>
+                </DialogTitle>
+
+                <DialogContent dividers sx={{ border: 'none', mt: 2 }}>
+                    {/* Guarding: Pastikan selectedDetail ada sebelum mapping */}
+                    {!selectedDetail ? (
+                        <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
+                    ) : (
+                        <Grid container spacing={2}>
+                            {['a', 'b', 'c'].map((g) => (
+                                <Grid item xs={12} key={g}>
+                                    <Paper 
+                                        variant="outlined" 
+                                        sx={{ 
+                                            p: 2, 
+                                            borderRadius: 3, 
+                                            bgcolor: g === 'a' ? '#f0f9ff' : g === 'b' ? '#fffbeb' : '#f9fafb',
+                                            border: '1px solid',
+                                            borderColor: g === 'a' ? 'primary.light' : g === 'b' ? 'warning.light' : 'divider'
+                                        }}
+                                    >
+                                        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                                            <Chip 
+                                                label={`GRADE ${g.toUpperCase()}`} 
+                                                color={g === 'a' ? "primary" : g === 'b' ? "warning" : "default"}
+                                                size="small"
+                                                sx={{ fontWeight: 'bold' }}
+                                            />
+                                            <Typography variant="caption" color="text.secondary">Pinjaman Maksimal</Typography>
+                                        </Stack>
+
+                                        <Grid container spacing={2}>
+                                            {/* DUS SECTION */}
+                                            <Grid item xs={6}>
+                                                <Stack direction="row" spacing={0.5} alignItems="center" mb={0.5}>
+                                                    <BoxIcon sx={{ fontSize: 16 }} color="success" />
+                                                    <Typography variant="caption" fontWeight="bold">Lengkap (Dus)</Typography>
+                                                </Stack>
+                                                <Box sx={{ p: 1, bgcolor: 'rgba(255,255,255,0.7)', borderRadius: 2, border: '1px solid rgba(0,0,0,0.05)' }}>
+                                                    <Typography variant="caption" color="text.secondary" display="block">Taksiran:</Typography>
+                                                    <Typography variant="body2" fontWeight="bold" color="success.main">
+                                                        {formatRupiah(selectedDetail[`taksiran_${g}_dus`])}
+                                                    </Typography>
+                                                    <Divider sx={{ my: 0.5 }} />
+                                                    <Typography variant="caption" display="block">Plafon Max:</Typography>
+                                                    <Typography variant="subtitle2" fontWeight="800" color="primary.main">
+                                                        {formatRupiah(selectedDetail[`grade_${g}_dus`])}
+                                                    </Typography>
+                                                </Box>
+                                            </Grid>
+
+                                            {/* NO DUS SECTION */}
+                                            <Grid item xs={6}>
+                                                <Stack direction="row" spacing={0.5} alignItems="center" mb={0.5}>
+                                                    <NoBoxIcon sx={{ fontSize: 16 }} color="error" />
+                                                    <Typography variant="caption" fontWeight="bold">Batangan</Typography>
+                                                </Stack>
+                                                <Box sx={{ p: 1, bgcolor: 'rgba(255,255,255,0.7)', borderRadius: 2, border: '1px solid rgba(0,0,0,0.05)' }}>
+                                                    <Typography variant="caption" color="text.secondary" display="block">Taksiran:</Typography>
+                                                    <Typography variant="body2" fontWeight="bold" color="error.main">
+                                                        {formatRupiah(selectedDetail[`taksiran_${g}_tanpa_dus`])}
+                                                    </Typography>
+                                                    <Divider sx={{ my: 0.5 }} />
+                                                    <Typography variant="caption" display="block">Plafon Max:</Typography>
+                                                    <Typography variant="subtitle2" fontWeight="800" color="primary.main">
+                                                        {formatRupiah(selectedDetail[`grade_${g}_tanpa_dus`])}
+                                                    </Typography>
+                                                </Box>
+                                            </Grid>
+                                        </Grid>
+                                    </Paper>
+                                </Grid>
+                            ))}
+                        </Grid>
+                    )}
+                </DialogContent>
+
+                <DialogActions sx={{ p: 2, pb: 3 }}>
+                    <Button 
+                        onClick={() => setOpenDetailModal(false)} 
+                        fullWidth 
+                        variant="contained" 
+                        sx={{ borderRadius: 3, py: 1, fontWeight: 'bold', textTransform: 'none' }}
+                    >
+                        Tutup Detail
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </>
     );
 };
 

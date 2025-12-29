@@ -11,7 +11,7 @@ import Header from './Header';
 import Sidebar from './Sidebar';
 
 // custom style
-const Main = styled((props) => <main {...props} />)(({ theme }) => ({
+const Main = styled((props) => <main {...props} />)(({ theme, open }) => ({
   width: '100%',
   minHeight: '100vh',
   flexGrow: 1,
@@ -19,17 +19,18 @@ const Main = styled((props) => <main {...props} />)(({ theme }) => ({
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.leavingScreen
   }),
+  marginLeft: 0,
   [theme.breakpoints.up('md')]: {
-    marginLeft: -drawerWidth,
-    width: `calc(100% - ${drawerWidth}px)`
+    marginLeft: open ? `${drawerWidth}px` : 0,
+    width: open ? `calc(100% - ${drawerWidth}px)` : '100%'
   }
 }));
 
 const OutletDiv = styled((props) => <div {...props} />)(({ theme }) => ({
   [theme.breakpoints.down('md')]: {
-    padding: theme.spacing(3)
+    padding: theme.spacing(2)
   },
-  padding: theme.spacing(5)
+  padding: theme.spacing(3)
 }));
 
 // ==============================|| MAIN LAYOUT ||============================== //
@@ -49,29 +50,46 @@ const MainLayout = () => {
 
   return (
     <Box sx={{ display: 'flex', width: '100%' }}>
-      <AppBar position="fixed" sx={{ zIndex: 1200 }}>
+      {/* Header dengan warna putih */}
+      <AppBar 
+        position="fixed" 
+        sx={{ 
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          width: '100%',
+          backgroundColor: '#ffffff',
+          color: theme.palette.text.primary,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }}
+      >
         <Toolbar>
           <Header drawerOpen={drawerOpen} drawerToggle={handleDrawerToggle} />
         </Toolbar>
       </AppBar>
+      
+      {/* Sidebar dengan z-index lebih rendah dari AppBar */}
       <Sidebar drawerOpen={drawerOpen} drawerToggle={handleDrawerToggle} />
+      
+      {/* Main content area */}
       <Main
+        open={drawerOpen}
         style={{
-          ...(drawerOpen && {
-            transition: theme.transitions.create('margin', {
-              easing: theme.transitions.easing.easeOut,
-              duration: theme.transitions.duration.enteringScreen
-            }),
-            marginLeft: 0,
-            marginRight: 'inherit'
+          transition: theme.transitions.create('margin', {
+            easing: theme.transitions.easing.easeOut,
+            duration: theme.transitions.duration.enteringScreen
           })
         }}
       >
-        <Box sx={theme.mixins.toolbar} />
+        {/* Spacer untuk offset dari AppBar */}
+        <Toolbar />
+        
         <OutletDiv>
           <Outlet />
-                <Box sx={{mt:5}} > Distributed by <a href='https://cashgampang.com/' target='_blank'>Cash Gampang</a></Box>
-
+          <Box sx={{ mt: 5 }}>
+            Distributed by{' '}
+            <a href='https://cashgampang.com/' target='_blank' rel='noopener noreferrer'>
+              Cash Gampang
+            </a>
+          </Box>
         </OutletDiv>
       </Main>
     </Box>

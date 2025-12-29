@@ -9,7 +9,7 @@ import { Card, CardContent, Typography, Grid, Box } from '@mui/material';
 import AuthRegister from './AuthRegister';
 
 // assets
-import Logo from 'assets/images/CGadai.png';
+import Logo from 'assets/images/LogoBaru1.png';
 
 // ==============================|| REGISTER ||============================== //
 

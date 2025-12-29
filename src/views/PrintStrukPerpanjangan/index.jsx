@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useContext } from "react";
 import { useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { CircularProgress, Button, Box } from "@mui/material";
-import logo from "assets/images/GadaiLogo.png";
+import logo from "assets/images/LogoBaru1.png";
 import { AuthContext } from "AuthContex/AuthContext";
 
 const PrintStrukPerpanjanganPage = () => {
@@ -145,9 +145,6 @@ const PrintStrukPerpanjanganPage = () => {
     }
   };
 
-
-  // ==========================================
-
   const hitungJasaBaru = (pokok, jenisBarang, periodeHari) => {
     if (periodeHari <= 0) return 0;
     let jasa = 0;
@@ -185,24 +182,47 @@ const PrintStrukPerpanjanganPage = () => {
   const denda = hitungDenda(pokok, typeNama, totalTelat);
   const penalty = hitungPenalty(totalTelat);
   const admin = hitungAdmin(typeNama, pokok);
-  const totalBayar = jasaBaru + denda + penalty + admin;
+  
+  // 🔹 PEMBULATAN KE ATAS untuk Total Bayar
+  const totalBayarSebelum = jasaBaru + denda + penalty + admin;
+  const totalBayar = Math.ceil(totalBayarSebelum / 1000) * 1000;
 
-  // 🔹 Bersihkan nama barang
-  const cleanText = (val) =>
-    (val || "").replace(/,|\/+/g, "").replace(/\s+/g, " ").trim();
+  // 🔹 Bersihkan nama barang - FIX: konversi ke string dulu
+  const cleanText = (val) => {
+    if (val === null || val === undefined) return "-";
+    // Pastikan val adalah string
+    const str = typeof val === 'object' ? (val.nama_merk || val.nama_type || String(val)) : String(val);
+    return str.replace(/,|\/+/g, "").replace(/\s+/g, " ").trim();
+  };
 
   let barangNama = "-",
     barangDetail = "-",
     labelBarangDetail = "-";
-  switch (typeNama) {
+
+    const formatLabel = (text) => {
+    if (!text) return "-";
+    return String(text).replace(/_/g, " ").toUpperCase();
+  };
+  
+switch (typeNama) {
     case "handphone":
+    case "hp":
     case "elektronik":
       if (detail.hp) {
         barangNama = cleanText(detail.hp.nama_barang);
-        const merk = cleanText(detail.hp.merk);
-        const typeHp = cleanText(detail.hp.type_hp);
-        barangDetail = `${merk} / ${typeHp}`;
-        labelBarangDetail = "Merk / Type";
+        
+        const merk = formatLabel(detail.hp.merk?.nama_merk || detail.hp.merk);
+        const typeHp = formatLabel(detail.hp.type_hp?.nama_type || detail.hp.type_hp);
+        const ram = cleanText(detail.hp.ram);
+        const rom = cleanText(detail.hp.rom);
+        const grade = formatLabel(detail.hp.grade_type);
+
+        barangDetail = 
+          `MERK / TYPE : ${merk} / ${typeHp}\n` +
+          `ROM / RAM   : ${rom} / ${ram}\n` +
+          `GRADE       : ${grade}`;
+        
+        labelBarangDetail = ""; 
       }
       break;
     case "perhiasan":
@@ -218,6 +238,9 @@ const PrintStrukPerpanjanganPage = () => {
         labelBarangDetail = "Karat / Berat";
       }
       break;
+    default:
+      barangNama = "-";
+      barangDetail = "-";
   }
 
 const handlePrint = () => {
@@ -250,7 +273,7 @@ const handlePrint = () => {
           padding: 0;
           font-family: "Consolas", "Courier New", monospace;
           font-size: 11px;
-          font-weight: 700; /* 🔹 Semua teks bold */
+          font-weight: 700;
           color: #000;
           line-height: 1.25;
         }
@@ -261,7 +284,7 @@ const handlePrint = () => {
         }
 
         .center { text-align: center; }
-        .bold { font-weight: 800; } /* 🔹 Extra bold untuk heading utama */
+        .bold { font-weight: 800; }
 
         img {
           display: block;
@@ -298,7 +321,6 @@ const handlePrint = () => {
           text-align: center;
         }
 
-        /* === FIX agar tidak ada spasi kosong bawah === */
         @media print {
           body::after { content: none !important; }
           body {
@@ -364,7 +386,6 @@ const handlePrint = () => {
       </div>
 
       <script>
-        // delay ringan agar render selesai baru print
         window.onload = () => setTimeout(() => {
           window.print();
           window.close();
@@ -375,8 +396,6 @@ const handlePrint = () => {
   `);
   printWindow.document.close();
 };
-
-
 
   return (
     <Box sx={{ maxWidth: 400, mx: "auto", p: 2, textAlign: "center", fontFamily: "monospace" }}>

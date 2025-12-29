@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card, CardHeader, CardContent, TextField, Button,
   Grid, Stack, CircularProgress, FormGroup, FormControlLabel,
@@ -7,7 +7,6 @@ import {
 import axiosInstance from "api/axiosInstance";
 import { useNavigate } from "react-router-dom";
 
-// Standard Operating Procedure (SOP) Dokumen untuk HP berdasarkan jenisnya
 const DOKUMEN_SOP_HP = {
   Android: ['body', 'imei', 'about', 'akun', 'admin', 'cam_depan', 'cam_belakang', 'rusak'],
   Samsung: ['body', 'imei', 'about', 'samsung_account', 'admin', 'cam_depan', 'cam_belakang', 'galaxy_store'],
@@ -17,7 +16,6 @@ const DOKUMEN_SOP_HP = {
 const getRoleBaseUrl = () => {
   const user = JSON.parse(localStorage.getItem("auth_user"));
   const role = user?.role?.toLowerCase() || "";
-
   switch (role) {
     case 'petugas': return '/petugas';
     case 'checker': return '/checker';
@@ -28,463 +26,640 @@ const getRoleBaseUrl = () => {
 
 const GadaiHpWizardPage = () => {
   const navigate = useNavigate();
-  // Mengurangi step menjadi 3 (1: Nasabah, 2: Barang/HP, 3: Finalisasi)
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const baseUrl = getRoleBaseUrl();
 
-  const [nasabah, setNasabah] = useState({ nama_lengkap: "", nik: "", alamat: "", no_hp: "", no_rek: "", id: null });
+  const [nasabah, setNasabah] = useState({ 
+    nama_lengkap: "", 
+    nik: "", 
+    alamat: "", 
+    no_hp: "", 
+    no_rek: "" 
+  });
   const [fotoKtp, setFotoKtp] = useState(null);
 
-  // Detail sekarang hanya fokus pada tanggal dan jatuh tempo. type_name di hardcode ke "Handphone"
   const [detail, setDetail] = useState({
-        tanggal_gadai: "", jatuh_tempo: "", taksiran: 0, uang_pinjaman: 0,
-        type_id: 1, // Asumsi ID Handphone adalah 1, jika tidak, harus di-fetch terpisah
-        type_name: "Handphone",
-        id: null
-    });
+    tanggal_gadai: new Date().toISOString().split('T')[0],
+    jatuh_tempo: new Date(new Date().setDate(new Date().getDate() + 15)).toISOString().split('T')[0],
+    type_id: "",
+  });
 
   const [barang, setBarang] = useState({
-    // Untuk HP, nama_barang akan berisi 'Android', 'Samsung', atau 'iPhone'
-    nama_barang: "", kelengkapan: [], kerusakan: [], grade_hp_id: 0, grade_type: "",
-    imei: "", warna: "", kunci_password: "", kunci_pin: "", kunci_pola: "",
-    ram: "", rom: "", type_hp_id: "", merk_hp_id: "",
+    nama_barang: "Android",
+    merk_hp_id: "",
+    type_hp_id: "",
+    grade_hp_id: "",
+    grade_type: "",
+    kelengkapan: [],
+    kerusakan: [],
+    imei: "", 
+    warna: "", 
+    ram: "", 
+    rom: "", 
+    kunci_password: "",
+    kunci_pin: "",
+    kunci_pola: "",
     dokumen_pendukung: {}
   });
 
-  // Menghilangkan state 'types'
   const [merkHp, setMerkHp] = useState([]);
   const [typeHpByMerk, setTypeHpByMerk] = useState([]);
-  const [gradeHp, setGradeHp] = useState(null);
+  const [masterHarga, setMasterHarga] = useState(null);
   const [kerusakanList, setKerusakanList] = useState([]);
   const [kelengkapanList, setKelengkapanList] = useState([]);
-  const [kerusakanNominal, setKerusakanNominal] = useState(0);
-  const [kelengkapanNominal, setKelengkapanNominal] = useState(0);
-
-  const baseUrl = getRoleBaseUrl();
 
   const normalizeDataArray = (res) => {
-    if (!res) return [];
-    if (Array.isArray(res)) return res;
-    if (res.data && Array.isArray(res.data)) return res.data;
-    if (res.items && Array.isArray(res.items)) return res.items;
+    const dataObj = res.data?.data || res.data || res;
+    if (dataObj && Array.isArray(dataObj.items)) return dataObj.items;
+    if (Array.isArray(dataObj)) return dataObj;
     return [];
   };
 
-  // ===== Fetch Initial Data =====
   useEffect(() => {
     const fetchAll = async () => {
       try {
         setLoading(true);
-        // Menghilangkan fetch untuk 'types'
-        const [merkRes, kerusRes, kelengkRes] = await Promise.all([
-          axiosInstance.get(`${baseUrl}/merk-hp`).catch(e => e),
-          axiosInstance.get(`${baseUrl}/kerusakan`).catch(e => e),
-          axiosInstance.get(`${baseUrl}/kelengkapan`).catch(e => e)
+        const [merkRes, kerusRes, kelengkRes, typeRes] = await Promise.all([
+          axiosInstance.get(`${baseUrl}/merk-hp?per_page=100`),
+          axiosInstance.get(`${baseUrl}/kerusakan?per_page=100`),
+          axiosInstance.get(`${baseUrl}/kelengkapan?per_page=100`),
+          axiosInstance.get(`${baseUrl}/type`) 
         ]);
+        
+        setMerkHp(normalizeDataArray(merkRes));
+        setKerusakanList(normalizeDataArray(kerusRes));
+        setKelengkapanList(normalizeDataArray(kelengkRes));
 
-        setMerkHp(normalizeDataArray(merkRes?.data?.data ?? merkRes));
-        setKerusakanList(normalizeDataArray(kerusRes?.data?.data ?? kerusRes));
-        setKelengkapanList(normalizeDataArray(kelengkRes?.data?.data ?? kelengkRes));
+        const listTypes = normalizeDataArray(typeRes);
+        const hpType = listTypes.find(t => 
+          t.nama_type?.toLowerCase().includes("hp") || 
+          t.nama_type?.toLowerCase().includes("handphone")
+        );
+        
+        if (hpType) {
+          setDetail(prev => ({ ...prev, type_id: hpType.id }));
+        }
       } catch (err) {
-        console.error(err);
-        alert("Gagal mengambil data awal.");
-      } finally {
-        setLoading(false);
+        console.error("Error fetching master data:", err);
+        alert("Gagal memuat data master. Silakan refresh halaman.");
+      } finally { 
+        setLoading(false); 
       }
     };
     fetchAll();
   }, [baseUrl]);
 
-  const fetchTypeHpByMerk = useCallback(async (merkId) => {
-    if (!merkId) return setTypeHpByMerk([]);
-    try {
-      setLoading(true);
-      // Tambahkan parameter untuk mengambil semua data (misal: per_page=1000 atau all=true tergantung API)
-      const res = await axiosInstance.get(`${baseUrl}/type-hp/by-merk/${merkId}?per_page=1000`);
-      setTypeHpByMerk(normalizeDataArray(res?.data?.data ?? res));
-    } catch (err) {
-      console.error(err);
-      setTypeHpByMerk([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [baseUrl]);
-
   useEffect(() => {
     if (barang.merk_hp_id) {
-      fetchTypeHpByMerk(barang.merk_hp_id);
+      axiosInstance.get(`${baseUrl}/type-hp/by-merk/${barang.merk_hp_id}?per_page=1000`)
+        .then(res => setTypeHpByMerk(normalizeDataArray(res)))
+        .catch(err => console.error('Error fetching type HP:', err));
     }
-  }, [barang.merk_hp_id, fetchTypeHpByMerk]);
-
+  }, [barang.merk_hp_id, baseUrl]);
 
   useEffect(() => {
-    if (!barang.type_hp_id) return setGradeHp(null);
-    const fetchGradesByType = async () => {
-      try {
-        const res = await axiosInstance.get(`${baseUrl}/grade-hp/by-type/${barang.type_hp_id}`);
-        const grade = Array.isArray(res.data.data) ? res.data.data[0] : null;
-        setGradeHp(grade);
-        if (grade) setBarang(prev => ({ ...prev, grade_hp_id: grade.id }));
-      } catch (err) {
-        console.error(err);
-        setGradeHp(null);
-      }
-    };
-    fetchGradesByType();
+    if (barang.type_hp_id) {
+      axiosInstance.get(`${baseUrl}/harga-hp/type/${barang.type_hp_id}`)
+        .then(res => {
+          const data = res.data?.data || null;
+          const gradeData = data?.grades?.[0] || data?.grades || null;
+          
+          setMasterHarga(gradeData);
+          
+          if (gradeData?.id) {
+            setBarang(prev => ({ ...prev, grade_hp_id: gradeData.id }));
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching harga:', err);
+          setMasterHarga(null);
+        });
+    }
   }, [barang.type_hp_id, baseUrl]);
 
-  // ===== Handlers =====
   const handleNasabahChange = (e) => setNasabah(prev => ({ ...prev, [e.target.name]: e.target.value }));
   const handleDetailChange = (e) => setDetail(prev => ({ ...prev, [e.target.name]: e.target.value }));
   const handleBarangChange = (e) => setBarang(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
-  const handleKerusakanToggle = (item) => {
-    setBarang(prev => {
-      const exists = prev.kerusakan.includes(item.id);
-      const newKerusakan = exists ? prev.kerusakan.filter(id => id !== item.id) : [...prev.kerusakan, item.id];
-      setKerusakanNominal(prevNom => exists ? prevNom - (item.nominal || 0) : prevNom + (item.nominal || 0));
-      return { ...prev, kerusakan: newKerusakan };
-    });
+  const calculateTotalPersenKerusakan = () => {
+    return kerusakanList
+      .filter(k => barang.kerusakan.includes(k.id))
+      .reduce((sum, item) => sum + parseFloat(item.persen || 0), 0);
   };
 
-  const handleKelengkapanChange = (id, nominal) => {
-    setBarang(prev => {
-      const exists = prev.kelengkapan.includes(id);
-      const newKelengkapan = exists ? prev.kelengkapan.filter(v => v !== id) : [...prev.kelengkapan, id];
-      setKelengkapanNominal(prevNom => exists ? prevNom - nominal : prevNom + nominal);
-      return { ...prev, kelengkapan: newKelengkapan };
-    });
-  };
+const getPreviewValues = () => {
+  if (!masterHarga || !barang.grade_type) {
+    return { 
+      taksiran: 0, 
+      pinjaman: 0, 
+      basePinjaman: 0, 
+      baseTaksiran: 0, 
+      totalPersen: 0, 
+      nominalPotonganPinjaman: 0, 
+      nominalPotonganTaksiran: 0 
+    };
+  }
+  
+  const normalizedGrade = barang.grade_type.toLowerCase().replace(/-/g, '_');
+  const colPinjaman = `grade_${normalizedGrade}`;
+  const colTaksiran = `taksiran_${normalizedGrade}`;
 
-  const handleDokumenChange = (key, file) => {
-    setBarang(prev => ({ ...prev, dokumen_pendukung: { ...prev.dokumen_pendukung, [key]: file } }));
-  };
+  const basePinjaman = parseFloat(masterHarga[colPinjaman] || 0);
+  const baseTaksiran = parseFloat(masterHarga[colTaksiran] || 0);
+  const totalPersen = calculateTotalPersenKerusakan();
+  
+  const potPinjaman = (basePinjaman * totalPersen) / 100;
+  const potTaksiran = (baseTaksiran * totalPersen) / 100;
 
-  // Logika navigasi disesuaikan: 1 -> 2 -> 3
-  const nextStep = () => setStep(prev => Math.min(prev + 1, 3));
-  const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
+  // --- LOGIKA PEMBULATAN RIBUAN KE BAWAH (SAMA DENGAN BACKEND) ---
+  const rawPinjaman = basePinjaman - potPinjaman;
+  const rawTaksiran = baseTaksiran - potTaksiran;
+
+  return {
+    basePinjaman, 
+    baseTaksiran,
+    nominalPotonganPinjaman: potPinjaman,
+    nominalPotonganTaksiran: potTaksiran,
+    // Menggunakan Math.floor untuk menghilangkan perakan
+    taksiran: Math.floor(rawTaksiran / 1000) * 1000,
+    pinjaman: Math.floor(rawPinjaman / 1000) * 1000,
+    totalPersen
+  };
+};
+
+  const preview = getPreviewValues();
 
   const handleSubmitFinal = async () => {
-    // Validasi per step
-    if (!nasabah.nama_lengkap || !nasabah.nik || !nasabah.no_hp || !fotoKtp) return setStep(1), alert("Lengkapi data nasabah dan upload KTP.");
-    if (!detail.tanggal_gadai || !detail.jatuh_tempo || !barang.nama_barang) return setStep(2), alert("Lengkapi tanggal gadai, jatuh tempo, dan nama/tipe barang.");
-    if (barang.nama_barang && !barang.merk_hp_id) return setStep(2), alert("Merk HP wajib diisi.");
-    if (barang.merk_hp_id && !barang.type_hp_id) return setStep(2), alert("Tipe HP wajib diisi.");
+    if (!detail.type_id) {
+      alert("❌ Error: Tipe Barang tidak ditemukan. Hubungi Admin.");
+      return;
+    }
+
+    if (!barang.type_hp_id || !barang.grade_type) {
+      alert("❌ Error: Pilih Type HP dan Grade terlebih dahulu!");
+      return;
+    }
 
     try {
       setLoading(true);
       const formData = new FormData();
-
-      Object.entries(nasabah).forEach(([k, v]) => v && formData.append(`nasabah[${k}]`, v));
+      
+      // Nasabah
+      Object.entries(nasabah).forEach(([k, v]) => formData.append(`nasabah[${k}]`, v));
       if (fotoKtp) formData.append("nasabah[foto_ktp]", fotoKtp);
+      
+      // Detail
+      formData.append("detail[tanggal_gadai]", detail.tanggal_gadai);
+      formData.append("detail[jatuh_tempo]", detail.jatuh_tempo);
+      formData.append("detail[type_id]", detail.type_id);
+      formData.append("detail[taksiran]", preview.taksiran);
+      formData.append("detail[uang_pinjaman]", preview.pinjaman);
 
-      Object.entries(detail).forEach(([k, v]) => {
-        if (v !== null && !['taksiran', 'uang_pinjaman', 'type_name'].includes(k)) formData.append(`detail[${k}]`, v);
-      });
-
+      // Barang
       Object.entries(barang).forEach(([k, v]) => {
         if (['dokumen_pendukung', 'kerusakan', 'kelengkapan'].includes(k)) return;
-        Array.isArray(v) ? v.forEach(i => i && formData.append(`barang[${k}][]`, i)) : (v !== null && formData.append(`barang[${k}]`, v));
+        if (k === 'grade_hp_id' && !v) return;
+        formData.append(`barang[${k}]`, v);
       });
 
-      Object.entries(barang.dokumen_pendukung || {}).forEach(([k, f]) => f && formData.append(`barang[dokumen_pendukung][${k}]`, f));
-      barang.kerusakan?.forEach((id, i) => formData.append(`barang[kerusakan][${i}]`, id));
-      barang.kelengkapan?.forEach((id, i) => formData.append(`barang[kelengkapan][${i}]`, id));
-      if (barang.grade_hp_id) formData.append("barang[grade_hp_id]", barang.grade_hp_id);
-      if (barang.grade_type) formData.append("barang[grade_type]", barang.grade_type);
+      barang.kerusakan.forEach((id, i) => formData.append(`barang[kerusakan][${i}]`, id));
+      barang.kelengkapan.forEach((id, i) => formData.append(`barang[kelengkapan][${i}]`, id));
 
-      // Menggunakan endpoint 'gadai-wizard' yang sama untuk Handphone
-      const res = await axiosInstance.post(`${baseUrl}/gadai-wizard`, formData, { headers: { "Content-Type": "multipart/form-data" } });
+      Object.entries(barang.dokumen_pendukung).forEach(([k, f]) => {
+        if (f) formData.append(`barang[dokumen_pendukung][${k}]`, f);
+      });
+      formData.append("barang[merk_name]", barang.nama_barang);
 
-      if (!res?.data?.success) return alert(res?.data?.message || "Gagal menyimpan data.");
-      alert("Data gadai berhasil disimpan dan taksiran dihitung otomatis.");
-      navigate("/data-nasabah");
+      const res = await axiosInstance.post(`${baseUrl}/gadai-wizard`, formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+
+      if (res.data.success) {
+        alert("✅ Gadai HP Berhasil Disimpan!");
+        navigate("/data-nasabah");
+      }
     } catch (err) {
-      console.error(err);
-      alert(err?.response?.data?.message || "Terjadi kesalahan saat menyimpan data.");
-    } finally { setLoading(false); }
+      console.error('Submit Error:', err.response?.data);
+      const errMsg = err.response?.data?.message || "Terjadi Kesalahan Server";
+      const errDetails = err.response?.data?.errors ? 
+        '\n\nDetail:\n' + Object.entries(err.response.data.errors)
+          .map(([k,v]) => `• ${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+          .join('\n') 
+        : '';
+      alert(`❌ ${errMsg}${errDetails}`);
+    } finally { 
+      setLoading(false); 
+    }
   };
 
-  if (loading) return <Stack alignItems="center" justifyContent="center" sx={{ height: '80vh' }}><CircularProgress /></Stack>;
-
-
   return (
-    <Card sx={{ p: 2 }}>
-      <CardHeader title="Tambah Gadai Handphone" />
+    <Card sx={{ p: 2, maxWidth: 900, mx: "auto", mt: 2 }}>
+      <CardHeader title="Wizard Gadai HP" subheader={`Step ${step} dari 3`} />
       <CardContent>
-        {/* ================= STEP 1: Data Nasabah ================= */}
+        
         {step === 1 && (
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" label="Nama Lengkap" name="nama_lengkap" value={nasabah.nama_lengkap} onChange={handleNasabahChange} />
+              <TextField 
+                fullWidth 
+                label="Nama Lengkap *" 
+                name="nama_lengkap" 
+                value={nasabah.nama_lengkap} 
+                onChange={handleNasabahChange} 
+                required 
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" label="NIK" name="nik" value={nasabah.nik} onChange={handleNasabahChange} />
+              <TextField 
+                fullWidth 
+                label="NIK *" 
+                name="nik" 
+                value={nasabah.nik} 
+                onChange={handleNasabahChange} 
+                required 
+              />
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth size="small" label="Alamat" name="alamat" value={nasabah.alamat} onChange={handleNasabahChange} />
+              <TextField 
+                fullWidth 
+                label="Alamat" 
+                name="alamat" 
+                multiline 
+                rows={2} 
+                value={nasabah.alamat} 
+                onChange={handleNasabahChange} 
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" label="No HP" name="no_hp" value={nasabah.no_hp} onChange={handleNasabahChange} />
+              <TextField 
+                fullWidth 
+                label="No HP" 
+                name="no_hp" 
+                value={nasabah.no_hp} 
+                onChange={handleNasabahChange} 
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" label="No Rekening" name="no_rek" value={nasabah.no_rek} onChange={handleNasabahChange} />
+              <TextField 
+                fullWidth 
+                label="No Rekening" 
+                name="no_rek" 
+                value={nasabah.no_rek} 
+                onChange={handleNasabahChange} 
+              />
             </Grid>
             <Grid item xs={12}>
-              <Stack spacing={1}>
-                <Typography variant="subtitle2">Upload Foto KTP</Typography>
-                <Button variant="contained" component="label" sx={{ width: 'fit-content' }}>
-                  Pilih File KTP
-                  <input type="file" hidden accept="image/*" onChange={e => setFotoKtp(e.target.files?.[0])} />
-                </Button>
-                {fotoKtp && <Box sx={{ mt: 2, width: 300 }}><img src={URL.createObjectURL(fotoKtp)} alt="KTP preview" style={{ width: '100%', borderRadius: 8 }} /></Box>}
-              </Stack>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Foto KTP Nasabah *</Typography>
+              <input 
+                type="file" 
+                accept="image/jpeg,image/jpg,image/png"
+                onChange={e => setFotoKtp(e.target.files[0])} 
+              />
+              {fotoKtp && (
+                <Typography variant="caption" color="success.main" sx={{ ml: 1 }}>
+                  ✓ {fotoKtp.name}
+                </Typography>
+              )}
             </Grid>
             <Grid item xs={12}>
-              <Stack direction="row" justifyContent="flex-end">
-                <Button variant="contained" onClick={nextStep}>Lanjut ke Detail & Barang</Button>
-              </Stack>
+              <Button 
+                variant="contained" 
+                fullWidth 
+                onClick={() => setStep(2)} 
+                disabled={!nasabah.nama_lengkap || !nasabah.nik}
+              >
+                Lanjut ke Data HP
+              </Button>
             </Grid>
           </Grid>
         )}
 
-        {/* ================= STEP 2: Detail Gadai & Barang HP ================= */}
         {step === 2 && (
           <Grid container spacing={2}>
-            {/* Detail Gadai */}
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>Detail Gadai</Typography>
-              <Divider sx={{ mb: 2 }} />
+            <Grid item xs={12} sm={6}>
+              <TextField 
+                fullWidth 
+                type="date" 
+                label="Tanggal Gadai" 
+                name="tanggal_gadai" 
+                value={detail.tanggal_gadai} 
+                onChange={handleDetailChange} 
+                InputLabelProps={{ shrink: true }} 
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" label="Tanggal Gadai" name="tanggal_gadai" type="date" value={detail.tanggal_gadai} onChange={handleDetailChange} InputLabelProps={{ shrink: true }} />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth size="small" disabled={!detail.tanggal_gadai}>
+              <FormControl fullWidth>
                 <InputLabel>Jatuh Tempo</InputLabel>
-                <Select name="jatuh_tempo" value={detail.jatuh_tempo || ""} onChange={handleDetailChange} label="Jatuh Tempo">
-                  {[15, 30].map(d => {
-                    const dt = new Date(detail.tanggal_gadai);
-                    dt.setDate(dt.getDate() + d);
-                    const value = isNaN(dt.getTime()) ? "" : dt.toISOString().split('T')[0];
-                    return <MenuItem key={d} value={value}>{d} Hari — {isNaN(dt.getTime()) ? '-' : dt.toLocaleDateString('id-ID')}</MenuItem>;
-                  })}
+                <Select 
+                  name="jatuh_tempo" 
+                  value={detail.jatuh_tempo} 
+                  onChange={handleDetailChange} 
+                  label="Jatuh Tempo"
+                >
+                  <MenuItem value={new Date(new Date().setDate(new Date().getDate() + 15)).toISOString().split('T')[0]}>
+                    15 Hari
+                  </MenuItem>
+                  <MenuItem value={new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0]}>
+                    30 Hari
+                  </MenuItem>
                 </Select>
               </FormControl>
             </Grid>
 
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>Detail Handphone</Typography>
-              <Divider sx={{ mb: 2 }} />
-            </Grid>
-            
-            {/* Nama Barang (Jenis HP) */}
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Nama Barang (Jenis HP)</InputLabel>
-                <Select name="nama_barang" value={barang.nama_barang} onChange={handleBarangChange} label="Nama Barang (Jenis HP)">
-                  {['Android', 'Samsung', 'iPhone'].map(n => <MenuItem key={n} value={n}>{n}</MenuItem>)}
+            <Grid item xs={12} sm={4}>
+              <FormControl fullWidth>
+                <InputLabel>Jenis HP</InputLabel>
+                <Select 
+                  name="nama_barang" 
+                  value={barang.nama_barang} 
+                  onChange={handleBarangChange} 
+                  label="Jenis HP"
+                >
+                  {['Android', 'Samsung', 'iPhone'].map(v => (
+                    <MenuItem key={v} value={v}>{v}</MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
-
-            {/* Merk HP */}
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Merk HP</InputLabel>
-                <Select name="merk_hp_id" value={barang.merk_hp_id || ""} onChange={(e) => {
-                  handleBarangChange(e);
-                  // fetchTypeHpByMerk(e.target.value); // Dipanggil via useEffect
-                  setBarang(prev => ({ ...prev, type_hp_id: "", grade_hp_id: 0, grade_type: "" })); // Reset type dan grade
-                }}>
-                  {merkHp.map(m => <MenuItem key={m.id} value={m.id}>{m.nama_merk}</MenuItem>)}
+            <Grid item xs={12} sm={4}>
+              <FormControl fullWidth>
+                <InputLabel>Merk *</InputLabel>
+                <Select 
+                  name="merk_hp_id" 
+                  value={barang.merk_hp_id} 
+                  onChange={handleBarangChange} 
+                  label="Merk" 
+                  required
+                >
+                  <MenuItem value="">-- Pilih Merk --</MenuItem>
+                  {merkHp.map(m => (
+                    <MenuItem key={m.id} value={m.id}>{m.nama_merk}</MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
-            
-            {/* Type HP dengan Search - PERUBAHAN UTAMA */}
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={4}>
               <Autocomplete
-                fullWidth
-                size="small"
                 options={typeHpByMerk}
-                getOptionLabel={(option) => option.nama_type || ""}
+                getOptionLabel={(opt) => opt.nama_type || ""}
                 value={typeHpByMerk.find(t => t.id === barang.type_hp_id) || null}
-                onChange={(event, newValue) => {
-                  setBarang(prev => ({ ...prev, type_hp_id: newValue?.id || "", grade_hp_id: 0, grade_type: "" }));
-                }}
-                disabled={typeHpByMerk.length === 0}
-                renderInput={(params) => (
-                  <TextField {...params} label="Type HP" placeholder="Cari type HP..." />
-                )}
-                noOptionsText="Tidak ada data type HP"
-                isOptionEqualToValue={(option, value) => option.id === value.id}
+                onChange={(_, v) => setBarang(prev => ({ ...prev, type_hp_id: v?.id || "" }))}
+                renderInput={(params) => <TextField {...params} label="Cari Type HP *" required />}
+                disabled={!barang.merk_hp_id}
               />
             </Grid>
 
-            {/* Grade HP */}
             <Grid item xs={12}>
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <Typography variant="subtitle2">Grade HP</Typography>
-                <FormGroup row>
-                  {gradeHp && ['A', 'B', 'C'].map(g => {
-                    const nominal = gradeHp[`harga_grade_${g.toLowerCase()}`] || 0;
-                    const checked = barang.grade_type === g;
-                    return (
-                      <FormControlLabel key={g}
-                        control={<Checkbox checked={checked} onChange={() => setBarang(prev => ({ ...prev, grade_type: g }))} />}
-                        label={`${g} (${nominal.toLocaleString('id-ID')})`} />
-                    );
-                  })}
-                </FormGroup>
-              </Paper>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Pilih Grade Kondisi: *</Typography>
+              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                {['a_dus', 'a_tanpa_dus', 'b_dus', 'b_tanpa_dus', 'c_dus', 'c_tanpa_dus'].map(g => (
+                  <Button 
+                    key={g} 
+                    variant={barang.grade_type === g ? "contained" : "outlined"}
+                    onClick={() => setBarang(prev => ({ ...prev, grade_type: g }))}
+                    size="small"
+                    disabled={!barang.type_hp_id}
+                  >
+                    {g.replace(/_/g, ' ').toUpperCase()}
+                  </Button>
+                ))}
+              </Stack>
             </Grid>
 
-            {/* Info HP */}
-            <Grid item xs={12} sm={6}><TextField fullWidth size="small" label="RAM" name="ram" value={barang.ram || ""} onChange={handleBarangChange} /></Grid>
-            <Grid item xs={12} sm={6}><TextField fullWidth size="small" label="ROM" name="rom" value={barang.rom || ""} onChange={handleBarangChange} /></Grid>
-            <Grid item xs={12} sm={6}><TextField fullWidth size="small" label="IMEI" name="imei" value={barang.imei || ""} onChange={handleBarangChange} /></Grid>
-            <Grid item xs={12} sm={6}><TextField fullWidth size="small" label="WARNA" name="warna" value={barang.warna || ""} onChange={handleBarangChange} /></Grid>
-            <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="PASSWORD" name="kunci_password" value={barang.kunci_password || ""} onChange={handleBarangChange} /></Grid>
-            <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="PIN" name="kunci_pin" value={barang.kunci_pin || ""} onChange={handleBarangChange} /></Grid>
-            <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="POLA" name="kunci_pola" value={barang.kunci_pola || ""} onChange={handleBarangChange} /></Grid>
-
-            {/* Kerusakan */}
-            <Grid item xs={12}>
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <Typography variant="subtitle2">Kerusakan</Typography>
-                <FormGroup row>
+            <Grid item xs={12} sm={6}>
+              <Paper sx={{ p: 2, bgcolor: '#fff5f5' }}>
+                <Typography variant="subtitle2" color="error">Potongan Kerusakan (%):</Typography>
+                <FormGroup>
                   {kerusakanList.map(k => (
-                    <FormControlLabel key={k.id}
-                      control={<Checkbox checked={barang.kerusakan.includes(k.id)} onChange={() => handleKerusakanToggle(k)} />}
-                      label={`${k.nama_kerusakan} (${(k.nominal || 0).toLocaleString('id-ID')})`} />
+                    <FormControlLabel 
+                      key={k.id}
+                      control={
+                        <Checkbox 
+                          size="small" 
+                          checked={barang.kerusakan.includes(k.id)} 
+                          onChange={() => {
+                            const next = barang.kerusakan.includes(k.id) 
+                              ? barang.kerusakan.filter(id => id !== k.id) 
+                              : [...barang.kerusakan, k.id];
+                            setBarang(prev => ({ ...prev, kerusakan: next }));
+                          }} 
+                        />
+                      }
+                      label={`${k.nama_kerusakan} (${k.persen}%)`}
+                    />
                   ))}
                 </FormGroup>
               </Paper>
             </Grid>
 
-            {/* Kelengkapan */}
-            <Grid item xs={12}>
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <Typography variant="subtitle2">Kelengkapan</Typography>
-                <FormGroup row>
-                  {kelengkapanList.map(k => {
-                    const nominal = k.nominal || 0;
-                    const checked = barang.kelengkapan.includes(k.id);
-                    return (
-                      <FormControlLabel key={k.id}
-                        control={<Checkbox checked={checked} onChange={() => handleKelengkapanChange(k.id, nominal)} />}
-                        label={`${k.nama_kelengkapan} (${nominal.toLocaleString('id-ID')})`} />
-                    );
-                  })}
+            <Grid item xs={12} sm={6}>
+              <Paper sx={{ p: 2, bgcolor: '#f5f5f5' }}>
+                <Typography variant="subtitle2">Kelengkapan:</Typography>
+                <FormGroup>
+                  {kelengkapanList.map(k => (
+                    <FormControlLabel 
+                      key={k.id}
+                      control={
+                        <Checkbox 
+                          size="small" 
+                          checked={barang.kelengkapan.includes(k.id)} 
+                          onChange={() => {
+                            const next = barang.kelengkapan.includes(k.id) 
+                              ? barang.kelengkapan.filter(id => id !== k.id) 
+                              : [...barang.kelengkapan, k.id];
+                            setBarang(prev => ({ ...prev, kelengkapan: next }));
+                          }} 
+                        />
+                      }
+                      label={k.nama_kelengkapan}
+                    />
+                  ))}
                 </FormGroup>
               </Paper>
             </Grid>
 
-            {/* Dokumen Pendukung */}
             <Grid item xs={12}>
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <Typography variant="subtitle2">Dokumen Pendukung HP **{barang.nama_barang || '(Pilih Jenis HP)'}**</Typography>
-                <Grid container spacing={2}>
-                  {DOKUMEN_SOP_HP[barang.nama_barang]?.map(d => (
-                    <Grid item xs={12} sm={4} key={d}>
-                      <Button variant="contained" component="label" fullWidth>
-                        Upload {d.toUpperCase().replace(/_/g, ' ')}
-                        <input type="file" hidden onChange={e => handleDokumenChange(d, e.target.files?.[0])} />
-                      </Button>
-                      {barang.dokumen_pendukung[d] && <Typography variant="caption">{barang.dokumen_pendukung[d].name}</Typography>}
-                    </Grid>
-                  ))}
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Detail HP (Opsional):</Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={6} sm={3}>
+                  <TextField 
+                    fullWidth 
+                    size="small" 
+                    label="IMEI" 
+                    name="imei" 
+                    value={barang.imei} 
+                    onChange={handleBarangChange} 
+                  />
                 </Grid>
-              </Paper>
+                <Grid item xs={6} sm={3}>
+                  <TextField 
+                    fullWidth 
+                    size="small" 
+                    label="Warna" 
+                    name="warna" 
+                    value={barang.warna} 
+                    onChange={handleBarangChange} 
+                  />
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <TextField 
+                    fullWidth 
+                    size="small" 
+                    label="RAM" 
+                    name="ram" 
+                    value={barang.ram} 
+                    onChange={handleBarangChange} 
+                  />
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <TextField 
+                    fullWidth 
+                    size="small" 
+                    label="ROM" 
+                    name="rom" 
+                    value={barang.rom} 
+                    onChange={handleBarangChange} 
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField 
+                    fullWidth 
+                    size="small" 
+                    label="Password HP" 
+                    name="kunci_password" 
+                    value={barang.kunci_password} 
+                    onChange={handleBarangChange} 
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField 
+                    fullWidth 
+                    size="small" 
+                    label="PIN HP" 
+                    name="kunci_pin" 
+                    value={barang.kunci_pin} 
+                    onChange={handleBarangChange} 
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField 
+                    fullWidth 
+                    size="small" 
+                    label="Pola HP" 
+                    name="kunci_pola" 
+                    value={barang.kunci_pola} 
+                    onChange={handleBarangChange} 
+                  />
+                </Grid>
+              </Grid>
             </Grid>
 
-            {/* Navigation */}
             <Grid item xs={12}>
-              <Stack direction="row" justifyContent="space-between">
-                <Button variant="outlined" onClick={prevStep}>Kembali</Button>
-                <Button variant="contained" onClick={nextStep}>Finalisasi</Button>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Upload SOP ({barang.nama_barang}):
+              </Typography>
+              <Grid container spacing={1}>
+                {DOKUMEN_SOP_HP[barang.nama_barang]?.map(d => (
+                  <Grid item xs={6} sm={3} key={d}>
+                    <Box sx={{ p: 1, border: '1px dashed #ccc', borderRadius: 1 }}>
+                      <Typography variant="caption" display="block" fontWeight="bold">
+                        {d.toUpperCase()}
+                      </Typography>
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        style={{ fontSize: '9px' }} 
+                        onChange={e => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            setBarang(prev => ({
+                              ...prev, 
+                              dokumen_pendukung: { 
+                                ...prev.dokumen_pendukung, 
+                                [d]: file 
+                              }
+                            }));
+                          }
+                        }} 
+                      />
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+                <Button variant="outlined" fullWidth onClick={() => setStep(1)}>
+                  Kembali
+                </Button>
+                <Button 
+                  variant="contained" 
+                  fullWidth 
+                  onClick={() => setStep(3)} 
+                  disabled={!barang.type_hp_id || !barang.grade_type}
+                >
+                  Cek Harga
+                </Button>
               </Stack>
             </Grid>
           </Grid>
         )}
 
-        {/* ================= STEP 3: Finalisasi ================= */}
         {step === 3 && (
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <Typography variant="h6" align="center" sx={{ mb: 3 }}>
-                Finalisasi Gadai Handphone & Preview Taksiran
+          <Stack spacing={2}>
+            <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
+              <Typography variant="h6" align="center" color="primary" fontWeight="bold">
+                RINGKASAN GADAI
               </Typography>
-            </Grid>
-
-            {/* Preview Taksiran */}
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Taksiran (Grade HP)"
-                value={
-                  gradeHp && barang.grade_type
-                    ? (gradeHp[`harga_grade_${barang.grade_type.toLowerCase()}`] || 0)
-                      .toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })
-                    : (0).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })
-                }
-                InputProps={{ readOnly: true }}
-              />
-            </Grid>
-
-            {/* Preview Uang Pinjaman */}
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Uang Pinjaman (Taksiran - Kerusakan + Kelengkapan)"
-                value={
-                  gradeHp && barang.grade_type
-                    ? ((gradeHp[`harga_grade_${barang.grade_type.toLowerCase()}`] || 0) + kelengkapanNominal - kerusakanNominal)
-                      .toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })
-                    : (0).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })
-                }
-                InputProps={{ readOnly: true }}
-              />
-            </Grid>
-
-            {/* Ringkasan Kerusakan & Kelengkapan */}
-            <Grid item xs={12} sm={6}>
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <Typography variant="subtitle2">Ringkasan Kerusakan (Pengurang)</Typography>
-                <Box component="ul" sx={{ pl: 2, m: 0 }}>
-                  {kerusakanList.filter(k => barang.kerusakan.includes(k.id)).map(k => (
-                    <li key={k.id}>
-                      {k.nama_kerusakan} — **{(k.nominal || 0).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}**
-                    </li>
-                  ))}
+              <Divider sx={{ my: 2 }} />
+              <Stack spacing={1.5}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography>Harga Dasar Pinjaman:</Typography>
+                  <Typography>Rp {preview.basePinjaman.toLocaleString('id-ID')}</Typography>
                 </Box>
-              </Paper>
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <Typography variant="subtitle2">Ringkasan Kelengkapan (Penambah)</Typography>
-                <Box component="ul" sx={{ pl: 2, m: 0 }}>
-                  {kelengkapanList.filter(k => barang.kelengkapan.includes(k.id)).map(k => (
-                    <li key={k.id}>
-                      {k.nama_kelengkapan} — **{(k.nominal || 0).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}**
-                    </li>
-                  ))}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography color="error">
+                    Potongan Kondisi ({preview.totalPersen}%):
+                  </Typography>
+                  <Typography color="error">
+                    - Rp {preview.nominalPotonganPinjaman.toLocaleString('id-ID')}
+                  </Typography>
                 </Box>
-              </Paper>
-            </Grid>
-
-            {/* Navigation */}
-            <Grid item xs={12}>
-              <Stack direction="row" justifyContent="space-between">
-                <Button variant="outlined" onClick={prevStep}>Kembali</Button>
-                <Button variant="contained" onClick={handleSubmitFinal}>
-                  Simpan & Hitung Taksiran
-                </Button>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 1, bgcolor: '#e8f5e9' }}>
+  <Typography fontWeight="bold">Total Pinjaman Cair:</Typography>
+  <Typography fontWeight="bold" color="success.main">
+    Rp {preview.pinjaman.toLocaleString('id-ID')}
+  </Typography>
+</Box>
+                <Divider />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2">Taksiran Nilai Barang:</Typography>
+                  <Typography variant="body2">
+                    Rp {preview.taksiran.toLocaleString('id-ID')}
+                  </Typography>
+                </Box>
               </Stack>
-            </Grid>
-          </Grid>
+            </Paper>
+            
+            <Stack direction="row" spacing={2}>
+              <Button variant="outlined" fullWidth onClick={() => setStep(2)}>
+                Revisi
+              </Button>
+              <Button 
+                variant="contained" 
+                color="success" 
+                fullWidth 
+                onClick={handleSubmitFinal} 
+                disabled={loading}
+              >
+                {loading ? <CircularProgress size={24} color="inherit" /> : "SIMPAN SEKARANG"}
+              </Button>
+            </Stack>
+          </Stack>
         )}
       </CardContent>
     </Card>

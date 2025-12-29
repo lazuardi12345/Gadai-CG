@@ -88,8 +88,15 @@ const KelengkapanEmasPage = Loadable(lazy(() => import('views/KelengkapanEmas/in
 
 const GadaiEmasFormPage = Loadable(lazy(() => import('views/GadaiEmas/index')));
 
+const HargaHpPage = Loadable(lazy(() => import('views/HargaHP/HargaHpPage')));
+
 const GadaiUlangHpPage = Loadable(lazy(() => import('views/GadaiUlang/GadaiUlangHp')));
 const GadaiUlangEmasPage = Loadable(lazy(() => import('views/GadaiUlang/GadaiUlangEmas')));
+const PrintStrukPelunasanLelangPage = Loadable(lazy(() => import('views/PrintStrukPelunasan/PrintStrukPelunasanLelangPage')));
+const BrankasDashboard = Loadable(lazy(() => import('views/BrangkasDashboard/index')));
+const KasManagement = Loadable(lazy(() => import('views/KasManajemen/index')));
+const KasirOperasional = Loadable(lazy(() => import('views/KasManajemen/operatorKas')));
+const LaporanHarianChecker = Loadable(lazy(() => import('views/LaporanHarianChecker/index')));
 // ==============================|| MAIN ROUTES ||============================== //
 const MainRoutes = {
   path: '/',
@@ -142,19 +149,24 @@ const MainRoutes = {
     { path: '/notifications', element: <NotificationsPage/> },
     { path: '/admin', element: <AdminLaporanPage/> },
     { path: '/admin-detail/:detailGadaiId', element: <AdminDetailPage/> },
-     { path: '/pelelangan', element: <PelelanganPage/> },
-     { path: '/kerusakan', element: <KerusakanPage/> },
-     { path: '/type-hp', element: <TypeHpPage/> },
-     { path: '/type-hp/tambah', element: <TambahTypeHp/> },
-     { path: '/merk-hp', element: <MerkHpGadaiPage/> },
-     { path: '/grade-hp', element: <GradeHpPage/> },
-     { path: '/grade-hp/tambah', element: <TambahGradeHp/> },
-     { path: '/kelengkapan', element: <KelengkapanPage/> },
-     { path: '/kelengkapan-emas', element: <KelengkapanEmasPage/> },
-     { path: '/gadai-emas', element: <GadaiEmasFormPage/> },  
-     { path: '/gadai-ulang-hp', element: <GadaiUlangHpPage/> },
-     { path: '/gadai-ulang-emas', element: <GadaiUlangEmasPage/> },
-
+    { path: '/pelelangan', element: <PelelanganPage/> },
+    { path: '/kerusakan', element: <KerusakanPage/> },
+    { path: '/type-hp', element: <TypeHpPage/> },
+    { path: '/type-hp/tambah', element: <TambahTypeHp/> },
+    { path: '/merk-hp', element: <MerkHpGadaiPage/> },
+    { path: '/grade-hp', element: <GradeHpPage/> },
+    { path: '/grade-hp/tambah', element: <TambahGradeHp/> },
+    { path: '/kelengkapan', element: <KelengkapanPage/> },
+    { path: '/kelengkapan-emas', element: <KelengkapanEmasPage/> },
+    { path: '/gadai-emas', element: <GadaiEmasFormPage/> },  
+    { path: '/gadai-ulang-hp', element: <GadaiUlangHpPage/> },
+    { path: '/gadai-ulang-emas', element: <GadaiUlangEmasPage/> },
+    { path: '/struk-pelunasan-lelang/:detailGadaiId', element: <PrintStrukPelunasanLelangPage/> },
+    { path: '/harga-hp', element: <HargaHpPage/> },
+    { path: '/brangkas-dashboard', element: <BrankasDashboard/> },
+    { path: '/kas-management', element: <KasManagement/> },
+    { path: '/kas-management-checker', element: <KasirOperasional/> },
+    { path: '/laporan-harian', element: <LaporanHarianChecker/> },
 
 
 

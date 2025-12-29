@@ -1,84 +1,69 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext, useMemo } from "react";
 import {
-  Card,
-  CardHeader,
-  CardContent,
-  Divider,
-  Table,
-  TableContainer,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  TablePagination,
-  TextField,
-  Button,
-  CircularProgress,
-  Typography,
-  Paper,
-  Chip,
-  Box,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Tabs,
-  Tab,
+  Card, CardHeader, CardContent, Table, TableContainer, TableHead, 
+  TableBody, TableRow, TableCell, TablePagination, TextField, Button, 
+  CircularProgress, Typography, Paper, Chip, Dialog, DialogTitle, 
+  DialogContent, DialogActions, Tabs, Tab, Box, Stack, useTheme, 
+  MenuItem, Select, FormControl, InputLabel, Alert, AlertTitle, 
+  IconButton, Tooltip, Avatar, useMediaQuery
 } from "@mui/material";
+import {
+  Gavel as GavelIcon,
+  MonetizationOn as MoneyIcon,
+  Visibility as VisibilityIcon,
+  Search as SearchIcon,
+  History as HistoryIcon,
+  AccessTime as AccessTimeIcon,
+  Info as InfoIcon
+} from "@mui/icons-material";
 import { AuthContext } from "AuthContex/AuthContext";
 import axiosInstance from "api/axiosInstance";
+import { useNavigate } from "react-router-dom";
 
 const PelelanganPage = () => {
+  const navigate = useNavigate();
   const { user } = useContext(AuthContext);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
+  // Roles & Permissions
   const userRole = (user?.role || "").toLowerCase();
   const isAdmin = userRole === "admin";
+  const canLelang = userRole === "hm" || userRole === "checker";
 
-  // Admin langsung ke tab Riwayat
-  const [tabIndex, setTabIndex] = useState(isAdmin ? 1 : 0);
+  // State Management
+  const [tabIndex, setTabIndex] = useState(isAdmin ? 2 : 0);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Modal & Form State
   const [openModal, setOpenModal] = useState(false);
+  const [modalMode, setModalMode] = useState("proses"); 
   const [selectedGadai, setSelectedGadai] = useState(null);
-  const [hargaTerjual, setHargaTerjual] = useState("");
+  const [formData, setFormData] = useState({
+    nominal: "",
+    metode: "cash",
+    keterangan: "",
+    bukti: null,
+    preview: null
+  });
 
-  // Role yang bisa melakukan lelang
-  const canLelang = ["hm", "checker"].includes(userRole);
+  const [alert, setAlert] = useState({ show: false, type: 'success', message: '' });
 
-  // Tentukan URL API
-  const getApiUrl = (isPost = false) => {
-    const baseUrl = (() => {
-      switch (userRole) {
-        case "petugas": return "/petugas/pelelangan";
-        case "checker": return "/checker/pelelangan";
-        case "hm": return "/pelelangan";
-        case "admin": return "/admin/pelelangan";
-        default: return "/pelelangan";
-      }
-    })();
+  const baseUrl = userRole === "checker" ? "/checker/pelelangan" : isAdmin ? "/admin/pelelangan" : "/pelelangan";
 
-    // Admin selalu ambil history, tabIndex=1 untuk history
-    if (!isPost && (tabIndex === 1 || isAdmin)) return `${baseUrl}/history`;
-    return baseUrl;
-  };
-
-  // Ambil data dari API
   const fetchData = async () => {
     setLoading(true);
-    setError(null);
     try {
-      const res = await axiosInstance.get(getApiUrl());
-      if (res.data.success) {
-        setData(res.data.data);
-      } else {
-        setError(res.data.message || "Gagal mengambil data");
-      }
+      const url = (tabIndex === 2 || isAdmin) ? `${baseUrl}/history` : baseUrl;
+      const res = await axiosInstance.get(url);
+      if (res.data.success) setData(res.data.data || []);
     } catch (err) {
-      setError(err.message || "Terjadi kesalahan server");
+      showAlert('error', 'Gagal memuat data pelelangan');
     } finally {
       setLoading(false);
     }
@@ -87,210 +72,302 @@ const PelelanganPage = () => {
   useEffect(() => {
     fetchData();
     setPage(0);
-  }, [tabIndex]);
+  }, [tabIndex, userRole]);
 
-  // Modal Lelang
-  const handleOpenModal = (item) => {
-    setSelectedGadai(item);
-    setHargaTerjual("");
-    setOpenModal(true);
-  };
-  const handleCloseModal = () => {
-    setOpenModal(false);
-    setSelectedGadai(null);
+  const showAlert = (type, message) => {
+    setAlert({ show: true, type, message });
+    setTimeout(() => setAlert({ show: false, type: '', message: '' }), 5000);
   };
 
-  // Pagination
-  const handleChangePage = (_, newPage) => setPage(newPage);
-  const handleChangeRowsPerPage = (e) => {
-    setRowsPerPage(parseInt(e.target.value, 10));
-    setPage(0);
-  };
+  const formatCurrency = (val) => new Intl.NumberFormat('id-ID', { 
+    style: 'currency', currency: 'IDR', minimumFractionDigits: 0 
+  }).format(val || 0);
 
-  // Submit lelang
-  const handleSubmitLelang = async () => {
-    if (!hargaTerjual || isNaN(hargaTerjual) || Number(hargaTerjual) <= 0) {
-      alert("Masukkan harga terjual yang valid!");
-      return;
-    }
-
+  const handleDaftarkanLelang = async (item) => {
+    if (!window.confirm(`Daftarkan ${item.no_gadai} ke lelang?`)) return;
     try {
-      const res = await axiosInstance.post(getApiUrl(true), {
-        detail_gadai_id: selectedGadai.id,
-        harga_terjual: parseFloat(hargaTerjual),
-      });
-
+      const res = await axiosInstance.post(`${baseUrl}/daftarkan`, { detail_gadai_id: item.id });
       if (res.data.success) {
-        alert("Barang berhasil dilelang!");
-        handleCloseModal();
-        setData(prev => prev.filter(d => d.id !== selectedGadai.id));
-      } else {
-        alert(res.data.message || "Gagal lelang barang");
+        showAlert('success', 'Barang berhasil masuk daftar lelang');
+        fetchData();
       }
     } catch (err) {
-      alert(err.message || "Terjadi kesalahan server");
+      showAlert('error', err.response?.data?.message || 'Gagal daftar lelang');
     }
   };
 
-  // Warna chip hari terlambat
-  const getHariTerlambatColor = (hari) => (hari > 30 ? "error" : "warning");
-  const cellStyle = { whiteSpace: "nowrap", padding: "8px 16px", height: 52 };
+  const openActionModal = (item, mode) => {
+    setSelectedGadai(item);
+    setModalMode(mode);
+    setFormData({
+      nominal: item.total_hutang || item.hutang || "",
+      metode: "cash",
+      keterangan: "",
+      bukti: null,
+      preview: null
+    });
+    setOpenModal(true);
+  };
 
-  if (loading) return <CircularProgress sx={{ display: "block", mx: "auto", mt: 5 }} />;
-  if (error) return <Typography color="error">{error}</Typography>;
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file && file.size <= 2048 * 1024) {
+      const reader = new FileReader();
+      reader.onloadend = () => setFormData(prev => ({ ...prev, bukti: file, preview: reader.result }));
+      reader.readAsDataURL(file);
+    } else {
+      showAlert('error', 'File terlalu besar (Maks 2MB)');
+    }
+  };
 
-  // Filter search
-  const displayedData = data.filter(
-    d =>
-      d.no_gadai?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.nama_nasabah?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.type?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleSubmit = async () => {
+    if (!formData.nominal || formData.nominal <= 0) return showAlert('error', 'Nominal tidak valid');
+    if (formData.metode === "transfer" && !formData.bukti) return showAlert('error', 'Bukti transfer wajib diunggah');
+
+    setSubmitting(true);
+    try {
+      const dataPayload = new FormData();
+      dataPayload.append("nominal_diterima", formData.nominal);
+      dataPayload.append("metode_pembayaran", formData.metode);
+      dataPayload.append(modalMode === "proses" ? "keterangan" : "catatan", formData.keterangan);
+      if (formData.bukti) dataPayload.append("bukti_transfer", formData.bukti);
+
+      const endpoint = `${baseUrl}/${selectedGadai.id}/${modalMode === "proses" ? 'proses' : 'lunasi'}`;
+      const res = await axiosInstance.post(endpoint, dataPayload, { headers: { "Content-Type": "multipart/form-data" } });
+
+      if (res.data.success) {
+        showAlert('success', res.data.message);
+        setOpenModal(false);
+        fetchData();
+        if (modalMode === "lunasi") navigate(`/struk-pelunasan-lelang/${selectedGadai.id}`);
+      }
+    } catch (err) {
+      showAlert('error', err.response?.data?.message || 'Terjadi kesalahan sistem');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const filteredData = useMemo(() => {
+    return data.filter(d => {
+      const searchStr = searchTerm.toLowerCase();
+      const matchesSearch = d.no_gadai?.toLowerCase().includes(searchStr) || 
+                            d.nama_nasabah?.toLowerCase().includes(searchStr);
+      if (isAdmin || tabIndex === 2) return matchesSearch;
+      const statusMap = tabIndex === 0 ? "belum_terdaftar" : "siap";
+      return matchesSearch && d.status_lelang === statusMap;
+    });
+  }, [data, searchTerm, tabIndex, isAdmin]);
 
   return (
-    <>
-      <Card sx={{ boxShadow: 3, borderRadius: 3 }}>
-        <CardHeader
-          title={<Typography variant="h6">Pelelangan</Typography>}
+    <Box sx={{ p: isMobile ? 1 : 3 }}>
+      {alert.show && (
+        <Alert severity={alert.type} sx={{ position: 'fixed', top: 24, right: 24, zIndex: 9999, boxShadow: 3 }}>
+          <AlertTitle>{alert.type === 'success' ? 'Berhasil' : 'Peringatan'}</AlertTitle>
+          {alert.message}
+        </Alert>
+      )}
+
+      <Card sx={{ borderRadius: 4, overflow: 'hidden', boxShadow: theme.shadows[4] }}>
+        <CardHeader 
+          title={
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Avatar sx={{ bgcolor: 'primary.main' }}><GavelIcon /></Avatar>
+              <Typography variant="h6" fontWeight="800">Manajemen Pelelangan</Typography>
+            </Stack>
+          }
           action={
-            <TextField
-              variant="outlined"
-              size="small"
-              placeholder="Cari no gadai / nasabah / tipe..."
+            <TextField 
+              size="small" 
+              placeholder="Cari..." 
+              InputProps={{ startAdornment: <SearchIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} /> }}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ backgroundColor: "white", borderRadius: 2, width: 250 }}
+              sx={{ width: isMobile ? 150 : 250 }}
             />
           }
         />
-        <Divider />
-
-        {/* Tabs untuk non-admin */}
-        {!isAdmin ? (
-          <Tabs value={tabIndex} onChange={(_, newIndex) => setTabIndex(newIndex)} sx={{ px: 2 }}>
-            <Tab label="Barang Siap Dilelang" />
-            <Tab label="Riwayat Lelang" />
+        
+        {!isAdmin && (
+          <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)} variant="fullWidth" sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <Tab icon={<AccessTimeIcon fontSize="small" />} iconPosition="start" label="Antrian" />
+            <Tab icon={<GavelIcon fontSize="small" />} iconPosition="start" label="Siap Lelang" />
+            <Tab icon={<HistoryIcon fontSize="small" />} iconPosition="start" label="Riwayat" />
           </Tabs>
-        ) : (
-          <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-            Riwayat Lelang
-          </Typography>
         )}
 
-        <CardContent>
-          <Box sx={{ width: "100%", overflowX: "auto" }}>
-            <TableContainer component={Paper}>
-              <Table size="small" sx={{ minWidth: 1000 }}>
-                <TableHead sx={{ backgroundColor: "#f5f5f5" }}>
+        <CardContent sx={{ p: 0 }}>
+          {loading ? (
+            <Box textAlign="center" py={10}><CircularProgress size={40} thickness={4} /></Box>
+          ) : (
+            <TableContainer>
+              <Table size="medium">
+                <TableHead sx={{ bgcolor: 'grey.50' }}>
                   <TableRow>
-                    {[
-                      "No",
-                      "No Gadai",
-                      "Nasabah",
-                      "Tipe",
-                      "Tanggal Gadai",
-                      "Jatuh Tempo",
-                      "Hari Terlambat",
-                      "Uang Pinjaman",
-                      tabIndex === 0 && !isAdmin ? "Aksi" : "Harga Terjual",
-                    ].map((headCell, idx) => (
-                      <TableCell key={idx} align="center" sx={cellStyle}>
-                        <b>{headCell}</b>
-                      </TableCell>
-                    ))}
+                    <TableCell sx={{ fontWeight: 'bold' }}>Info Nasabah & Keterlambatan</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Hutang / Biaya</TableCell>
+                    {(tabIndex === 2 || isAdmin) && (
+                      <>
+                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>Uang Masuk</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>Keuntungan</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 'bold' }}>Waktu & Metode</TableCell>
+                      </>
+                    )}
+                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>Status</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>Aksi</TableCell>
                   </TableRow>
                 </TableHead>
-
                 <TableBody>
-                  {displayedData.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={9} align="center">
-                        Tidak ada data ditemukan.
+                  {filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item) => (
+                    <TableRow key={item.id} hover>
+                      {/* KOLOM 1: INFO NASABAH & TELAT */}
+                      <TableCell>
+                        <Typography variant="subtitle2" fontWeight="bold" color="primary">{item.no_gadai}</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.nama_nasabah}</Typography>
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                          <Chip label={item.type} size="small" variant="outlined" sx={{ height: 16, fontSize: '0.6rem' }} />
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              fontWeight: 'bold', 
+                              color: item.hari_terlambat > 30 ? 'error.main' : 'warning.dark',
+                              bgcolor: item.hari_terlambat > 30 ? '#ffeeee' : '#fff9e6',
+                              px: 0.8, py: 0.1, borderRadius: 1
+                            }}
+                          >
+                            Telat {item.hari_terlambat || 0} Hari
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+
+                      {/* KOLOM 2: TOTAL TAGIHAN */}
+                      <TableCell align="right">
+                        <Tooltip arrow title={
+                          <Box sx={{ p: 0.5 }}>
+                            <Typography variant="caption" display="block">Pokok: {formatCurrency(item.uang_pinjaman)}</Typography>
+                            <Typography variant="caption" display="block">Bunga: {formatCurrency(item.bunga)}</Typography>
+                            <Typography variant="caption" display="block">Denda: {formatCurrency(item.denda)}</Typography>
+                            <Typography variant="caption" display="block">Admin: {formatCurrency(item.penalty)}</Typography>
+                          </Box>
+                        }>
+                          <Box sx={{ cursor: 'help' }}>
+                            <Typography variant="body2" fontWeight="800">
+                                {formatCurrency(item.hutang || item.total_hutang)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                Biaya: {formatCurrency((item.bunga||0)+(item.denda||0)+(item.penalty||0))}
+                            </Typography>
+                          </Box>
+                        </Tooltip>
+                      </TableCell>
+
+                      {/* KOLOM RIWAYAT (DIPISAH) */}
+                      {(tabIndex === 2 || isAdmin) && (
+                        <>
+                          <TableCell align="right">
+                            <Typography variant="body2" fontWeight="bold" color="primary.main">
+                              {formatCurrency(item.nominal_masuk)}
+                            </Typography>
+                          </TableCell>
+                          
+                          <TableCell align="right">
+                            <Typography 
+                              variant="body2" 
+                              fontWeight="bold" 
+                              color={item.keuntungan >= 0 ? 'success.main' : 'error.main'}
+                            >
+                              {formatCurrency(item.keuntungan)}
+                            </Typography>
+                            <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>
+                                {item.keuntungan >= 0 ? 'PROFIT' : 'LOSS'}
+                            </Typography>
+                          </TableCell>
+
+                          <TableCell align="center">
+                            <Typography variant="caption" display="block" fontWeight="bold">{item.tanggal?.split(' ')[0]}</Typography>
+                            <Chip label={item.metode?.toUpperCase()} size="small" variant="outlined" sx={{ height: 16, fontSize: '0.6rem' }} />
+                          </TableCell>
+                        </>
+                      )}
+
+                      <TableCell align="center">
+                        <Chip 
+                          size="small" 
+                          label={item.status === 'lunas' ? 'LUNAS' : item.status === 'terlelang' ? 'TERLELANG' : 'SIAP'} 
+                          color={item.status === 'lunas' ? 'success' : item.status === 'terlelang' ? 'primary' : 'default'}
+                        />
+                      </TableCell>
+
+                      <TableCell align="center">
+                        <Stack direction="row" spacing={0.5} justifyContent="center">
+                          {tabIndex === 0 && canLelang && (
+                            <Button size="small" variant="contained" onClick={() => handleDaftarkanLelang(item)}>Daftarkan</Button>
+                          )}
+                          {tabIndex === 1 && canLelang && (
+                            <>
+                              <Tooltip title="Proses Lelang"><IconButton size="small" color="warning" onClick={() => openActionModal(item, 'proses')}><GavelIcon fontSize="small" /></IconButton></Tooltip>
+                              <Tooltip title="Pelunasan/Tebus"><IconButton size="small" color="success" onClick={() => openActionModal(item, 'lunasi')}><MoneyIcon fontSize="small" /></IconButton></Tooltip>
+                            </>
+                          )}
+                          {item.bukti && (
+                            <Tooltip title="Lihat Bukti"><IconButton size="small" color="info" onClick={() => window.open(item.bukti, '_blank')}><VisibilityIcon fontSize="small" /></IconButton></Tooltip>
+                          )}
+                        </Stack>
                       </TableCell>
                     </TableRow>
-                  )}
-                  {displayedData
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((item, index) => (
-                      <TableRow key={item.id} hover>
-                        <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
-                        <TableCell sx={cellStyle}>{item.no_gadai}</TableCell>
-                        <TableCell sx={cellStyle}>{item.nama_nasabah}</TableCell>
-                        <TableCell sx={cellStyle}>{item.type}</TableCell>
-                        <TableCell sx={cellStyle}>{item.tanggal_gadai}</TableCell>
-                        <TableCell sx={cellStyle}>{item.jatuh_tempo}</TableCell>
-                        <TableCell align="center" sx={cellStyle}>
-                          <Chip
-                            label={`${item.hari_terlambat} hari`}
-                            color={getHariTerlambatColor(item.hari_terlambat)}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell align="right" sx={cellStyle}>
-                          Rp {Number(item.uang_pinjaman).toLocaleString("id-ID")}
-                        </TableCell>
-                        <TableCell align="center" sx={cellStyle}>
-                          {tabIndex === 0 && !isAdmin ? (
-                            canLelang ? (
-                              <Button
-                                variant="contained"
-                                color="success"
-                                size="small"
-                                onClick={() => handleOpenModal(item)}
-                              >
-                                Lelang
-                              </Button>
-                            ) : "-"
-                          ) : (
-                            <Chip
-                              label={`Rp ${Number(item.harga_terjual).toLocaleString("id-ID")}`}
-                              color="primary"
-                              size="small"
-                            />
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                  ))}
                 </TableBody>
               </Table>
             </TableContainer>
-          </Box>
-
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25]}
-            component="div"
-            count={displayedData.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            labelRowsPerPage="Baris per halaman:"
-          />
+          )}
+          <TablePagination component="div" count={filteredData.length} rowsPerPage={rowsPerPage} page={page} onPageChange={(_, p) => setPage(p)} onRowsPerPageChange={(e) => setRowsPerPage(parseInt(e.target.value, 10))} />
         </CardContent>
       </Card>
 
-      {/* Modal Lelang */}
-      <Dialog open={openModal} onClose={handleCloseModal}>
-        <DialogTitle>Input Harga Terjual</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Harga Terjual"
-            type="number"
-            fullWidth
-            value={hargaTerjual}
-            onChange={(e) => setHargaTerjual(e.target.value)}
-          />
+      {/* MODAL TRANSAKSI */}
+      <Dialog open={openModal} onClose={() => !submitting && setOpenModal(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
+          {modalMode === 'proses' ? <GavelIcon color="warning" /> : <MoneyIcon color="success" />}
+          {modalMode === 'proses' ? 'Konfirmasi Terlelang' : 'Konfirmasi Penebusan'}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
+            <Box sx={{ p: 2, bgcolor: modalMode === 'proses' ? 'warning.light' : 'success.light', borderRadius: 2 }}>
+              <Typography variant="caption" color="text.secondary" display="block">Total Tagihan:</Typography>
+              <Typography variant="h6" fontWeight="bold">{formatCurrency(selectedGadai?.total_hutang || selectedGadai?.hutang)}</Typography>
+            </Box>
+            
+            <TextField fullWidth label="Nominal Diterima" type="number" value={formData.nominal} onChange={(e) => setFormData({...formData, nominal: e.target.value})} />
+            
+            <FormControl fullWidth>
+              <InputLabel>Metode Bayar</InputLabel>
+              <Select value={formData.metode} label="Metode Bayar" onChange={(e) => setFormData({...formData, metode: e.target.value})}>
+                <MenuItem value="cash">Tunai / Cash</MenuItem>
+                <MenuItem value="transfer">Transfer Bank</MenuItem>
+              </Select>
+            </FormControl>
+
+            {formData.metode === "transfer" && (
+              <Box>
+                <Button variant="outlined" component="label" fullWidth sx={{ borderStyle: 'dashed' }}>
+                  Upload Bukti Transfer
+                  <input type="file" hidden accept="image/*" onChange={handleFileChange} />
+                </Button>
+                {formData.preview && <Box component="img" src={formData.preview} sx={{ width: '100%', mt: 1, borderRadius: 2, border: '1px solid #ddd' }} />}
+              </Box>
+            )}
+
+            <TextField fullWidth label="Keterangan" multiline rows={2} value={formData.keterangan} onChange={(e) => setFormData({...formData, keterangan: e.target.value})} />
+          </Stack>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseModal}>Batal</Button>
-          <Button variant="contained" color="success" onClick={handleSubmitLelang}>
-            Simpan
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenModal(false)} color="inherit">Batal</Button>
+          <Button variant="contained" color={modalMode === 'proses' ? "warning" : "success"} onClick={handleSubmit} disabled={submitting}>
+            {submitting ? <CircularProgress size={24} color="inherit" /> : 'Konfirmasi'}
           </Button>
         </DialogActions>
       </Dialog>
-    </>
+    </Box>
   );
 };
 

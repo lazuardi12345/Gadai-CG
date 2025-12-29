@@ -1,104 +1,99 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-
-// material-ui
-import { useTheme, styled } from '@mui/material/styles';
-import { useMediaQuery, Divider, Drawer, Grid, Box } from '@mui/material';
-
-// third party
+import { Drawer, Box, useMediaQuery } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import PerfectScrollbar from 'react-perfect-scrollbar';
-
-// project import
 import MenuList from './MenuList';
 import { drawerWidth } from 'config.js';
+import logo from 'assets/images/LogoBaru1.png';
 
-// assets
-import logo from 'assets/images/LogoCG.jpeg';
-
-// custom style
-const Nav = styled((props) => <nav {...props} />)(({ theme }) => ({
-  [theme.breakpoints.up('md')]: {
-    width: drawerWidth,
-    flexShrink: 0
-  }
-}));
-
-// ==============================|| SIDEBAR ||============================== //
-
-const Sidebar = ({ drawerOpen, drawerToggle, window }) => {
+const Sidebar = ({ drawerOpen, drawerToggle }) => {
   const theme = useTheme();
   const matchUpMd = useMediaQuery(theme.breakpoints.up('md'));
+
   const drawer = (
     <>
-      <Box sx={{ display: { md: 'none', xs: 'block' } }}>
-        <Grid
-          container
-          direction="row"
-          justifyContent="center"
-          elevation={5}
-          alignItems="center"
-          spacing={0}
+      {/* Logo untuk mobile */}
+      {!matchUpMd && (
+        <Box
           sx={{
-            ...theme.mixins.toolbar,
-            lineHeight: 0,
-            background: theme.palette.primary.main,
-            boxShadow:
-              '0px 2px 4px -1px rgba(0,0,0,0.2), 0px 4px 5px 0px rgba(0,0,0,0.14), 0px 1px 10px 0px rgba(0,0,0,0.12)'
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: 64,
+            backgroundColor: theme.palette.primary.main
           }}
         >
-          <Grid item>
-            {/* ✅ Tambahkan styling responsif di logo */}
-            <Box
-              component="img"
-              src={logo}
-              alt="Logo"
-              sx={{
-                height: { xs: 40, sm: 45, md: 50 },
-                width: 'auto',
-                objectFit: 'contain',
-                borderRadius: 1,
-              }}
-            />
-          </Grid>
-        </Grid>
-      </Box>
-      <Divider />
-      <PerfectScrollbar style={{ height: 'calc(100vh - 65px)', padding: '10px' }}>
+          <img src={logo} alt="Logo" style={{ height: 40, width: 'auto' }} />
+        </Box>
+      )}
+
+      <PerfectScrollbar
+        style={{
+          height: matchUpMd ? 'calc(100vh - 64px)' : 'calc(100vh - 64px)',
+          paddingLeft: 16,
+          paddingRight: 16
+        }}
+      >
         <MenuList />
       </PerfectScrollbar>
     </>
   );
 
-  const container = window !== undefined ? () => window().document.body : undefined;
-
   return (
-    <Nav>
-      <Drawer
-        container={container}
-        variant={matchUpMd ? 'persistent' : 'temporary'}
-        anchor="left"
-        open={drawerOpen}
-        onClose={drawerToggle}
-        sx={{
-          '& .MuiDrawer-paper': {
-            width: drawerWidth,
-            borderRight: 'none',
-            boxShadow: '0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15)',
-            top: { md: 64, sm: 0 }
+    <Drawer
+      variant={matchUpMd ? 'persistent' : 'temporary'}
+      anchor="left"
+      open={drawerOpen}
+      onClose={drawerToggle}
+      sx={{
+        '& .MuiDrawer-paper': {
+          width: drawerWidth,
+          boxSizing: 'border-box',
+          top: matchUpMd ? 64 : 0,
+          height: matchUpMd ? 'calc(100% - 64px)' : '100%',
+          backgroundColor: theme.palette.primary.main,
+          color: '#ffffff',
+          borderRight: 'none',
+          // Style untuk semua text dan icon di dalam sidebar
+          '& .MuiListItemIcon-root': {
+            color: '#ffffff'
+          },
+          '& .MuiListItemText-primary': {
+            color: '#ffffff'
+          },
+          '& .MuiListItemText-secondary': {
+            color: 'rgba(255, 255, 255, 0.7)'
+          },
+          '& .MuiListItemButton-root': {
+            '&:hover': {
+              backgroundColor: 'rgba(255, 255, 255, 0.1)'
+            },
+            '&.Mui-selected': {
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.25)'
+              }
+            }
+          },
+          '& .MuiTypography-root': {
+            color: '#ffffff'
+          },
+          '& .MuiSvgIcon-root': {
+            color: '#ffffff'
           }
-        }}
-        ModalProps={{ keepMounted: true }}
-      >
-        {drawer}
-      </Drawer>
-    </Nav>
+        }
+      }}
+      ModalProps={{ keepMounted: true }}
+    >
+      {drawer}
+    </Drawer>
   );
 };
 
 Sidebar.propTypes = {
   drawerOpen: PropTypes.bool,
-  drawerToggle: PropTypes.func,
-  window: PropTypes.object
+  drawerToggle: PropTypes.func
 };
 
 export default Sidebar;

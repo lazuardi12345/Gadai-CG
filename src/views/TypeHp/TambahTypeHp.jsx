@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import {
     Card, CardHeader, CardContent, Divider, Button,
-    TextField, Stack, CircularProgress, Typography, Grid, Paper
+    TextField, Stack, CircularProgress, Typography, Grid, Paper, Box
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
+import { CheckCircle as CheckCircleIcon } from "@mui/icons-material";
 
 const TambahTypeHp = () => {
     const navigate = useNavigate();
@@ -16,11 +17,11 @@ const TambahTypeHp = () => {
     const getBaseApi = () => {
         if (role === "checker") return "/checker";
         if (role === "petugas") return "/petugas";
+        // HM atau Admin biasanya menggunakan route tanpa prefix di file route Anda
         return ""; 
     };
 
     const baseApi = getBaseApi();
-    const apiUrl = `${baseApi}/type-hp`;
 
     // ================= STATE =================
     const [merkList, setMerkList] = useState([]);
@@ -36,11 +37,12 @@ const TambahTypeHp = () => {
     useEffect(() => {
         const fetchMerk = async () => {
             try {
+                // Sesuai Route::apiResource('merk-hp', ...)
                 const res = await axiosInstance.get(`${baseApi}/merk-hp`);
                 setMerkList(res.data.data || []);
             } catch (err) {
                 console.error(err);
-                alert("Gagal mengambil data merk");
+                alert("Gagal mengambil data merk. Silakan coba lagi.");
             } finally {
                 setLoading(false);
             }
@@ -50,23 +52,27 @@ const TambahTypeHp = () => {
     }, [baseApi]);
 
     // ============= SUBMIT =============
-    const handleSubmit = async () => {
+    const handleSubmit = async (e) => {
+        e.preventDefault(); // Mencegah reload halaman
+
         if (!formData.merk_hp_id || !formData.nama_type) {
-            alert("Semua field wajib diisi");
+            alert("Harap pilih Merk dan isi Nama Type");
             return;
         }
 
         setSubmitting(true);
         try {
-            const res = await axiosInstance.post(apiUrl, formData);
+            // POST ke endpoint: /type-hp atau /checker/type-hp
+            const res = await axiosInstance.post(`${baseApi}/type-hp`, formData);
 
-            if (res.data.message) {
-                alert("Type HP berhasil ditambahkan");
+            if (res.data.success) {
+                alert(res.data.message || "Type HP berhasil ditambahkan");
                 navigate("/type-hp");
             }
         } catch (err) {
-            console.error(err);
-            alert("Gagal menyimpan data");
+            // Menangkap pesan error dari validasi Laravel (request->validate)
+            const errorMsg = err.response?.data?.message || "Gagal menyimpan data";
+            alert(errorMsg);
         } finally {
             setSubmitting(false);
         }
@@ -74,68 +80,101 @@ const TambahTypeHp = () => {
 
     if (loading) {
         return (
-            <Stack alignItems="center" mt={5}>
+            <Stack alignItems="center" justifyContent="center" sx={{ height: "60vh" }}>
                 <CircularProgress />
+                <Typography sx={{ mt: 2 }}>Memuat Data Merk...</Typography>
             </Stack>
         );
     }
 
     return (
-        <Card sx={{ maxWidth: 700, margin: "20px auto", borderRadius: 3, boxShadow: 4 }}>
-            <CardHeader title="Tambah Type HP" />
+        <Card sx={{ maxWidth: 750, margin: "20px auto", borderRadius: 3, boxShadow: 6 }}>
+            <CardHeader 
+                title={<Typography variant="h6" fontWeight="bold">Tambah Type HP Baru</Typography>}
+                subheader="Pilih merk terlebih dahulu sebelum mengisi tipe"
+            />
             <Divider />
 
             <CardContent>
-                <Stack spacing={3}>
-                    <Typography variant="subtitle1" fontWeight="bold">
-                        Pilih Merk HP
-                    </Typography>
+                <Stack spacing={4}>
+                    <Box>
+                        <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                            STEP 1: PILIH MERK HP
+                        </Typography>
+                        <Grid container spacing={2}>
+                            {merkList.length > 0 ? (
+                                merkList.map((m) => (
+                                    <Grid item xs={6} sm={4} key={m.id}>
+                                        <Paper
+                                            onClick={() => setFormData(prev => ({ ...prev, merk_hp_id: m.id }))}
+                                            elevation={formData.merk_hp_id === m.id ? 4 : 1}
+                                            sx={{
+                                                padding: 2.5,
+                                                textAlign: "center",
+                                                cursor: "pointer",
+                                                borderRadius: 3,
+                                                position: "relative",
+                                                border: "2px solid",
+                                                borderColor: formData.merk_hp_id === m.id ? "primary.main" : "transparent",
+                                                backgroundColor: formData.merk_hp_id === m.id ? "aliceblue" : "white",
+                                                transition: "all 0.3s ease",
+                                                "&:hover": { borderColor: "primary.light", transform: "translateY(-2px)" }
+                                            }}
+                                        >
+                                            {formData.merk_hp_id === m.id && (
+                                                <CheckCircleIcon 
+                                                    color="primary" 
+                                                    sx={{ position: "absolute", top: 5, right: 5, fontSize: 20 }} 
+                                                />
+                                            )}
+                                            <Typography fontWeight={formData.merk_hp_id === m.id ? "bold" : "medium"}>
+                                                {m.nama_merk}
+                                            </Typography>
+                                        </Paper>
+                                    </Grid>
+                                ))
+                            ) : (
+                                <Grid item xs={12}>
+                                    <Typography color="error">Data merk tidak tersedia.</Typography>
+                                </Grid>
+                            )}
+                        </Grid>
+                    </Box>
 
-                    {/* LIST MERK — BUKAN DROPDOWN */}
-                    <Grid container spacing={2}>
-                        {merkList.map((m) => (
-                            <Grid item xs={6} sm={4} key={m.id}>
-                                <Paper
-                                    onClick={() => setFormData(prev => ({ ...prev, merk_hp_id: m.id }))}
-                                    sx={{
-                                        padding: 2,
-                                        textAlign: "center",
-                                        cursor: "pointer",
-                                        borderRadius: 2,
-                                        border:
-                                            formData.merk_hp_id === m.id
-                                                ? "2px solid #1976d2"
-                                                : "1px solid #ccc",
-                                        transition: "0.2s",
-                                        "&:hover": { border: "2px solid #1976d2" }
-                                    }}
-                                >
-                                    <Typography fontWeight="bold">{m.nama_merk}</Typography>
-                                </Paper>
-                            </Grid>
-                        ))}
-                    </Grid>
+                    <Box>
+                        <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                            STEP 2: DETAIL TIPE
+                        </Typography>
+                        <TextField
+                            label="Nama Type HP"
+                            placeholder="Contoh: iPhone 15 Pro Max atau Galaxy S24 Ultra"
+                            name="nama_type"
+                            value={formData.nama_type}
+                            onChange={(e) => setFormData(prev => ({ ...prev, nama_type: e.target.value }))}
+                            fullWidth
+                            variant="outlined"
+                            autoComplete="off"
+                        />
+                    </Box>
 
-                    {/* INPUT NAMA TYPE */}
-                    <TextField
-                        label="Nama Type HP"
-                        name="nama_type"
-                        value={formData.nama_type}
-                        onChange={(e) => setFormData(prev => ({ ...prev, nama_type: e.target.value }))}
-                        fullWidth
-                    />
-
-                    <Stack direction="row" spacing={2}>
-                        <Button variant="outlined" fullWidth onClick={() => navigate("/type-hp")}>
+                    <Stack direction="row" spacing={2} sx={{ pt: 2 }}>
+                        <Button 
+                            variant="outlined" 
+                            fullWidth 
+                            onClick={() => navigate("/type-hp")}
+                            sx={{ borderRadius: 2, py: 1.2 }}
+                            color="inherit"
+                        >
                             Batal
                         </Button>
                         <Button
                             variant="contained"
                             fullWidth
                             onClick={handleSubmit}
-                            disabled={submitting}
+                            disabled={submitting || !formData.merk_hp_id || !formData.nama_type}
+                            sx={{ borderRadius: 2, py: 1.2, fontWeight: "bold" }}
                         >
-                            {submitting ? <CircularProgress size={22} /> : "Simpan"}
+                            {submitting ? <CircularProgress size={24} color="inherit" /> : "Simpan Data"}
                         </Button>
                     </Stack>
                 </Stack>

@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { CircularProgress, Button, Box } from "@mui/material";
 import { AuthContext } from "AuthContex/AuthContext";
-import logo from "assets/images/GadaiLogo.png";
+import logo from "assets/images/LogoBaru1.png";
 
 const PrintStrukPelunasanPage = () => {
   const { id } = useParams();
@@ -82,7 +82,12 @@ const PrintStrukPelunasanPage = () => {
     if (selisihHari > 15) penalty = 180000;
   }
 
-  const totalBayar = pokok + denda + penalty;
+  // 🔹 PEMBULATAN KE ATAS untuk Total Bayar
+  const totalBayarSebelum = pokok + denda + penalty;
+  const totalBayar = Math.ceil(totalBayarSebelum / 1000) * 1000;
+  
+  // 🔹 Hitung selisih pembulatan
+  const selisihPembulatan = totalBayar - totalBayarSebelum;
 
   // 🔹 Helper format
   const formatRupiah = (val) =>
@@ -128,33 +133,39 @@ const PrintStrukPelunasanPage = () => {
     labelBarangDetail = "-";
 
   const cleanText = (val) => {
-  if (val === null || val === undefined) return "-";
-  if (typeof val === "object") return "-";
-  return String(val)
-    .replace(/,|\/+/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-};
+    if (val === null || val === undefined) return "-";
+    if (typeof val === "object") return "-";
+    return String(val)
+      .replace(/,|\/+/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
 
+  const formatGrade = (text) => {
+    if (!text) return "-";
+    return String(text).replace(/_/g, " ").toUpperCase();
+  };
 
   switch (typeNama) {
-   case "handphone":
-case "elektronik":
-  if (detail.hp) {
-    barangNama = cleanText(detail.hp.nama_barang);
+    case "handphone":
+    case "elektronik":
+      if (detail.hp) {
+        barangNama = cleanText(detail.hp.nama_barang);
 
-    const merk = cleanText(detail.hp.merk?.nama_merk);
-    const typeHp = cleanText(detail.hp.type_hp?.nama_type);
-    const ram = cleanText(detail.hp.ram);
-    const rom = cleanText(detail.hp.rom);
+        const merk = cleanText(detail.hp.merk?.nama_merk);
+        const typeHp = cleanText(detail.hp.type_hp?.nama_type);
+        const ram = cleanText(detail.hp.ram);
+        const rom = cleanText(detail.hp.rom);
 
-    barangDetail = 
-      `MERK / TYPE : ${merk} / ${typeHp}\n` +
-      `ROM / RAM   : ${rom} / ${ram}`;
+        const grade = formatGrade(detail.hp.grade_type); 
 
-    labelBarangDetail = ""; 
-  }
-  break;
+        barangDetail = 
+          `MERK / TYPE : ${merk} / ${typeHp}\n` +
+          `ROM / RAM   : ${rom} / ${ram}\n` + 
+          `GRADE       : ${grade}`;
+        labelBarangDetail = ""; 
+      }
+      break;
 
     case "perhiasan":
     case "logam mulia":
@@ -174,118 +185,118 @@ case "elektronik":
   }
 
   // 🔹 Fungsi cetak struk
-const handlePrint = () => {
-  const printWindow = window.open("", "", "width=400,height=600");
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Struk Pelunasan</title>
-        <style>
-          @page { size: 80mm auto; margin: 0; }
+  const handlePrint = () => {
+    const printWindow = window.open("", "", "width=400,height=600");
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Struk Pelunasan</title>
+          <style>
+            @page { size: 80mm auto; margin: 0; }
 
-          html, body {
-            width: 80mm;
-            margin: 0;
-            padding: 0;
-            font-family: "Courier New", monospace;
-            font-size: 11px;
-            font-weight: 600;
-            color: #000;
-            line-height: 1.25;
-            text-shadow: 0.15px 0 0 #000, -0.15px 0 0 #000; /* efek tebal halus */
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
+            html, body {
+              width: 80mm;
+              margin: 0;
+              padding: 0;
+              font-family: "Courier New", monospace;
+              font-size: 11px;
+              font-weight: 600;
+              color: #000;
+              line-height: 1.25;
+              text-shadow: 0.15px 0 0 #000, -0.15px 0 0 #000; /* efek tebal halus */
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
 
-          .print-box { width: 100%; padding: 4px 5px; }
+            .print-box { width: 100%; padding: 4px 5px; }
 
-          .center { text-align: center; }
-          .bold {
-            font-weight: 700;
-            text-shadow: 0.2px 0 0 #000, -0.2px 0 0 #000;
-          }
+            .center { text-align: center; }
+            .bold {
+              font-weight: 700;
+              text-shadow: 0.2px 0 0 #000, -0.2px 0 0 #000;
+            }
 
-          img {
-            display: block;
-            margin: 0 auto 6px auto;
-            width: 130px;
-          }
+            img {
+              display: block;
+              margin: 0 auto 6px auto;
+              width: 130px;
+            }
 
-          .row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 2px;
-          }
+            .row {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 2px;
+            }
 
-          hr {
-            border: none;
-            border-top: 1px dashed #000;
-            margin: 5px 0;
-          }
+            hr {
+              border: none;
+              border-top: 1px dashed #000;
+              margin: 5px 0;
+            }
 
-          pre {
-            white-space: pre-wrap;
-            word-break: break-word;
-            margin: 0;
-          }
+            pre {
+              white-space: pre-wrap;
+              word-break: break-word;
+              margin: 0;
+            }
 
-          /* Pastikan tidak ada ruang kosong bawah */
-          @media print {
-            body::after { content: none !important; }
-            body { margin-bottom: 0; padding-bottom: 0; height: auto !important; overflow: hidden !important; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="print-box">
-          <div class="center">
-            <img src="${logo}" alt="Logo" />
-            <div>No Transaksi</div>
-            <div class="bold">${detail?.no_gadai || "-"}</div>
+            /* Pastikan tidak ada ruang kosong bawah */
+            @media print {
+              body::after { content: none !important; }
+              body { margin-bottom: 0; padding-bottom: 0; height: auto !important; overflow: hidden !important; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-box">
+            <div class="center">
+              <img src="${logo}" alt="Logo" />
+              <div>No Transaksi</div>
+              <div class="bold">${detail?.no_gadai || "-"}</div>
+            </div>
+
+            <div class="row"><span>Hari, Tanggal</span><span>${tanggalStr}</span></div>
+            <div class="row"><span>Waktu</span><span>${jamStr}</span></div>
+            <div class="row"><span>Petugas</span><span>${petugas}</span></div>
+
+            <div class="center bold" style="margin:6px 0;">PEMBAYARAN LUNAS</div>
+
+            <div class="row"><span>Nama Barang</span><span>${barangNama}</span></div>
+            <div class="row"><span>${labelBarangDetail}</span><span><pre>${barangDetail}</pre></span></div>
+            <hr />
+
+            <div class="row"><span>Pokok Pinjaman</span><span>${formatRupiah(pokok)}</span></div>
+            ${denda > 0 ? `<div class="row"><span>Denda</span><span>${formatRupiah(denda)}</span></div>` : ""}
+            ${penalty > 0 ? `<div class="row"><span>Penalty</span><span>${formatRupiah(penalty)}</span></div>` : ""}
+            ${selisihPembulatan > 0 ? `<div class="row"><span>Pembulatan</span><span>${formatRupiah(selisihPembulatan)}</span></div>` : ""}
+            <div class="row"><span>Telat</span><span>${selisihHari} hari</span></div>
+            <div class="row bold"><span>Total Bayar</span><span>${formatRupiah(totalBayar)}</span></div>
+            <hr />
+
+            <div class="row"><span>Tanggal Gadai</span><span>${detail?.tanggal_gadai || "-"}</span></div>
+            <div class="row"><span>Jatuh Tempo</span><span>${jatuhTempoTerbaru}</span></div>
+            <hr />
+
+            <div class="center">
+              <div>Terima kasih atas kepercayaan Anda!</div>
+              <div>Gadai cepat, aman, dan terpercaya di</div>
+              <div class="bold">CG GADAI.</div>
+            </div>
           </div>
 
-          <div class="row"><span>Hari, Tanggal</span><span>${tanggalStr}</span></div>
-          <div class="row"><span>Waktu</span><span>${jamStr}</span></div>
-          <div class="row"><span>Petugas</span><span>${petugas}</span></div>
-
-          <div class="center bold" style="margin:6px 0;">PEMBAYARAN LUNAS</div>
-
-          <div class="row"><span>Nama Barang</span><span>${barangNama}</span></div>
-          <div class="row"><span>${labelBarangDetail}</span><span><pre>${barangDetail}</pre></span></div>
-          <hr />
-
-          <div class="row"><span>Pokok Pinjaman</span><span>${formatRupiah(pokok)}</span></div>
-          ${denda > 0 ? `<div class="row"><span>Denda</span><span>${formatRupiah(denda)}</span></div>` : ""}
-          ${penalty > 0 ? `<div class="row"><span>Penalty</span><span>${formatRupiah(penalty)}</span></div>` : ""}
-          <div class="row"><span>Telat</span><span>${selisihHari} hari</span></div>
-          <div class="row bold"><span>Total Bayar</span><span>${formatRupiah(totalBayar)}</span></div>
-          <hr />
-
-          <div class="row"><span>Tanggal Gadai</span><span>${detail?.tanggal_gadai || "-"}</span></div>
-          <div class="row"><span>Jatuh Tempo</span><span>${jatuhTempoTerbaru}</span></div>
-          <hr />
-
-          <div class="center">
-            <div>Terima kasih atas kepercayaan Anda!</div>
-            <div>Gadai cepat, aman, dan terpercaya di</div>
-            <div class="bold">CG GADAI.</div>
-          </div>
-        </div>
-
-        <script>
-          window.onload = function() {
-            setTimeout(() => {
-              window.print();
-              window.close();
-            }, 150);
-          }
-        </script>
-      </body>
-    </html>
-  `);
-  printWindow.document.close();
-};
-
+          <script>
+            window.onload = function() {
+              setTimeout(() => {
+                window.print();
+                window.close();
+              }, 150);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   return (
     <Box sx={{ maxWidth: 400, mx: "auto", p: 2, textAlign: "center", fontFamily: "monospace" }}>
@@ -305,6 +316,7 @@ const handlePrint = () => {
           <div>Pokok Pinjaman: {formatRupiah(pokok)}</div>
           {denda > 0 && <div>Denda: {formatRupiah(denda)}</div>}
           {penalty > 0 && <div>Penalty: {formatRupiah(penalty)}</div>}
+          {selisihPembulatan > 0 && <div>Pembulatan: {formatRupiah(selisihPembulatan)}</div>}
           <div>Telat: {selisihHari} hari</div>
           <div><b>Total Bayar: {formatRupiah(totalBayar)}</b></div>
           <div>Tanggal Gadai: {detail?.tanggal_gadai || "-"}</div>

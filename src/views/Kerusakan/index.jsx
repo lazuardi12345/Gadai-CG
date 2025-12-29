@@ -23,12 +23,12 @@ import {
     Typography,
     TextField,
     Paper,
+    InputAdornment
 } from "@mui/material";
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from "@mui/icons-material";
 import axiosInstance from "api/axiosInstance";
 
 const KerusakanPage = () => {
-
     // Ambil role user
     const user = JSON.parse(localStorage.getItem("auth_user"));
     const role = user?.role?.toLowerCase() || "";
@@ -43,48 +43,57 @@ const KerusakanPage = () => {
 
     const apiUrl = getApiUrl(role);
 
+    // States
     const [kerusakanData, setKerusakanData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [tableLoading, setTableLoading] = useState(false);
     const [error, setError] = useState(null);
+    
+    // Server-side Pagination States
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [totalRows, setTotalRows] = useState(0);
+
     const [openTambahModal, setOpenTambahModal] = useState(false);
-    const [formData, setFormData] = useState({ nama_kerusakan: "", nominal: "" });
+    const [formData, setFormData] = useState({ nama_kerusakan: "", persen: "" });
     const [editingId, setEditingId] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
-    // Format Rupiah
-    const formatRupiah = (number) => {
-        if (!number || isNaN(number)) return "Rp 0";
-        return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(number);
-    };
-
-    // Fetch
+    // Fetch Data from Backend Pagination
     const fetchData = useCallback(async () => {
         setTableLoading(true);
         try {
-            const res = await axiosInstance.get(apiUrl);
+            // BE menggunakan page 1-based, MUI 0-based
+            const res = await axiosInstance.get(`${apiUrl}?page=${page + 1}&per_page=${rowsPerPage}`);
             if (res.data.success) {
-                setKerusakanData(res.data.data.items || res.data.data || []);
+                // Sesuai struktur BE: res.data.data.items
+                setKerusakanData(res.data.data.items || []);
+                setTotalRows(res.data.data.total || 0);
+            } else {
+                setError("Gagal mengambil data");
             }
-            else setError("Gagal mengambil data");
         } catch (err) {
-            setError("Terjadi kesalahan");
+            setError("Terjadi kesalahan koneksi ke server");
+            console.error(err);
         } finally {
             setTableLoading(false);
             setLoading(false);
         }
-    }, [apiUrl]);
+    }, [apiUrl, page, rowsPerPage]);
 
-    useEffect(() => { fetchData(); }, [fetchData]);
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const handleOpenTambahModal = (kerusakan = null) => {
         if (kerusakan) {
-            setFormData({ nama_kerusakan: kerusakan.nama_kerusakan, nominal: kerusakan.nominal });
+            setFormData({ 
+                nama_kerusakan: kerusakan.nama_kerusakan, 
+                persen: kerusakan.persen 
+            });
             setEditingId(kerusakan.id);
         } else {
-            setFormData({ nama_kerusakan: "", nominal: "" });
+            setFormData({ nama_kerusakan: "", persen: "" });
             setEditingId(null);
         }
         setOpenTambahModal(true);
@@ -92,65 +101,63 @@ const KerusakanPage = () => {
 
     const handleFormChange = (e) => {
         const { name, value } = e.target;
-
-        if (name === "nominal") {
-            // boleh kosong, biar backspace tidak error
-            const onlyNumbers = value.replace(/\D/g, "");
-            setFormData(prev => ({ ...prev, nominal: onlyNumbers }));
+        if (name === "persen") {
+            // Hanya angka dan desimal, max 100
+            const val = value.replace(/[^0-9.]/g, "");
+            if (val <= 100) setFormData(prev => ({ ...prev, persen: val }));
         } else {
             setFormData(prev => ({ ...prev, [name]: value }));
         }
     };
 
-
     const handleSubmit = async () => {
-        const { nama_kerusakan, nominal } = formData;
-        if (!nama_kerusakan || nominal === "") {
+        const { nama_kerusakan, persen } = formData;
+        if (!nama_kerusakan || persen === "") {
             alert("Semua field wajib diisi");
             return;
         }
 
         try {
             setSubmitting(true);
-            let res;
+            const payload = {
+                nama_kerusakan,
+                persen: parseFloat(persen),
+            };
 
+            let res;
             if (editingId) {
-                res = await axiosInstance.put(`${apiUrl}/${editingId}`, {
-                    nama_kerusakan,
-                    nominal: Number(nominal),
-                });
+                res = await axiosInstance.put(`${apiUrl}/${editingId}`, payload);
             } else {
-                res = await axiosInstance.post(apiUrl, {
-                    nama_kerusakan,
-                    nominal: Number(nominal),
-                });
+                res = await axiosInstance.post(apiUrl, payload);
             }
 
             if (res.data.success) {
                 setOpenTambahModal(false);
                 fetchData();
             } else {
-                alert(res.data.message);
+                alert(res.data.message || "Gagal menyimpan");
             }
         } catch (err) {
-            alert("Terjadi kesalahan server");
+            const msg = err.response?.data?.message || "Terjadi kesalahan server";
+            alert(msg);
         } finally {
             setSubmitting(false);
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Yakin ingin menghapus?")) return;
+        if (!window.confirm("Yakin ingin menghapus data kerusakan ini?")) return;
 
         try {
             const res = await axiosInstance.delete(`${apiUrl}/${id}`);
             if (res.data.success) fetchData();
         } catch (err) {
-            alert("Gagal menghapus");
+            alert("Gagal menghapus data");
         }
     };
 
     const handleChangePage = (_, newPage) => setPage(newPage);
+    
     const handleChangeRowsPerPage = (e) => {
         setRowsPerPage(parseInt(e.target.value, 10));
         setPage(0);
@@ -158,17 +165,17 @@ const KerusakanPage = () => {
 
     if (loading)
         return (
-            <Grid container justifyContent="center" alignItems="center" sx={{ height: "100vh" }}>
+            <Grid container justifyContent="center" alignItems="center" sx={{ height: "80vh" }}>
                 <CircularProgress />
             </Grid>
         );
 
-    if (error) return <Typography color="error" align="center">{error}</Typography>;
+    if (error) return <Typography color="error" align="center" sx={{ mt: 5 }}>{error}</Typography>;
 
     return (
         <Card sx={{ boxShadow: 4, borderRadius: 3 }}>
             <CardHeader
-                title={<Typography variant="h6" sx={{ fontWeight: "bold" }}>Master Kerusakan</Typography>}
+                title={<Typography variant="h6" sx={{ fontWeight: "bold" }}>Master Kerusakan (Sistem Persentase)</Typography>}
                 action={
                     <Button
                         variant="contained"
@@ -183,52 +190,59 @@ const KerusakanPage = () => {
             <Divider />
 
             <CardContent>
-                <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+                <TableContainer component={Paper} sx={{ borderRadius: 2, position: 'relative' }}>
+                    {tableLoading && (
+                        <Stack alignItems="center" justifyContent="center" sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(255,255,255,0.7)', zIndex: 1 }}>
+                            <CircularProgress size={30} />
+                        </Stack>
+                    )}
                     <Table>
                         <TableHead sx={{ background: "#fafafa" }}>
                             <TableRow>
-                                <TableCell align="center"><b>No</b></TableCell>
+                                <TableCell align="center" width="70"><b>No</b></TableCell>
                                 <TableCell><b>Nama Kerusakan</b></TableCell>
-                                <TableCell><b>Nominal</b></TableCell>
+                                <TableCell align="center"><b>Potongan Harga (%)</b></TableCell>
                                 <TableCell align="center"><b>Aksi</b></TableCell>
                             </TableRow>
                         </TableHead>
 
                         <TableBody>
                             {kerusakanData.length > 0 ? (
-                                kerusakanData
-                                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                                    .map((item, index) => (
-                                        <TableRow hover key={item.id}>
-                                            <TableCell align="center">
-                                                {page * rowsPerPage + index + 1}
-                                            </TableCell>
-                                            <TableCell>{item.nama_kerusakan}</TableCell>
-                                            <TableCell>{formatRupiah(item.nominal)}</TableCell>
-                                            <TableCell align="center">
-                                                <Stack direction="row" spacing={1} justifyContent="center">
-                                                    <IconButton color="primary" onClick={() => handleOpenTambahModal(item)}>
-                                                        <EditIcon />
-                                                    </IconButton>
-                                                    <IconButton color="error" onClick={() => handleDelete(item.id)}>
-                                                        <DeleteIcon />
-                                                    </IconButton>
-                                                </Stack>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
+                                kerusakanData.map((item, index) => (
+                                    <TableRow hover key={item.id}>
+                                        <TableCell align="center">
+                                            {page * rowsPerPage + index + 1}
+                                        </TableCell>
+                                        <TableCell>{item.nama_kerusakan}</TableCell>
+                                        <TableCell align="center">
+                                            <Typography sx={{ fontWeight: 'bold', color: 'error.main' }}>
+                                                {item.persen}%
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell align="center">
+                                            <Stack direction="row" spacing={1} justifyContent="center">
+                                                <IconButton color="primary" onClick={() => handleOpenTambahModal(item)}>
+                                                    <EditIcon />
+                                                </IconButton>
+                                                <IconButton color="error" onClick={() => handleDelete(item.id)}>
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            </Stack>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
                             ) : (
                                 <TableRow>
-                                    <TableCell align="center" colSpan={4}>Tidak ada data</TableCell>
+                                    <TableCell align="center" colSpan={4}>Tidak ada data kerusakan</TableCell>
                                 </TableRow>
                             )}
                         </TableBody>
                     </Table>
 
                     <TablePagination
-                        rowsPerPageOptions={[5, 10, 25]}
+                        rowsPerPageOptions={[10, 25, 50]}
                         component="div"
-                        count={kerusakanData.length}
+                        count={totalRows}
                         rowsPerPage={rowsPerPage}
                         page={page}
                         onPageChange={handleChangePage}
@@ -237,10 +251,10 @@ const KerusakanPage = () => {
                 </TableContainer>
             </CardContent>
 
-            {/* MODAL */}
-            <Dialog open={openTambahModal} onClose={() => setOpenTambahModal(false)} maxWidth="sm" fullWidth>
+            {/* MODAL FORM */}
+            <Dialog open={openTambahModal} onClose={() => setOpenTambahModal(false)} maxWidth="xs" fullWidth>
                 <DialogTitle sx={{ fontWeight: "bold" }}>
-                    {editingId ? "Edit Kerusakan" : "Tambah Kerusakan"}
+                    {editingId ? "Edit Data Kerusakan" : "Tambah Data Kerusakan"}
                 </DialogTitle>
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
@@ -250,21 +264,25 @@ const KerusakanPage = () => {
                             value={formData.nama_kerusakan}
                             onChange={handleFormChange}
                             fullWidth
+                            placeholder="Contoh: Layar Pecah"
                         />
                         <TextField
-                            label="Nominal (Rupiah)"
-                            name="nominal"
-                            value={formData.nominal}
+                            label="Besar Potongan"
+                            name="persen"
+                            value={formData.persen}
                             onChange={handleFormChange}
                             fullWidth
+                            InputProps={{
+                                endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                            }}
+                            helperText="Nilai 0 - 100"
                         />
-
                     </Stack>
                 </DialogContent>
-                <DialogActions>
+                <DialogActions sx={{ p: 2 }}>
                     <Button onClick={() => setOpenTambahModal(false)}>Batal</Button>
                     <Button variant="contained" onClick={handleSubmit} disabled={submitting}>
-                        {submitting ? <CircularProgress size={22} /> : "Simpan"}
+                        {submitting ? <CircularProgress size={22} /> : "Simpan Data"}
                     </Button>
                 </DialogActions>
             </Dialog>

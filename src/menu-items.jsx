@@ -15,6 +15,10 @@ import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNone
 import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import PriceCheckIcon from '@mui/icons-material/PriceCheck';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
+
 // atau kalau mau pakai icon lain:
 import RepeatIcon from '@mui/icons-material/Repeat';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
@@ -37,7 +41,11 @@ const icons = {
   BuildOutlinedIcon,
   RestartAltIcon,
   RepeatIcon,
-  AutorenewIcon
+  AutorenewIcon,
+  PriceCheckIcon,
+  AccountTreeOutlinedIcon,
+  AccountBalanceWalletIcon,
+  AssessmentOutlinedIcon
 };
 
 // ==============================|| MENU ITEMS ||============================== //
@@ -59,6 +67,14 @@ export default {
           url: '/dashboard/default',
           icon: icons.HomeOutlinedIcon,
           role: ['hm']
+        },
+        {
+          id: 'dashboard',
+          title: 'Dashboard',
+          type: 'item',
+          url: '/brangkas-dashboard',
+          icon: icons.HomeOutlinedIcon,
+          role: ['admin', 'checker']
         }
       ]
     },
@@ -142,7 +158,7 @@ export default {
               type: 'item',
               url: '/type',
               icon: icons.CategoryOutlinedIcon,
-              role: ['checker', 'hm', 'petugas']
+              role: ['checker', 'hm',]
             },
             {
               id: 'detail-gadai',
@@ -159,6 +175,15 @@ export default {
               url: '/perpanjangan-tempo',
               icon: icons.TimerOutlinedIcon,
               role: ['checker', 'hm', 'petugas']
+            },
+
+            {
+              id: 'Laporan Harian',
+              title: 'Laporan Checker',
+              type: 'item',
+              url: '/laporan-harian',
+              icon: icons.AssessmentOutlinedIcon,
+              role: ['checker', 'hm',]
             }
           ]
         }
@@ -182,9 +207,18 @@ export default {
             { id: 'kelengkapan-hp', title: 'HP', type: 'item', url: '/kelengkapan', icon: icons.SmartphoneOutlinedIcon, role: ['checker', 'hm'] },
             { id: 'kelengkapan-emas', title: 'Emas', type: 'item', url: '/kelengkapan-emas', icon: icons.DiamondOutlinedIcon, role: ['checker', 'hm'] },
             { id: 'kerusakan', title: 'Kerusakan', type: 'item', url: '/kerusakan', icon: icons.BuildOutlinedIcon, role: ['checker', 'hm'] },
+            { 
+  id: 'harga-hp', 
+  title: 'Harga HP', 
+  type: 'item', 
+  url: '/harga-hp', 
+  icon: icons.PriceCheckIcon, 
+  role: ['checker', 'hm', 'petugas', 'admin'] 
+},
             { id: 'merk-hp', title: 'Merk HP', type: 'item', url: '/merk-hp', icon: icons.SmartphoneOutlinedIcon, role: ['checker', 'hm'] },
             { id: 'type-hp', title: 'Type HP', type: 'item', url: '/type-hp', icon: icons.CategoryOutlinedIcon, role: ['checker', 'hm'] },
             { id: 'grade-hp', title: 'Grade HP', type: 'item', url: '/grade-hp', icon: icons.InfoOutlinedIcon, role: ['checker', 'hm'] }
+            
           ]
         }
       ]
@@ -243,7 +277,7 @@ export default {
       type: 'group',
       icon: icons.AccountTreeOutlinedIcon,
       children: [
-        { id: 'admin-laporan', title: 'Laporan Admin', type: 'item', url: '/admin', icon: icons.NotificationsNoneOutlinedIcon, role: ['hm', 'admin'] }
+        { id: 'admin-laporan', title: 'Laporan Admin', type: 'item', url: '/admin', icon: icons.AccountTreeOutlinedIcon, role: ['hm', 'admin'] }
       ]
     },
 
@@ -255,6 +289,27 @@ export default {
       icon: icons.AccountTreeOutlinedIcon,
       children: [
         { id: 'data-lelang', title: 'Data Lelang', type: 'item', url: '/pelelangan', icon: icons.NotificationsNoneOutlinedIcon, role: ['hm', 'petugas', 'checker', 'admin'] }
+      ]
+    },
+
+    //ewalet
+      {
+      id: 'Kas Management',
+      title: 'Kas Management',
+      type: 'group',
+      icon: icons.AccountBalanceWalletIcon,
+      children: [
+        { id: 'Kas Management', title: 'kas management', type: 'item', url: '/kas-management', icon: icons.AccountBalanceWalletIcon, role: ['hm','admin'] }
+      ]
+    },
+
+    {
+      id: 'Kas Management Checker',
+      title: 'Kas Management Checker',
+      type: 'group',
+      icon: icons.AccountBalanceWalletIcon,
+      children: [
+        { id: 'Kas Management Cheker', title: 'kas management Checker', type: 'item', url: '/kas-management-checker', icon: icons.AccountBalanceWalletIcon, role: ['hm','checker'] }
       ]
     }
   ]

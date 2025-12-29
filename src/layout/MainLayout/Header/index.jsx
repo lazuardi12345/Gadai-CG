@@ -13,7 +13,7 @@ import { drawerWidth } from 'config.js';
 
 // assets
 import MenuTwoToneIcon from '@mui/icons-material/MenuTwoTone';
-import logo from 'assets/images/LogoCG.jpeg';
+import logo from 'assets/images/LogoBaru1.png';
 
 // ==============================|| HEADER ||============================== //
 
@@ -31,7 +31,7 @@ const Header = ({ drawerToggle }) => {
                   src={logo}
                   alt="Logo"
                   style={{
-                    height: '45px', 
+                    height: '68px', 
                     width: 'auto',  
                   }}
                 />

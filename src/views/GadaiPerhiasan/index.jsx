@@ -1,9 +1,12 @@
 import React, { useEffect, useState, useContext } from 'react';
 import {
-  Card, CardHeader, CardContent, Divider, Table, TableContainer,
-  TableHead, TableBody, TableRow, TableCell, TablePagination,
-  IconButton, TextField, Stack, CircularProgress, Typography, Paper, Tooltip
+  Card, CardHeader, CardContent, Divider,
+  Table, TableContainer, TableHead, TableBody,
+  TableRow, TableCell, TablePagination,
+  IconButton, TextField, Stack,
+  CircularProgress, Typography, Paper, Tooltip
 } from '@mui/material';
+import { useTheme, useMediaQuery } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -16,6 +19,9 @@ const GadaiPerhiasanPage = () => {
   const { user } = useContext(AuthContext);
   const userRole = (user?.role || '').toLowerCase();
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const [data, setData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,10 +30,9 @@ const GadaiPerhiasanPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
-  const canAdd = ["hm", "checker"].includes(userRole);
-  const canEdit = ["hm", "checker"].includes(userRole);
-  const canDelete = userRole === "hm";
-  const canView = ["petugas", "hm", "checker"].includes(userRole);
+  const canEdit = ['hm', 'checker'].includes(userRole);
+  const canDelete = userRole === 'hm';
+  const canView = ['petugas', 'hm', 'checker'].includes(userRole);
 
   const fetchData = async () => {
     setLoading(true);
@@ -41,7 +46,9 @@ const GadaiPerhiasanPage = () => {
       if (res.data.success) {
         setData(res.data.data);
         setFilteredData(res.data.data);
-      } else setError(res.data.message || 'Gagal mengambil data');
+      } else {
+        setError(res.data.message || 'Gagal mengambil data');
+      }
     } catch (err) {
       setError(err.message || 'Terjadi kesalahan server');
     } finally {
@@ -74,60 +81,70 @@ const GadaiPerhiasanPage = () => {
       if (res.data.success) {
         setData(prev => prev.filter(item => item.id !== id));
         setFilteredData(prev => prev.filter(item => item.id !== id));
-      } else alert(res.data.message || 'Gagal menghapus data');
-    } catch (err) {
-      alert(err.message || 'Terjadi kesalahan server');
+      } else {
+        alert(res.data.message || 'Gagal menghapus data');
+      }
+    } catch {
+      alert('Terjadi kesalahan server');
     }
   };
 
-  if (loading) return (
-    <Stack alignItems="center" justifyContent="center" sx={{ height: '80vh' }}>
-      <CircularProgress />
-    </Stack>
-  );
+  if (loading) {
+    return (
+      <Stack alignItems="center" justifyContent="center" sx={{ height: '80vh' }}>
+        <CircularProgress />
+      </Stack>
+    );
+  }
 
-  if (error) return (
-    <Typography color="error" variant="h6" align="center" sx={{ mt: 2 }}>
-      Error: {error}
-    </Typography>
-  );
+  if (error) {
+    return (
+      <Typography color="error" variant="h6" align="center" sx={{ mt: 2 }}>
+        Error: {error}
+      </Typography>
+    );
+  }
 
   return (
     <Card>
       <CardHeader
         title="Data Gadai Perhiasan"
         action={
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="center">
-            <TextField
-              variant="outlined"
-              size="small"
-              placeholder="Cari nama barang, kode cap, atau nama nasabah..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ width: { xs: '100%', sm: 300 }, mb: { xs: 1, sm: 0 } }}
-            />
-          </Stack>
+          <TextField
+            fullWidth={isMobile}
+            variant="outlined"
+            size="small"
+            placeholder="Cari nama barang, kode cap, atau nasabah..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ width: isMobile ? '100%' : 300 }}
+          />
         }
       />
       <Divider />
-      <CardContent>
-        <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 3 }}>
-          <Table size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
+
+      <CardContent sx={{ p: isMobile ? 1 : 2 }}>
+        <TableContainer
+          component={Paper}
+          sx={{
+            borderRadius: 2,
+            boxShadow: 3,
+            overflowX: 'auto'
+          }}
+        >
+          <Table size="small" sx={{ minWidth: 900 }}>
             <TableHead>
               <TableRow>
-                {['No', 'Nama Barang', 'Kode Cap', 'Karat', 'Berat', 'Potongan Batu', 'Kelengkapan', 'Nasabah', 'Aksi']
+                {['No','Nama Barang','Kode Cap','Karat','Berat','Potongan Batu','Kelengkapan','Nasabah','Aksi']
                   .map(head => (
                     <TableCell
                       key={head}
-                      align={['Karat','Berat','Potongan Batu'].includes(head) ? 'right':'center'}
+                      align={['Karat','Berat','Potongan Batu'].includes(head) ? 'right' : 'center'}
                       sx={{
                         fontWeight: 'bold',
                         backgroundColor: '#f0f0f0',
-                        verticalAlign: 'middle',
-                        paddingY: 1,
                         whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
+                        fontSize: isMobile ? 12 : 14
                       }}
                     >
                       {head}
@@ -142,51 +159,42 @@ const GadaiPerhiasanPage = () => {
                 : filteredData
               ).map((item, index) => (
                 <TableRow key={item.id} hover>
-                  <TableCell align="center" sx={{ verticalAlign: 'middle', paddingY: 1 }}>
+                  <TableCell align="center">
                     {page * rowsPerPage + index + 1}
                   </TableCell>
-                  <TableCell sx={{ wordBreak: 'break-word', verticalAlign: 'middle', paddingY: 1 }}>
-                    {item.nama_barang || '-'}
-                  </TableCell>
-                  <TableCell align="center" sx={{ verticalAlign: 'middle', paddingY: 1 }}>
-                    {item.kode_cap || '-'}
-                  </TableCell>
-                  <TableCell align="right" sx={{ verticalAlign: 'middle', paddingY: 1 }}>
-                    {item.karat || '-'}
-                  </TableCell>
-                  <TableCell align="right" sx={{ verticalAlign: 'middle', paddingY: 1 }}>
-                    {item.berat || '-'}
-                  </TableCell>
-                  <TableCell align="right" sx={{ verticalAlign: 'middle', paddingY: 1 }}>
-                    {item.potongan_batu || '-'}
-                  </TableCell>
-                  <TableCell sx={{ wordBreak: 'break-word', verticalAlign: 'middle', paddingY: 1 }}>
-                    {item.kelengkapan_list && item.kelengkapan_list.length > 0
+                  <TableCell>{item.nama_barang || '-'}</TableCell>
+                  <TableCell align="center">{item.kode_cap || '-'}</TableCell>
+                  <TableCell align="right">{item.karat || '-'}</TableCell>
+                  <TableCell align="right">{item.berat || '-'}</TableCell>
+                  <TableCell align="right">{item.potongan_batu || '-'}</TableCell>
+                  <TableCell>
+                    {item.kelengkapan_list?.length
                       ? item.kelengkapan_list.map(k => k.nama_kelengkapan).join(', ')
                       : '-'}
                   </TableCell>
-                  <TableCell sx={{ wordBreak: 'break-word', verticalAlign: 'middle', paddingY: 1 }}>
-                    {item.detail_gadai?.nasabah?.nama_lengkap || '-'}
-                  </TableCell>
-                  <TableCell align="center" sx={{ verticalAlign: 'middle', paddingY: 1 }}>
-                    <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
+                  <TableCell>{item.detail_gadai?.nasabah?.nama_lengkap || '-'}</TableCell>
+                  <TableCell align="center">
+                    <Stack direction="row" spacing={0.5} justifyContent="center">
                       {canView && (
                         <Tooltip title="Detail">
-                          <IconButton color="info" size="small" onClick={() => navigate(`/detail-gadai-perhiasan/${item.id}`)}>
+                          <IconButton size="small" color="info"
+                            onClick={() => navigate(`/detail-gadai-perhiasan/${item.id}`)}>
                             <VisibilityIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}
                       {canEdit && (
                         <Tooltip title="Edit">
-                          <IconButton color="primary" size="small" onClick={() => navigate(`/edit-gadai-perhiasan/${item.id}`)}>
+                          <IconButton size="small" color="primary"
+                            onClick={() => navigate(`/edit-gadai-perhiasan/${item.id}`)}>
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}
                       {canDelete && (
                         <Tooltip title="Hapus">
-                          <IconButton color="error" size="small" onClick={() => handleDelete(item.id)}>
+                          <IconButton size="small" color="error"
+                            onClick={() => handleDelete(item.id)}>
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -195,9 +203,10 @@ const GadaiPerhiasanPage = () => {
                   </TableCell>
                 </TableRow>
               ))}
+
               {filteredData.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ verticalAlign: 'middle', paddingY: 2 }}>
+                  <TableCell colSpan={9} align="center">
                     Tidak ada data ditemukan.
                   </TableCell>
                 </TableRow>
@@ -214,7 +223,7 @@ const GadaiPerhiasanPage = () => {
           rowsPerPage={rowsPerPage}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
-          labelRowsPerPage="Baris per halaman:"
+          labelRowsPerPage="Baris:"
         />
       </CardContent>
     </Card>

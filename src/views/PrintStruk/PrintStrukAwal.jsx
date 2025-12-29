@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { CircularProgress, Button, Box } from "@mui/material";
 import { AuthContext } from "AuthContex/AuthContext";
-import logo from "assets/images/GadaiLogo.png";
+import logo from "assets/images/LogoBaru1.png";
 
 const PrintStrukPage = () => {
   const { id } = useParams();
@@ -113,8 +113,11 @@ const PrintStrukPage = () => {
   // === Asuransi tetap ===
   const asuransi = 10000;
 
-  // === Total diterima ===
-  const totalDiterima = pinjaman - jasaSewa - admin - asuransi;
+  // === Total diterima (sebelum pembulatan) ===
+  const totalDiterimaSebelum = pinjaman - jasaSewa - admin - asuransi;
+  
+  // === PEMBULATAN ke BAWAH (floor) ke ribuan terdekat ===
+  const totalDiterima = Math.floor(totalDiterimaSebelum / 1000) * 1000;
 
   const formatRupiah = (val) => `Rp. ${Number(val || 0).toLocaleString("id-ID")}`;
 
@@ -153,20 +156,24 @@ const PrintStrukPage = () => {
     return String(value);
   };
 
+  const formatLabel = (text) => {
+    if (!text) return "-";
+    return String(text).replace(/_/g, " ").toUpperCase();
+  };
+
   const type = (typeNama || "").toLowerCase();
 
   // === Handphone ===
-  if (type === "handphone" || type === "hp") {
+if (type === "handphone" || type === "hp") {
     const hpData = detail?.hp || {};
 
     barangNama = hpData?.nama_barang || "Handphone";
 
-    const merk = detail?.hp?.merk?.nama_merk || "-";
-    const typehp = detail?.hp?.type_hp?.nama_type || "-";
-
+    const merk = formatLabel(detail?.hp?.merk?.nama_merk || "-");
+    const typehp = formatLabel(detail?.hp?.type_hp?.nama_type || "-");
     const ram = hpData?.ram || "-";
     const rom = hpData?.rom || "-";
-    const grade = hpData?.grade_type || "-";
+    const grade = formatLabel(hpData?.grade_type || "-"); 
 
     const lines = [
       { label: "Merk/Type", value: `${merk} / ${typehp}` },
@@ -174,7 +181,6 @@ const PrintStrukPage = () => {
       { label: "ROM", value: rom },
       { label: "Grade", value: grade }
     ];
-
 
     const maxLabelLength = Math.max(...lines.map(l => l.label.length));
 
@@ -187,25 +193,19 @@ const PrintStrukPage = () => {
     const kolomNama = 40;
 
     kerusakanList = (detail?.hp?.kerusakan_list || []).map((k) => {
-      const nominal = k.pivot?.nominal_override ?? k.nominal;
-      const nama = (k.nama_kerusakan || "-").padEnd(kolomNama - kolomNominal, " ");
-      return nama + formatRupiah(nominal).padStart(kolomNominal, " ");
+      return {
+        nama: k.nama_kerusakan || "-"
+      };
     });
 
     kelengkapanList = (detail?.hp?.kelengkapan_list || []).map((k) => {
-      const nominal = k.pivot?.nominal_override ?? k.nominal;
-      const nama = (k.nama_kelengkapan || "-").padEnd(kolomNama - kolomNominal, " ");
-      return nama + formatRupiah(nominal).padStart(kolomNominal, " ");
+      return {
+        nama: k.nama_kelengkapan || "-"
+      };
     });
-
-
-
-
 
     labelBarangDetail = "Detail Handphone";
   }
-
-
 
   // === Perhiasan ===
   else if (type === "perhiasan") {
@@ -251,8 +251,6 @@ const PrintStrukPage = () => {
       nominal: 0,
     }));
   }
-
-
 
   // === Default ===
   else {
@@ -382,14 +380,12 @@ ${kerusakanList.length
           .map(
             (k) => `<tr>
                     <td>${k.nama}</td>
-                    <td style="text-align:right">${formatRupiah(k.nominal)}</td>
                   </tr>`
           )
           .join("")}
     </table>`
         : "-"
       }
-
 
 <div><b>Kelengkapan:</b></div>
 ${kelengkapanList.length
@@ -398,7 +394,6 @@ ${kelengkapanList.length
           .map(
             (k) => `<tr>
                     <td>${k.nama}</td>
-                    <td style="text-align:right">${formatRupiah(k.nominal)}</td>
                   </tr>`
           )
           .join("")}
@@ -406,12 +401,8 @@ ${kelengkapanList.length
         : "-"
       }
 
-
-
-
-
             <div class="row"><span>Pokok Pinjaman</span><span>${formatRupiah(pinjaman)}</span></div>
-            <div class="row"><span>Jasa Sewa (${jenisSkema} ${(persenJasa * 100).toFixed(1)}%)</span><span>${formatRupiah(jasaSewa)}</span></div>
+            <div class="row"><span>Jasa Sewa</span><span>${formatRupiah(jasaSewa)}</span></div>
             <div class="row"><span>Administrasi</span><span>${formatRupiah(admin)}</span></div>
             <div class="row"><span>Asuransi</span><span>${formatRupiah(asuransi)}</span></div>
             <div class="row bold"><span>Total Diterima</span><span>${formatRupiah(totalDiterima)}</span></div>
@@ -444,8 +435,6 @@ ${kelengkapanList.length
     printWindow.document.close();
   };
 
-
-
   return (
     <Box sx={{ maxWidth: 400, margin: "0 auto", padding: 2, textAlign: "center" }}>
       <div ref={printRef}>
@@ -471,88 +460,59 @@ ${kelengkapanList.length
           <div>
             <div><b>Kerusakan:</b></div>
             {kerusakanList.length ? (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <tbody>
-                  {detail.hp.kerusakan_list.map((k, i) => (
-                    <tr key={i}>
-                      <td>{k.nama_kerusakan || "-"}</td>
-                      <td style={{ textAlign: "right" }}>
-                        {formatRupiah(k.pivot?.nominal_override ?? k.nominal)}
-                      </td>
-                    </tr>
-                  ))}
-
-                </tbody>
-              </table>
+              <div>
+                {kerusakanList.map((k, i) => (
+                  <div key={i}>{k.nama}</div>
+                ))}
+              </div>
             ) : "-"}
 
             <div style={{ marginTop: "4px" }}><b>Kelengkapan:</b></div>
             {/* === Kelengkapan khusus Handphone === */}
-            {(type === "hp" || type === "handphone") && detail?.hp?.kelengkapan_list?.length > 0 && (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <tbody>
-                  {detail.hp.kelengkapan_list.map((k, i) => (
-                    <tr key={i}>
-                      <td>{k.nama_kelengkapan || "-"}</td>
-                      <td style={{ textAlign: "right" }}>
-                        {formatRupiah(k.pivot?.nominal_override ?? k.nominal)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {(type === "hp" || type === "handphone") && kelengkapanList.length > 0 && (
+              <div>
+                {kelengkapanList.map((k, i) => (
+                  <div key={i}>{k.nama}</div>
+                ))}
+              </div>
             )}
 
             {/* === Kelengkapan Perhiasan === */}
             {type === "perhiasan" && detail?.perhiasan?.kelengkapan?.length > 0 && (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <tbody>
-                  {detail.perhiasan.kelengkapan.map((k, i) => (
-                    <tr key={i}>
-                      <td>{k.nama_kelengkapan || "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div>
+                {detail.perhiasan.kelengkapan.map((k, i) => (
+                  <div key={i}>{k.nama_kelengkapan || "-"}</div>
+                ))}
+              </div>
             )}
 
             {/* === Kelengkapan Logam Mulia === */}
             {type === "logam mulia" && detail?.logam_mulia?.kelengkapan_emas?.length > 0 && (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <tbody>
-                  {detail.logam_mulia.kelengkapan_emas.map((k, i) => (
-                    <tr key={i}>
-                      <td>{k.nama_kelengkapan || "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div>
+                {detail.logam_mulia.kelengkapan_emas.map((k, i) => (
+                  <div key={i}>{k.nama_kelengkapan || "-"}</div>
+                ))}
+              </div>
             )}
 
             {/* === Kelengkapan Retro === */}
             {type === "retro" && detail?.retro?.kelengkapan?.length > 0 && (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <tbody>
-                  {detail.retro.kelengkapan.map((k, i) => (
-                    <tr key={i}>
-                      <td>{k.nama_kelengkapan || "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div>
+                {detail.retro.kelengkapan.map((k, i) => (
+                  <div key={i}>{k.nama_kelengkapan || "-"}</div>
+                ))}
+              </div>
             )}
 
             {/* Jika semua kosong */}
-            {((type === "hp" && !detail?.hp?.kelengkapan_list?.length) ||
+            {((type === "hp" && !kelengkapanList.length) ||
               (type === "retro" && !detail?.retro?.kelengkapan?.length) ||
               (type === "perhiasan" && !detail?.perhiasan?.kelengkapan?.length) ||
               (type === "logam mulia" && !detail?.logam_mulia?.kelengkapan_emas?.length)) && "-"}
-
           </div>
 
-
           <div>Pokok Pinjaman {formatRupiah(pinjaman)}</div>
-          <div>Jasa Sewa ({jenisSkema} {(persenJasa * 100).toFixed(1)}%) {formatRupiah(jasaSewa)}</div>
+          <div>Jasa Sewa {formatRupiah(jasaSewa)}</div>
           <div>Administrasi {formatRupiah(admin)}</div>
           <div>Asuransi {formatRupiah(asuransi)}</div>
           <div><b>Total Diterima {formatRupiah(totalDiterima)}</b></div>

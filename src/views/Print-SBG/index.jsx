@@ -12,7 +12,7 @@ import {
     Font,
     pdf,
 } from "@react-pdf/renderer";
-import templateBg from "assets/images/SBG-HP.jpg";
+import templateBg from "assets/images/SBG-HP-FIX.jpg";
 import { AuthContext } from "AuthContex/AuthContext";
 
 Font.register({
@@ -171,19 +171,19 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                     <SafeText style={{ position: "absolute", top: 68, left: 190, fontSize: 13, fontWeight: "bold" }}>
                         {data.no_gadai}
                     </SafeText>
-                    <SafeText style={{ position: "absolute", top: 95, left: 100, fontSize: 7 }}>
+                    <SafeText style={{ position: "absolute", top: 92, left: 86, fontSize: 7 }}>
                         {data.no_nasabah}
                     </SafeText>
-                    <SafeText style={{ position: "absolute", top: 104, left: 100, fontSize: 7 }}>
+                    <SafeText style={{ position: "absolute", top: 102, left: 86, fontSize: 7 }}>
                         {nasabah.nik}
                     </SafeText>
-                    <SafeText style={{ position: "absolute", top: 111.5, left: 100, fontSize: 7 }}>
+                    <SafeText style={{ position: "absolute", top: 110, left: 86, fontSize: 7 }}>
                         {nasabah.nama_lengkap}
                     </SafeText>
-                    <SafeText style={{ position: "absolute", top: 120, left: 100, fontSize: 7 }}>
+                    <SafeText style={{ position: "absolute", top: 120, left: 86, fontSize: 7 }}>
                         {nasabah.alamat}
                     </SafeText>
-                    <SafeText style={{ position: "absolute", top: 130, left: 100, fontSize: 7 }}>
+                    <SafeText style={{ position: "absolute", top: 137, left: 86, fontSize: 7 }}>
                         {nasabah.no_hp}
                     </SafeText>
 
@@ -196,42 +196,42 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                     </SafeText>
 
                     {/* Barang HP (Kiri bawah) */}
-                    <SafeText style={{ position: "absolute", top: 156, left: 93, fontSize: 7 }}>
+                    <SafeText style={{ position: "absolute", top: 158, left: 90, fontSize: 7 }}>
                         {cleanText(hp.nama_barang)}
                     </SafeText>
-                    <SafeText style={{ position: "absolute", top: 156, left: 178, fontSize: 7 }}>
+                    <SafeText style={{ position: "absolute", top: 158, left: 180, fontSize: 7 }}>
                         {`${cleanText(hp.grade_type)}/${cleanText(hp.imei)}`}
                     </SafeText>
-                    <SafeText style={{ position: "absolute", top: 167, left: 93, fontSize: 6 }}>
+                    <SafeText style={{ position: "absolute", top: 170, left: 90, fontSize: 6 }}>
                         {`${cleanText(hp.type_hp?.nama_type)}`}
                     </SafeText>
-                    <SafeText style={{ position: "absolute", top: 167, left: 178, fontSize: 6 }}>
+                    <SafeText style={{ position: "absolute", top: 171, left: 180, fontSize: 6 }}>
                         {`${cleanText(hp.warna)}`}
                     </SafeText>
-                    <SafeText style={{ position: "absolute", top: 178, left: 178, fontSize: 6 }}>
+                    <SafeText style={{ position: "absolute", top: 183, left: 180, fontSize: 6 }}>
                         {`${cleanText(hp.kunci_password || hp.kunci_pin || hp.kunci_pola)}`}
                     </SafeText>
-                    <SafeText style={{ position: "absolute", top: 178, left: 93, fontSize: 7 }}>
+                    <SafeText style={{ position: "absolute", top: 182, left: 90, fontSize: 7 }}>
                         {`${cleanText(hp.ram)}/${cleanText(hp.rom)} GB`}
                     </SafeText>
-                    <SafeText style={{ position: "absolute", top: 188, left: 93, fontSize: 7 }}>
+                    <SafeText style={{ position: "absolute", top: 193, left: 90, fontSize: 7 }}>
                         {(hp.kelengkapan_list || []).map(k => k.nama_kelengkapan).join(", ")}
                     </SafeText>
-                    <SafeText style={{ position: "absolute", top: 195, left: 93, fontSize: 7 }}>
+                    <SafeText style={{ position: "absolute", top: 201, left: 90, fontSize: 7 }}>
                         {(hp.kerusakan_list || []).map(k => k.nama_kerusakan).join(", ")}
                     </SafeText>
 
                     {/* Nilai Pinjaman */}
-                    <SafeText style={{ position: "absolute", top: 145, left: 320, fontSize: 7, fontWeight: "bold" }}>
+                    <SafeText style={{ position: "absolute", top: 148, left: 320, fontSize: 7, fontWeight: "bold" }}>
                         {formatRupiah(data.taksiran)}
                     </SafeText>
-                    <SafeText style={{ position: "absolute", top: 156, left: 320, fontSize: 7, fontWeight: "bold" }}>
+                    <SafeText style={{ position: "absolute", top: 160, left: 320, fontSize: 7, fontWeight: "bold" }}>
                         {formatRupiah(data.uang_pinjaman)}
                     </SafeText>
                     <SafeText
                         style={{
                             position: "absolute",
-                            top: 169,
+                            top: 173,
                             left: 320,
                             fontSize: 7,
                             fontWeight: "bold",

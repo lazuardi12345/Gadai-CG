@@ -46,6 +46,11 @@ const TypePage = () => {
   const [formNomorType, setFormNomorType] = useState("");
   const [formNamaType, setFormNamaType] = useState("");
 
+  // --- LOGIKA HAK AKSES ---
+  const canEditOrAdd = ["hm", "checker"].includes(user?.role);
+  const canDelete = user?.role === "hm";
+  const hasActionAccess = canEditOrAdd || canDelete;
+
   useEffect(() => {
     fetchTypes();
   }, [user]);
@@ -56,21 +61,10 @@ const TypePage = () => {
     setLoading(true);
     try {
       let endpoint = "/type";
-
-      switch (user.role) {
-        case "petugas":
-          endpoint = "/petugas/type";
-          break;
-        case "checker":
-          endpoint = "/checker/type";
-          break;
-        case "hm":
-          endpoint = "/type";
-          break;
-        default:
-          endpoint = "/type";
-          break;
-      }
+      // Penyesuaian endpoint berdasarkan role
+      if (user.role === "petugas") endpoint = "/petugas/type";
+      else if (user.role === "checker") endpoint = "/checker/type";
+      else endpoint = "/type";
 
       const response = await axiosInstance.get(endpoint);
       if (response.data.success) {
@@ -86,7 +80,6 @@ const TypePage = () => {
     }
   };
 
-  // Filter real-time
   useEffect(() => {
     const filtered = types.filter(
       (type) =>
@@ -104,6 +97,7 @@ const TypePage = () => {
   };
 
   const handleOpenDialog = (type = null) => {
+    if (!canEditOrAdd) return; // Guard clause
     setEditingType(type);
     setFormNomorType(type?.nomor_type || "");
     setFormNamaType(type?.nama_type || "");
@@ -123,14 +117,11 @@ const TypePage = () => {
 
     const payload = { nomor_type: formNomorType, nama_type: formNamaType };
     try {
-      let res;
-
-      // Gunakan endpoint sesuai role
       let baseEndpoint = "/type";
-      if (user.role === "petugas") baseEndpoint = "/petugas/type";
       if (user.role === "checker") baseEndpoint = "/checker/type";
       if (user.role === "hm") baseEndpoint = "/type";
 
+      let res;
       if (editingType) {
         res = await axiosInstance.put(`${baseEndpoint}/${editingType.id}`, payload);
       } else {
@@ -144,18 +135,15 @@ const TypePage = () => {
         alert(res.data.message || "Gagal menyimpan data");
       }
     } catch (err) {
-      console.error(err);
       alert("Terjadi kesalahan server");
     }
   };
 
   const handleDelete = async (id) => {
+    if (!canDelete) return;
     if (!window.confirm("Yakin hapus data ini?")) return;
     try {
-      let baseEndpoint = "/type";
-      if (user.role === "hm") baseEndpoint = "/type"; // hanya HM bisa hapus
-
-      const res = await axiosInstance.delete(`${baseEndpoint}/${id}`);
+      const res = await axiosInstance.delete(`/type/${id}`);
       if (res.data.success) {
         setTypes((prev) => prev.filter((type) => type.id !== id));
       } else {
@@ -174,18 +162,6 @@ const TypePage = () => {
     );
   }
 
-  if (error) {
-    return (
-      <Typography color="error" variant="h6" align="center" sx={{ mt: 2 }}>
-        Error: {error}
-      </Typography>
-    );
-  }
-
-  // Akses berdasarkan role
-  const canCreateOrEdit = ["petugas", "checker", "hm"].includes(user?.role);
-  const canDelete = user?.role === "hm";
-
   return (
     <>
       <Card sx={{ boxShadow: 3, borderRadius: 3 }}>
@@ -196,12 +172,12 @@ const TypePage = () => {
               <TextField
                 variant="outlined"
                 size="small"
-                placeholder="🔍 Cari nomor / nama type..."
+                placeholder="🔍 Cari..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 sx={{ backgroundColor: "white", borderRadius: 2, width: 220 }}
               />
-              {canCreateOrEdit && (
+              {canEditOrAdd && (
                 <Button variant="contained" color="primary" onClick={() => handleOpenDialog()}>
                   + Tambah
                 </Button>
@@ -210,53 +186,44 @@ const TypePage = () => {
           }
         />
         <Divider />
-        <CardContent sx={{ width: "100%" }}>
+        <CardContent>
           <TableContainer component={Paper}>
-            <Table size="small" sx={{ minWidth: 600 }}>
+            <Table size="small">
               <TableHead>
                 <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
                   <TableCell><strong>No</strong></TableCell>
                   <TableCell><strong>Nomor Type</strong></TableCell>
                   <TableCell><strong>Nama Type</strong></TableCell>
-                  {(canCreateOrEdit || canDelete) && <TableCell align="center"><strong>Aksi</strong></TableCell>}
+                  {hasActionAccess && <TableCell align="center"><strong>Aksi</strong></TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {(rowsPerPage > 0
-                  ? filteredTypes.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  : filteredTypes
-                ).map((type, index) => (
-                  <TableRow key={type.id} hover>
-                    <TableCell>{page * rowsPerPage + index + 1}</TableCell>
-                    <TableCell>{type.nomor_type}</TableCell>
-                    <TableCell>{type.nama_type}</TableCell>
-                    {(canCreateOrEdit || canDelete) && (
-                      <TableCell align="center">
-                        {canCreateOrEdit && (
-                          <IconButton color="primary" onClick={() => handleOpenDialog(type)}>
-                            <EditIcon />
-                          </IconButton>
-                        )}
-                        {canDelete && (
-                          <IconButton color="error" onClick={() => handleDelete(type.id)}>
-                            <DeleteIcon />
-                          </IconButton>
-                        )}
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-                {filteredTypes.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={(canCreateOrEdit || canDelete) ? 4 : 3} align="center">
-                      Tidak ada data ditemukan.
-                    </TableCell>
-                  </TableRow>
-                )}
+                {filteredTypes
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map((type, index) => (
+                    <TableRow key={type.id} hover>
+                      <TableCell>{page * rowsPerPage + index + 1}</TableCell>
+                      <TableCell>{type.nomor_type}</TableCell>
+                      <TableCell>{type.nama_type}</TableCell>
+                      {hasActionAccess && (
+                        <TableCell align="center">
+                          {canEditOrAdd && (
+                            <IconButton color="primary" onClick={() => handleOpenDialog(type)}>
+                              <EditIcon />
+                            </IconButton>
+                          )}
+                          {canDelete && (
+                            <IconButton color="error" onClick={() => handleDelete(type.id)}>
+                              <DeleteIcon />
+                            </IconButton>
+                          )}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           </TableContainer>
-
           <TablePagination
             rowsPerPageOptions={[5, 10, 25]}
             component="div"
@@ -269,12 +236,12 @@ const TypePage = () => {
         </CardContent>
       </Card>
 
-      {/* Modal Tambah/Edit */}
-      {canCreateOrEdit && (
+      {/* Modal hanya bisa dibuka oleh checker/hm */}
+      {canEditOrAdd && (
         <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
           <DialogTitle>{editingType ? "✏️ Edit Type" : "➕ Tambah Type"}</DialogTitle>
           <DialogContent dividers>
-            <Stack spacing={2}>
+            <Stack spacing={2} sx={{ mt: 1 }}>
               <TextField
                 label="Nomor Type"
                 fullWidth

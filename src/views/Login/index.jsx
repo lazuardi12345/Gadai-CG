@@ -9,7 +9,7 @@ import { Card, CardContent, Typography, Grid, Box, Button, Stack } from '@mui/ma
 import AuthLogin from './AuthLogin';
 
 // assets
-import Logo from 'assets/images/CGadai.png';
+import Logo from 'assets/images/LogoBaru1.png';
 
 // ==============================|| LOGIN (Tanpa Google Login, Logo Tengah) ||============================== //
 
@@ -33,7 +33,7 @@ const Login = () => {
             overflow: 'visible',
             position: 'relative',
             maxWidth: '475px',
-            margin: '24px auto',
+            margin: '50px auto',
             textAlign: 'center',
             py: 3
           }}
@@ -45,7 +45,7 @@ const Login = () => {
               src={Logo}
               alt="Logo CG"
               sx={{
-                height: 70,
+                height: 100,
                 width: 'auto',
                 objectFit: 'contain',
                 display: 'block',
