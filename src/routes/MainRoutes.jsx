@@ -97,6 +97,8 @@ const BrankasDashboard = Loadable(lazy(() => import('views/BrangkasDashboard/ind
 const KasManagement = Loadable(lazy(() => import('views/KasManajemen/index')));
 const KasirOperasional = Loadable(lazy(() => import('views/KasManajemen/operatorKas')));
 const LaporanHarianChecker = Loadable(lazy(() => import('views/LaporanHarianChecker/index')));
+const LaporanApproval = Loadable(lazy(() => import('views/AccLaporan/index')));
+const LaporanHarianPetugas = Loadable(lazy(() => import('views/LaporanHarianPetugas/index')));
 // ==============================|| MAIN ROUTES ||============================== //
 const MainRoutes = {
   path: '/',
@@ -167,6 +169,9 @@ const MainRoutes = {
     { path: '/kas-management', element: <KasManagement/> },
     { path: '/kas-management-checker', element: <KasirOperasional/> },
     { path: '/laporan-harian', element: <LaporanHarianChecker/> },
+    { path: '/pengajuan-laporan', element: <LaporanApproval/> },
+    { path: '/laporan-harian-petugas', element: <LaporanHarianPetugas/> },
+
 
 
 

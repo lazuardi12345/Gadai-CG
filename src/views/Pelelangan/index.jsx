@@ -14,7 +14,8 @@ import {
   Search as SearchIcon,
   History as HistoryIcon,
   AccessTime as AccessTimeIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  Print as PrintIcon // Tambahkan icon print
 } from "@mui/icons-material";
 import { AuthContext } from "AuthContex/AuthContext";
 import axiosInstance from "api/axiosInstance";
@@ -132,14 +133,17 @@ const PelelanganPage = () => {
       dataPayload.append(modalMode === "proses" ? "keterangan" : "catatan", formData.keterangan);
       if (formData.bukti) dataPayload.append("bukti_transfer", formData.bukti);
 
-      const endpoint = `${baseUrl}/${selectedGadai.id}/${modalMode === "proses" ? 'proses' : 'lunasi'}`;
+      // Pastikan menggunakan selectedGadai.id (Detail Gadai ID)
+      const detailGadaiId = selectedGadai.id;
+      const endpoint = `${baseUrl}/${detailGadaiId}/${modalMode === "proses" ? 'proses' : 'lunasi'}`;
       const res = await axiosInstance.post(endpoint, dataPayload, { headers: { "Content-Type": "multipart/form-data" } });
 
       if (res.data.success) {
         showAlert('success', res.data.message);
         setOpenModal(false);
         fetchData();
-        if (modalMode === "lunasi") navigate(`/struk-pelunasan-lelang/${selectedGadai.id}`);
+        // Redirect ke struk menggunakan ID Detail Gadai
+        if (modalMode === "lunasi") navigate(`/struk-pelunasan-lelang/${detailGadaiId}`);
       }
     } catch (err) {
       showAlert('error', err.response?.data?.message || 'Terjadi kesalahan sistem');
@@ -220,7 +224,6 @@ const PelelanganPage = () => {
                 <TableBody>
                   {filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item) => (
                     <TableRow key={item.id} hover>
-                      {/* KOLOM 1: INFO NASABAH & TELAT */}
                       <TableCell>
                         <Typography variant="subtitle2" fontWeight="bold" color="primary">{item.no_gadai}</Typography>
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.nama_nasabah}</Typography>
@@ -240,7 +243,6 @@ const PelelanganPage = () => {
                         </Stack>
                       </TableCell>
 
-                      {/* KOLOM 2: TOTAL TAGIHAN */}
                       <TableCell align="right">
                         <Tooltip arrow title={
                           <Box sx={{ p: 0.5 }}>
@@ -261,7 +263,6 @@ const PelelanganPage = () => {
                         </Tooltip>
                       </TableCell>
 
-                      {/* KOLOM RIWAYAT (DIPISAH) */}
                       {(tabIndex === 2 || isAdmin) && (
                         <>
                           <TableCell align="right">
@@ -308,6 +309,18 @@ const PelelanganPage = () => {
                               <Tooltip title="Proses Lelang"><IconButton size="small" color="warning" onClick={() => openActionModal(item, 'proses')}><GavelIcon fontSize="small" /></IconButton></Tooltip>
                               <Tooltip title="Pelunasan/Tebus"><IconButton size="small" color="success" onClick={() => openActionModal(item, 'lunasi')}><MoneyIcon fontSize="small" /></IconButton></Tooltip>
                             </>
+                          )}
+                          {/* FITUR BARU: TOMBOL CETAK STRUK DI RIWAYAT */}
+                          {(tabIndex === 2 || isAdmin) && item.status === 'lunas' && (
+                            <Tooltip title="Cetak Struk">
+                                <IconButton 
+                                    size="small" 
+                                    color="secondary" 
+                                    onClick={() => navigate(`/struk-pelunasan-lelang/${item.detail_gadai_id || item.id}`)}
+                                >
+                                    <PrintIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
                           )}
                           {item.bukti && (
                             <Tooltip title="Lihat Bukti"><IconButton size="small" color="info" onClick={() => window.open(item.bukti, '_blank')}><VisibilityIcon fontSize="small" /></IconButton></Tooltip>

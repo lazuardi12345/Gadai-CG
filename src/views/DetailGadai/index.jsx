@@ -4,7 +4,7 @@ import {
   TableHead, TableBody, TableRow, TableCell, TablePagination,
   IconButton, TextField, Button, CircularProgress, Typography,
   Stack, Chip, Tooltip, Box, Dialog, DialogTitle,
-  DialogContent, DialogActions, MenuItem, Paper
+  DialogContent, DialogActions, MenuItem, Paper, Alert
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -17,7 +17,9 @@ import {
   ReceiptLong as ReceiptIcon,
   Cancel as CancelIcon,
   VerifiedUser as VerifiedIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  Smartphone as SmartphoneOutlinedIcon, 
+  Diamond as DiamondOutlinedIcon,                           
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
@@ -38,6 +40,11 @@ const DetailGadaiPage = () => {
   const [openValidasi, setOpenValidasi] = useState(false);
   const [openLunas, setOpenLunas] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+
+  const PopupDetailBarang = ({ open, onClose, itemId, itemType, userRole }) => {
+  const [loading, setLoading] = useState(true);
+  const [detail, setDetail] = useState(null);
+  }
   
   const [nominalBayar, setNominalBayar] = useState("");
   const [metodeBayar, setMetodeBayar] = useState("cash");
@@ -45,6 +52,7 @@ const DetailGadaiPage = () => {
   const [targetBayar, setTargetBayar] = useState(0);
   const [processLoading, setProcessLoading] = useState(false);
 
+  
   const getApiUrl = (resource) => {
     if (userRole === "petugas") return `/petugas/${resource}`;
     if (userRole === "checker") return `/checker/${resource}`;
@@ -84,6 +92,9 @@ const handleDeleteGadai = async () => {
       setLoading(false);
     }
   };
+
+
+  
 
   useEffect(() => { fetchData(); }, [userRole]);
 
@@ -195,6 +206,24 @@ const handleDeleteGadai = async () => {
     return `/print-surat-bukti-gadai-emas/${item.id}`;
   };
 
+const getUnitIcon = (typeName) => {
+  const name = typeName?.toLowerCase() || '';
+
+  if (name.includes('hp') || name.includes('handphone')) {
+    return <SmartphoneOutlinedIcon sx={{ fontSize: 14 }} />;
+  }
+  if (
+    name.includes('emas') || 
+    name.includes('logam') || 
+    name.includes('perhiasan') || 
+    name.includes('retro') 
+  ) {
+    return <DiamondOutlinedIcon sx={{ fontSize: 14 }} />;
+  }
+  
+  return <InfoIcon sx={{ fontSize: 14 }} />;
+};
+
   const isManagement = ["hm", "checker"].includes(userRole);
 
   if (loading) return (
@@ -202,6 +231,8 @@ const handleDeleteGadai = async () => {
       <CircularProgress />
     </Box>
   );
+
+ // ... (bagian import dan state tetap sama)
 
   return (
     <Card sx={{ boxShadow: 4, borderRadius: 4 }}>
@@ -231,6 +262,7 @@ const handleDeleteGadai = async () => {
                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>Status Pengajuan</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>Alur Transaksi</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>Cetak Struk / Bukti</TableCell>
+                {/* BAGIAN ERROR SUDAH DIHAPUS DARI SINI */}
                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>Aksi</TableCell>
               </TableRow>
             </TableHead>
@@ -242,10 +274,38 @@ const handleDeleteGadai = async () => {
                   <TableRow key={item.id} hover>
                     <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
                     
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="bold">{item.no_gadai}</Typography>
-                      <Typography variant="caption" color="text.secondary">{item.nasabah?.nama_lengkap}</Typography>
-                    </TableCell>
+                   <TableCell>
+  <Stack spacing={0.3}>
+    <Typography variant="body2" fontWeight="bold" color="primary">
+      {item.no_gadai}
+    </Typography>
+
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <Typography variant="caption" sx={{ fontWeight: 600 }}>
+        Nasabah:
+      </Typography>
+      <Typography variant="caption" color="text.secondary">
+        {item.nasabah?.nama_lengkap || '-'}
+      </Typography>
+    </Box>
+
+    <Box 
+      sx={{ 
+        mt: 0.5, 
+        p: 0.5, 
+        bgcolor: '#f1f5f9', 
+        borderRadius: 1, 
+        borderLeft: '3px solid #1e293b',
+        display: 'inline-flex', 
+        width: 'fit-content'
+      }}
+    >
+      <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 'bold' }}>
+        {getUnitIcon(item.type?.nama_type)} {item.type?.nama_type || 'Tanpa Type'}
+      </Typography>
+    </Box>
+  </Stack>
+</TableCell>
 
                     <TableCell align="center">
                       <Stack spacing={0.2}>
@@ -364,27 +424,17 @@ const handleDeleteGadai = async () => {
                     </TableCell>
 
                     <TableCell align="center">
-  <Stack direction="row" spacing={0.5} justifyContent="center">
-    {/* Tombol Edit yang sudah ada */}
-    <IconButton size="small" color="secondary" onClick={() => navigate(`/edit-detail-gadai/${item.id}`)}>
-      <EditIcon fontSize="small" />
-    </IconButton>
-
-    {/* Tombol Hapus - Hanya untuk HM */}
-    {userRole === "hm" && (
-      <IconButton 
-        size="small" 
-        sx={{ color: 'error.main' }} 
-        onClick={() => {
-          setSelectedItem(item);
-          setOpenDelete(true);
-        }}
-      >
-        <DeleteIcon fontSize="small" />
-      </IconButton>
-    )}
-  </Stack>
-</TableCell>
+                      <Stack direction="row" spacing={0.5} justifyContent="center">
+                        <IconButton size="small" color="secondary" onClick={() => navigate(`/edit-detail-gadai/${item.id}`)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        {userRole === "hm" && (
+                          <IconButton size="small" sx={{ color: 'error.main' }} onClick={() => { setSelectedItem(item); setOpenDelete(true); }}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        )}
+                      </Stack>
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -402,18 +452,55 @@ const handleDeleteGadai = async () => {
         />
       </CardContent>
 
-      <Dialog open={openValidasi} onClose={() => setOpenValidasi(false)}>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <InfoIcon color="info" /> Konfirmasi Validasi
-        </DialogTitle>
-        <DialogContent>
-          <Typography>Unit <b>{selectedItem?.no_gadai}</b> sudah siap dilunasi?</Typography>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenValidasi(false)}>Batal</Button>
-          <Button variant="contained" color="info" onClick={handleValidasiSelesai} disabled={processLoading}>Ya, Selesaikan</Button>
-        </DialogActions>
-      </Dialog>
+      <Dialog open={openValidasi} onClose={() => setOpenValidasi(false)} maxWidth="xs" fullWidth>
+  <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'info.main', color: 'white', mb: 2 }}>
+    <InfoIcon /> Konfirmasi Validasi Checker
+  </DialogTitle>
+  <DialogContent>
+    <Stack spacing={2} sx={{ mt: 1 }}>
+      <Typography variant="body1">
+        Unit <b>{selectedItem?.no_gadai}</b>
+      </Typography>
+      
+      <Alert severity="info" variant="outlined" sx={{ borderRadius: 2 }}>
+        Pastikan Anda sudah memeriksa foto unit, IMEI/Kadar Emas, dan kelengkapan lainnya sebelum melakukan validasi.
+      </Alert>
+
+      {/* TOMBOL LIHAT DETAIL DI DALAM DIALOG */}
+      <Button
+        fullWidth
+        variant="outlined"
+        color="primary"
+        startIcon={<InfoIcon />}
+        onClick={() => {
+          // Logika navigasi berdasarkan tipe barang
+          const typeName = selectedItem?.type?.nama_type?.toLowerCase() || '';
+          if (typeName.includes('hp')) {
+            navigate(`/detail-gadai-hp/${selectedItem?.id_hp || selectedItem?.id}`);
+          } else {
+            navigate(`/detail-gadai-emas/${selectedItem?.id_emas || selectedItem?.id}`);
+          }
+        }}
+        sx={{ py: 1.2, fontWeight: 'bold' }}
+      >
+        Lihat Detail Unit (Foto & Fisik)
+      </Button>
+    </Stack>
+  </DialogContent>
+  <Divider />
+  <DialogActions sx={{ p: 2, bgcolor: '#f8f9fa' }}>
+    <Button onClick={() => setOpenValidasi(false)} color="inherit">Batal</Button>
+    <Button 
+      variant="contained" 
+      color="info" 
+      onClick={handleValidasiSelesai} 
+      disabled={processLoading}
+      sx={{ fontWeight: 'bold' }}
+    >
+      {processLoading ? "Memproses..." : "Ya, Selesaikan"}
+    </Button>
+  </DialogActions>
+</Dialog>
 
 
       <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>

@@ -280,7 +280,7 @@ const PrintStrukPelunasanPage = () => {
             <div class="center">
               <div>Terima kasih atas kepercayaan Anda!</div>
               <div>Gadai cepat, aman, dan terpercaya di</div>
-              <div class="bold">CG GADAI.</div>
+              <div class="bold">SENTRA GADAI INDONESIA</div>
             </div>
           </div>
 
@@ -326,7 +326,7 @@ const PrintStrukPelunasanPage = () => {
         <div style={{ marginTop: "8px", fontSize: "12px" }}>
           <p>Terima kasih atas kepercayaan Anda!</p>
           <p>Gadai cepat, aman, dan terpercaya di</p>
-          <p><b>CG GADAI.</b></p>
+          <p><b>SENTRA GADAI INDONESIA</b></p>
         </div>
       </div>
 

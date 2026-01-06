@@ -19,10 +19,9 @@ import PriceCheckIcon from '@mui/icons-material/PriceCheck';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 
-// atau kalau mau pakai icon lain:
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import RepeatIcon from '@mui/icons-material/Repeat';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
-
 // daftar icon
 const icons = {
   NavigationOutlinedIcon,
@@ -45,7 +44,8 @@ const icons = {
   PriceCheckIcon,
   AccountTreeOutlinedIcon,
   AccountBalanceWalletIcon,
-  AssessmentOutlinedIcon
+  AssessmentOutlinedIcon,
+  FactCheckOutlinedIcon,
 };
 
 // ==============================|| MENU ITEMS ||============================== //
@@ -79,23 +79,22 @@ export default {
       ]
     },
 
-    // Add Nasabah
     {
       id: 'nasabah',
-      title: 'Nasabah',
+      title: 'Data Gadai',
       type: 'group',
       icon: icons.PeopleAltOutlinedIcon,
       children: [
         {
           id: 'add-nasabah',
-          title: 'Add Nasabah',
+          title: 'Transaksi',
           type: 'collapse',
           icon: icons.PeopleAltOutlinedIcon,
           role: ['checker', 'hm', 'petugas'],
           children: [
             {
               id: 'add-nasabah-hp',
-              title: 'HP',
+              title: 'Gadai HP',
               type: 'item',
               url: '/full-submit',
               icon: icons.SmartphoneOutlinedIcon,
@@ -103,43 +102,35 @@ export default {
             },
             {
               id: 'add-nasabah-emas',
-              title: 'Emas',
+              title: 'Gadai Emas',
               type: 'item',
               url: '/gadai-emas',
               icon: icons.DiamondOutlinedIcon,
               role: ['checker', 'hm', 'petugas']
-            }
-          ]
-        },
+            },
 
-        {
-      id: 'gadai-ulang',
-      title: 'Gadai Ulang',
-      type: 'collapse',
-      icon: icons.RestartAltIcon, 
-      role: ['checker', 'hm', 'petugas'],
-      children: [
-        {
+            {
           id: 'gadai-ulang-hp',
-          title: 'HP',
+          title: ' Gadai ulang HP',
           type: 'item',
-          url: '/gadai-ulang-hp',
+          url: '/gadai-Ulang-hp',
           icon: icons.SmartphoneOutlinedIcon,
           role: ['checker', 'hm', 'petugas']
         },
         {
           id: 'gadai-ulang-emas',
-          title: 'Emas',
+          title: 'Gadai Ulang Emas',
           type: 'item',
           url: '/gadai-ulang-emas',
           icon: icons.DiamondOutlinedIcon,
           role: ['checker', 'hm', 'petugas']
         }
-      ]
-    },
+          ]
+        },
+
         {
           id: 'data-nasabah',
-          title: 'Data Nasabah',
+          title: 'Data Gadai',
           type: 'collapse',
           icon: icons.InfoOutlinedIcon,
           role: ['checker', 'hm', 'petugas'],
@@ -177,14 +168,64 @@ export default {
               role: ['checker', 'hm', 'petugas']
             },
 
-            {
-              id: 'Laporan Harian',
-              title: 'Laporan Checker',
+          ]
+        }
+      ]
+    },
+
+
+{ 
+      id: 'laporan-group',
+      title: 'Laporan',
+      type: 'group',
+      icon: icons.AssessmentOutlinedIcon,
+      children: [
+        {
+          id: 'Laporan Harian',
+          title: 'Laporan Checker',
+          type: 'item',
+          url: '/laporan-harian',
+          icon: icons.AssessmentOutlinedIcon,
+          role: ['checker'] 
+        },
+
+        {
+      id: 'Laporan Harian Petugas',
+      title: 'Laporan Petugas',
+      type: 'item',
+      url: '/laporan-harian-petugas',
+      icon: icons.AssessmentOutlinedIcon,
+      role: ['petugas']
+    },
+
+    {
+              id: 'Laporan approval',
+              title: 'Laporan Approval',
               type: 'item',
-              url: '/laporan-harian',
+              url: '/pengajuan-laporan',
               icon: icons.AssessmentOutlinedIcon,
-              role: ['checker', 'hm',]
+              role: [ 'hm',]
             }
+      ]
+    },
+
+    {
+      id: 'gadai',
+      title: 'Macam Macam Gadai',
+      type: 'group',
+      icon: icons.AccountTreeOutlinedIcon,
+      children: [
+        {
+          id: 'gadai-collapse',
+          title: 'Gadai',
+          type: 'collapse',
+          icon: icons.AccountTreeOutlinedIcon,
+          role: ['checker', 'hm', 'petugas'],
+          children: [
+            { id: 'gadai-hp', title: 'Gadai HP', type: 'item', url: '/gadai-hp', icon: icons.SmartphoneOutlinedIcon, role: ['checker', 'hm', 'petugas'] },
+            { id: 'gadai-logam-mulia', title: 'Gadai Logam Mulia', type: 'item', url: '/gadai-logam-mulia', icon: icons.SecurityOutlinedIcon, role: ['checker', 'hm', 'petugas'] },
+            { id: 'gadai-retro', title: 'Gadai Retro', type: 'item', url: '/gadai-retro', icon: icons.MonetizationOnOutlinedIcon, role: ['checker', 'hm', 'petugas'] },
+            { id: 'gadai-perhiasan', title: 'Gadai Perhiasan', type: 'item', url: '/gadai-perhiasan', icon: icons.DiamondOutlinedIcon, role: ['checker', 'hm', 'petugas'] }
           ]
         }
       ]
@@ -227,51 +268,18 @@ export default {
     // Approval
     {
       id: 'approval',
-      title: 'Approval',
+      title: 'Pengajuan',
       type: 'group',
       icon: icons.CheckCircleOutlineOutlinedIcon,
       children: [
         { id: 'approval-checker', title: 'Checker', type: 'item', url: '/approval-gadai', icon: icons.CheckCircleOutlineOutlinedIcon, role: ['checker'] },
-        { id: 'approval-hm', title: 'HM', type: 'item', url: '/approval-hm-gadai', icon: icons.CheckCircleOutlineOutlinedIcon, role: ['hm'] }
-      ]
-    },
-
-    // Macam-macam Gadai
-    {
-      id: 'gadai',
-      title: 'Macam Macam Gadai',
-      type: 'group',
-      icon: icons.AccountTreeOutlinedIcon,
-      children: [
-        {
-          id: 'gadai-collapse',
-          title: 'Gadai',
-          type: 'collapse', // dropdown
-          icon: icons.AccountTreeOutlinedIcon,
-          role: ['checker', 'hm', 'petugas'],
-          children: [
-            { id: 'gadai-hp', title: 'Gadai HP', type: 'item', url: '/gadai-hp', icon: icons.SmartphoneOutlinedIcon, role: ['checker', 'hm', 'petugas'] },
-            { id: 'gadai-logam-mulia', title: 'Gadai Logam Mulia', type: 'item', url: '/gadai-logam-mulia', icon: icons.SecurityOutlinedIcon, role: ['checker', 'hm', 'petugas'] },
-            { id: 'gadai-retro', title: 'Gadai Retro', type: 'item', url: '/gadai-retro', icon: icons.MonetizationOnOutlinedIcon, role: ['checker', 'hm', 'petugas'] },
-            { id: 'gadai-perhiasan', title: 'Gadai Perhiasan', type: 'item', url: '/gadai-perhiasan', icon: icons.DiamondOutlinedIcon, role: ['checker', 'hm', 'petugas'] }
-          ]
-        }
-      ]
-    },
-
-    // Pemberitahuan
-    {
-      id: 'notifications',
-      title: 'Pemberitahuan',
-      type: 'group',
-      icon: icons.NotificationsNoneOutlinedIcon,
-      children: [
+        { id: 'approval-hm', title: 'HM', type: 'item', url: '/approval-hm-gadai', icon: icons.CheckCircleOutlineOutlinedIcon, role: ['hm'] },
         { id: 'notifications-item', title: 'Pemberitahuan', type: 'item', url: '/notifications', icon: icons.NotificationsNoneOutlinedIcon, role: ['checker', 'hm', 'petugas'] }
       ]
     },
 
     // Admin
-    {
+    { 
       id: 'admin',
       title: 'Admin Information',
       type: 'group',
@@ -288,7 +296,7 @@ export default {
       type: 'group',
       icon: icons.AccountTreeOutlinedIcon,
       children: [
-        { id: 'data-lelang', title: 'Data Lelang', type: 'item', url: '/pelelangan', icon: icons.NotificationsNoneOutlinedIcon, role: ['hm', 'petugas', 'checker', 'admin'] }
+        { id: 'data-lelang', title: 'Data Lelang', type: 'item', url: '/pelelangan', icon: icons.NotificationsNoneOutlinedIcon, role: ['hm', 'checker', 'admin'] }
       ]
     },
 
@@ -299,18 +307,10 @@ export default {
       type: 'group',
       icon: icons.AccountBalanceWalletIcon,
       children: [
-        { id: 'Kas Management', title: 'kas management', type: 'item', url: '/kas-management', icon: icons.AccountBalanceWalletIcon, role: ['hm','admin'] }
+        { id: 'Kas Management', title: 'kas management', type: 'item', url: '/kas-management', icon: icons.AccountBalanceWalletIcon, role: ['hm','admin'] },
+        { id: 'Kas Management Cheker', title: 'kas management Checker', type: 'item', url: '/kas-management-checker', icon: icons.AccountBalanceWalletIcon, role: ['hm','checker'] }
       ]
     },
 
-    {
-      id: 'Kas Management Checker',
-      title: 'Kas Management Checker',
-      type: 'group',
-      icon: icons.AccountBalanceWalletIcon,
-      children: [
-        { id: 'Kas Management Cheker', title: 'kas management Checker', type: 'item', url: '/kas-management-checker', icon: icons.AccountBalanceWalletIcon, role: ['hm','checker'] }
-      ]
-    }
   ]
 };

@@ -419,7 +419,7 @@ ${kelengkapanList.length
             <div class="thanks">
               <div>Terima kasih atas kepercayaan Anda!</div>
               <div>Gadai cepat, aman, dan terpercaya di</div>
-              <div class="bold">CG GADAI.</div>
+              <div class="bold">SENTRA GADAI INDONESIA</div>
             </div>
           </div>
 
@@ -524,7 +524,7 @@ ${kelengkapanList.length
           <p>* Biaya admin minimal Rp 5.000 (HP) dan Rp 10.000 (Emas/Perhiasan)</p>
           <p>Terima kasih atas kepercayaan Anda!</p>
           <p>Gadai cepat, aman, dan terpercaya di</p>
-          <p><b>CG GADAI.</b></p>
+          <p><b>SENTRA GADAI INDONESIA</b></p>
         </div>
       </div>
 

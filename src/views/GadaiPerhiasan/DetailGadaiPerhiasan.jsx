@@ -77,10 +77,10 @@ const DetailGadaiPerhiasanPage = () => {
     setLoading(true);
     setError(null);
 
-    try {
-      let url = `/gadai-perhiasan/${id}`;
-      if (userRole === "checker") url = `/checker/gadai-perhiasan/${id}`;
-      if (userRole === "petugas") url = `/petugas/gadai-perhiasan/${id}`;
+      try {
+        let url = `/gadai-perhiasan/${id}`;
+        if (userRole === "checker") url = `/checker/gadai-perhiasan/${id}`;
+        if (userRole === "petugas") url = `/petugas/gadai-perhiasan/${id}`;
 
       const res = await axiosInstance.get(url);
       const raw = res.data.data;

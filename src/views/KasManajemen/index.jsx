@@ -28,7 +28,13 @@ const KasManagement = () => {
     total_setoran_ke_admin: 0,
     total_setoran_pending: 0 
   });
-  const [riwayat, setRiwayat] = useState([]);
+
+const [riwayat, setRiwayat] = useState([]);
+const [totals, setTotals] = useState({
+  pemasukan_keseluruhan: 0,
+  pengeluaran_keseluruhan: 0,
+  saldo_netto: 0
+});
   const [pagination, setPagination] = useState({ current_page: 1, last_page: 1 });
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   const [openConfirm, setOpenConfirm] = useState(false);
@@ -37,7 +43,7 @@ const KasManagement = () => {
   const today = new Date().toISOString().split('T')[0];
   const [filters, setFilters] = useState({ start_date: today, end_date: today });
 
-  // Form Data disederhanakan: Kategori dikunci ke topup_pusat, tipe_operasional dikunci ke masuk
+
   const [formData, setFormData] = useState({ 
     kategori: 'topup_pusat', 
     metode: 'cash',
@@ -58,19 +64,20 @@ const KasManagement = () => {
     } catch (err) { console.error("Summary error:", err); }
   };
 
-  const fetchRiwayat = useCallback(async (page = 1) => {
-    setLoading(true);
-    try {
-      const res = await axiosInstance.get(getApiUrl("brankas/riwayat"), { 
-        params: { page, start_date: filters.start_date, end_date: filters.end_date } 
-      });
-      if (res.data.success) {
-        setRiwayat(res.data.riwayat);
-        setPagination(res.data.pagination);
-      }
-    } catch (err) { console.error("Riwayat error:", err); }
-    finally { setLoading(false); }
-  }, [userRole, filters]);
+const fetchRiwayat = useCallback(async (page = 1) => {
+  setLoading(true);
+  try {
+    const res = await axiosInstance.get(getApiUrl("brankas/riwayat"), { 
+      params: { page, start_date: filters.start_date, end_date: filters.end_date } 
+    });
+    if (res.data.success) {
+      setRiwayat(res.data.riwayat);
+      setPagination(res.data.pagination);
+      setTotals(res.data.grand_total); 
+    }
+  } catch (err) { console.error("Riwayat error:", err); }
+  finally { setLoading(false); }
+}, [userRole, filters]);
 
   useEffect(() => { if (isAuthorized) { fetchSummary(); fetchRiwayat(); } }, [fetchRiwayat, isAuthorized]);
 
@@ -123,30 +130,37 @@ const KasManagement = () => {
     <Grid container spacing={gridSpacing}>
       
       {/* SUMMARY DASHBOARD */}
-      <Grid item xs={12}>
-        <Grid container spacing={gridSpacing}>
-          {[
-            { label: 'SALDO DI TOKO (FISIK)', val: summary.saldo_toko_saat_ini, icon: <AccountBalanceWallet />, color: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)' },
-            { label: 'TOTAL INJEKSI MODAL', val: summary.total_modal_dari_pusat, icon: <AccountBalance />, color: 'linear-gradient(135deg, #004d40 0%, #00796b 100%)' },
-            { label: 'SETORAN DITERIMA', val: summary.total_setoran_ke_admin, icon: <TrendingUp />, color: 'linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)' },
-            { label: 'SETORAN BELUM DIVALIDASI', val: summary.total_setoran_pending, icon: <HistoryEdu />, color: 'linear-gradient(135deg, #ef6c00 0%, #fb8c00 100%)' }
-          ].map((item, index) => (
-            <Grid item lg={3} sm={6} xs={12} key={index}>
-              <Card sx={{ background: item.color, color: '#fff', borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Box>
-                      <Typography variant="subtitle2" sx={{ opacity: 0.8, fontWeight: 600 }}>{item.label}</Typography>
-                      <Typography variant="h3" sx={{ mt: 1, fontWeight: 800 }}>{formatRupiah(item.val)}</Typography>
-                    </Box>
-                    <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 50, height: 50 }}>{item.icon}</Avatar>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
+<Grid item xs={12}>
+  <Grid container spacing={gridSpacing}>
+    {[
+      { label: 'SALDO DI TOKO (FISIK)', val: summary.saldo_toko_saat_ini, icon: <AccountBalanceWallet />, color: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)' },
+      { label: 'TOTAL INJEKSI MODAL', val: summary.total_modal_dari_pusat, icon: <AccountBalance />, color: 'linear-gradient(135deg, #004d40 0%, #00796b 100%)' },
+      { label: 'SETORAN DITERIMA', val: summary.total_setoran_ke_admin, icon: <TrendingUp />, color: 'linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)' },
+      { label: 'SETORAN BELUM DIVALIDASI', val: summary.total_setoran_pending, icon: <HistoryEdu />, color: 'linear-gradient(135deg, #ef6c00 0%, #fb8c00 100%)' }
+    ].map((item, index) => (
+      <Grid item lg={3} sm={6} xs={12} key={index}>
+        <Card sx={{ background: item.color, color: '#fff', borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
+          <CardContent sx={{ p: 3 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Box>
+                <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>
+                  {item.label}
+                </Typography>
+                {/* Bagian nominal Rp di bawah ini diatur ke #ffffff */}
+                <Typography variant="h3" sx={{ mt: 1, fontWeight: 800, color: '#ffffff' }}>
+                  {formatRupiah(item.val)}
+                </Typography>
+              </Box>
+              <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', width: 50, height: 50 }}>
+                {item.icon}
+              </Avatar>
+            </Stack>
+          </CardContent>
+        </Card>
       </Grid>
+    ))}
+  </Grid>
+</Grid>
 
       {/* FORM INPUT MODAL (KHUSUS ADMIN) */}
       <Grid item lg={4} md={5} xs={12}>
@@ -240,15 +254,36 @@ const KasManagement = () => {
           <Divider />
           <TableContainer>
             <Table size="small">
-              <TableHead sx={{ bgcolor: '#fbfbfb' }}>
+                <TableHead sx={{ bgcolor: '#fbfbfb' }}>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 700 }}>WAKTU</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>DETAIL TRANSAKSI</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, color: 'success.main' }}>UANG MASUK </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, color: 'error.main' }}>UANG KELUAR </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, color: 'success.main' }}>UANG MASUK</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, color: 'error.main' }}>UANG KELUAR</TableCell>
                   <TableCell align="center" sx={{ fontWeight: 700 }}>AKSI / BUKTI</TableCell>
                 </TableRow>
-              </TableHead>
+  
+              {/* BARIS GRAND TOTAL OTOMATIS */}
+              <TableRow sx={{ bgcolor: '#f0f4ff' }}>
+                <TableCell colSpan={2} sx={{ fontWeight: 'bold', py: 1.5 }}>
+                  TOTAL PERIODE INI ({filters.start_date} s/d {filters.end_date})
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: 'success.dark' }}>
+                  {formatRupiah(totals.pemasukan_keseluruhan)}
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: 'error.dark' }}>
+                  {formatRupiah(totals.pengeluaran_keseluruhan)}
+                </TableCell>
+                <TableCell align="center">
+                    <Chip 
+                      label={`Net: ${formatRupiah(totals.saldo_netto)}`} 
+                      color="primary" 
+                      size="small" 
+                      sx={{ fontWeight: 'bold' }} 
+                    />
+                </TableCell>
+              </TableRow>
+            </TableHead>
               <TableBody>
                 {loading ? <TableRow><TableCell colSpan={5} align="center" sx={{ py: 5 }}><CircularProgress /></TableCell></TableRow> : 
                   riwayat.map((row, i) => (
