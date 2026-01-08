@@ -96,29 +96,28 @@ const PrintStrukPage = () => {
     }
   }
 
-  const jasaSewa = pinjaman * persenJasa;
 
-  // === Administrasi minimal fix ===
-  let adminPersen = pinjaman * 0.01; // 1% dari pinjaman
+  const jasaSewaRaw = pinjaman * persenJasa;
+
+
+  let adminPersen = pinjaman * 0.01; 
   let admin = adminPersen;
-
   if (["logam mulia", "retro", "perhiasan"].includes(typeLower)) {
-    admin = Math.max(adminPersen, 10000); // Minimal Rp 10.000
-  } else if (["handphone", "hp", "elektronik"].includes(typeLower)) {
-    admin = Math.max(adminPersen, 5000); // Minimal Rp 5.000
+    admin = Math.max(adminPersen, 10000); 
   } else {
-    admin = Math.max(adminPersen, 5000); // Default minimal Rp 5.000
+    admin = Math.max(adminPersen, 5000); 
   }
 
-  // === Asuransi tetap ===
+
   const asuransi = 10000;
 
-  // === Total diterima (sebelum pembulatan) ===
-  const totalDiterimaSebelum = pinjaman - jasaSewa - admin - asuransi;
-  
-  // === PEMBULATAN ke BAWAH (floor) ke ribuan terdekat ===
-  const totalDiterima = Math.floor(totalDiterimaSebelum / 1000) * 1000;
+  const totalPotonganRaw = jasaSewaRaw + admin + asuransi;
+  const totalPotonganBulat = Math.ceil(totalPotonganRaw / 1000) * 1000;
 
+
+  const jasaSewa = totalPotonganBulat - admin - asuransi;
+
+  const totalDiterima = pinjaman - totalPotonganBulat;
   const formatRupiah = (val) => `Rp. ${Number(val || 0).toLocaleString("id-ID")}`;
 
   const formatHariTanggal = (date) => {

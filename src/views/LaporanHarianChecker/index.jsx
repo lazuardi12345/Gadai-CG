@@ -8,7 +8,7 @@ import { Print, Refresh, Send } from '@mui/icons-material';
 import axiosInstance from 'api/axiosInstance';
 import { AuthContext } from "AuthContex/AuthContext";
 
-import KopSuratImg from 'assets/images/Kop SUrat.png'; 
+import KopSuratImg from 'assets/images/Kop SUrat.png';  
 import TtdManagerImg from 'assets/images/ttd.png'; 
 import StempelImg from 'assets/images/stemple.png';     
 
@@ -31,7 +31,6 @@ const LaporanHarianChecker = () => {
     
     setSubmitting(true);
     try {
-      // Menembak endpoint khusus checker untuk bulk submit
       const res = await axiosInstance.post('/checker/report/submit', {
         report_date: tanggal
       });

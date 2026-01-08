@@ -1,118 +1,189 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, Table, TableBody, TableCell, TableContainer, TableHead, 
-  TableRow, Paper, Button, Chip, Typography, Card, Stack, CircularProgress 
+  TableRow, Paper, Button, Chip, Typography, Card, Stack, CircularProgress,
+  Tabs, Tab, Avatar, IconButton, Tooltip, TextField, Divider
 } from '@mui/material';
-import { CheckCircle, Assignment, ErrorOutline } from '@mui/icons-material';
+import { 
+  CheckCircle, Assignment, ErrorOutline, FactCheck, ReceiptLong, 
+  ArrowForwardIos, CalendarMonth, History
+} from '@mui/icons-material';
 import axiosInstance from 'api/axiosInstance'; 
 
 const LaporanApproval = () => {
-  const [reports, setReports] = useState([]); // Default harus Array []
+  const [tabValue, setTabValue] = useState(0); 
+  const [data, setData] = useState([]); 
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
+  const [selectedDate, setSelectedDate] = useState('');
 
-  // 1. Fungsi Ambil Data (History)
-  const loadReports = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axiosInstance.get('manager/approvals/reports');
-      // PERBAIKAN: Pastikan mengambil res.data.data karena Laravel mengirim Object success & data
-      if (res.data && Array.isArray(res.data.data)) {
-        setReports(res.data.data);
+      let endpoint = '';
+      if (tabValue === 0) {
+        endpoint = `manager/approvals/reports${selectedDate ? `?tanggal=${selectedDate}` : ''}`;
       } else {
-        setReports([]);
+        endpoint = selectedDate 
+          ? `manager/acc-history?tanggal=${selectedDate}` 
+          : `manager/gadai/list-sbg?status=all`; 
       }
+
+      const res = await axiosInstance.get(endpoint);
+      setData(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (err) {
-      console.error("Gagal mengambil data", err);
-      setReports([]);
+      console.error("Gagal ambil data", err);
+      setData([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [tabValue, selectedDate]);
 
   useEffect(() => {
-    loadReports();
-  }, []);
+    loadData();
+  }, [loadData]);
 
-  // 2. Fungsi Klik Tombol ACC
-  const handleApprove = async (docId) => {
-    if (window.confirm(`Apakah Anda yakin ingin menyetujui laporan ${docId}?`)) {
-      setActionLoading(docId);
-      try {
-        const response = await axiosInstance.post(`manager/approvals/reports/${docId}/approve`);
-        if (response.data.success) {
-          alert("Laporan Berhasil di-ACC!");
-          loadReports(); // Refresh tabel
-        }
-      } catch (err) {
-        alert(err.response?.data?.message || "Terjadi kesalahan saat ACC.");
-      } finally {
-        setActionLoading(null);
-      }
+  const handleApproveSBG = async (id) => {
+    if (!window.confirm(`Setujui Surat Bukti Gadai ini?`)) return;
+    setActionLoading(id);
+    try {
+      await axiosInstance.post(`manager/approve-sbg/${id}`);
+      loadData();
+    } catch (err) {
+      alert(err.response?.data?.message || "Gagal ACC");
+    } finally {
+      setActionLoading(null);
     }
   };
 
+  const formatRupiah = (val) => 
+    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val || 0);
+
   return (
-    <Box sx={{ p: 3 }}>
-      <Card sx={{ p: 3, borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
-          <Assignment color="primary" sx={{ fontSize: 30 }} />
-          <Typography variant="h5" fontWeight="bold">Approval Laporan Checker</Typography>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#fbfbfb', minHeight: '100vh' }}>
+      
+      {/* HEADER SECTION */}
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 4 }}>
+        <Stack spacing={0.5}>
+          <Typography variant="h4" fontWeight="800" sx={{ color: '#1a202c' }}>
+            {tabValue === 1 ? "SBG Approval & History" : "Laporan Approval"}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Kelola persetujuan digital dan tinjau riwayat transaksi SGI.
+          </Typography>
         </Stack>
 
-        <TableContainer component={Paper} sx={{ borderRadius: '12px', border: '1px solid #eee' }}>
+        <Stack direction="row" spacing={2} alignItems="center">
+            <TextField
+                type="date"
+                size="small"
+                label="Filter Tanggal ACC"
+                InputLabelProps={{ shrink: true }}
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                sx={{ bgcolor: 'white' }}
+            />
+            {selectedDate && (
+                <Button variant="outlined" color="error" size="small" onClick={() => setSelectedDate('')}>Reset</Button>
+            )}
+        </Stack>
+      </Stack>
+
+      <Card sx={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+        <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tab icon={<Assignment sx={{ fontSize: 18 }} />} iconPosition="start" label="ACC LAPORAN" />
+          <Tab icon={<History sx={{ fontSize: 18 }} />} iconPosition="start" label="ACC & HISTORY SBG" />
+        </Tabs>
+
+        <TableContainer>
           <Table>
-            <TableHead sx={{ bgcolor: '#f8f9fa' }}>
+            <TableHead sx={{ bgcolor: '#fafafa' }}>
               <TableRow>
-                <TableCell><b>Tanggal</b></TableCell>
-                <TableCell><b>Tipe Laporan</b></TableCell>
-                <TableCell><b>ID Dokumen</b></TableCell>
-                <TableCell><b>Status</b></TableCell>
-                <TableCell align="center"><b>Aksi</b></TableCell>
+                {tabValue === 0 ? (
+                  <>
+                    <TableCell><b>TANGGAL</b></TableCell>
+                    <TableCell><b>TIPE</b></TableCell>
+                    <TableCell><b>ID DOKUMEN</b></TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell><b>NOMOR GADAI</b></TableCell>
+                    <TableCell><b>NASABAH</b></TableCell>
+                    <TableCell><b>ITEM</b></TableCell>
+                    <TableCell align="right"><b>PINJAMAN</b></TableCell>
+                  </>
+                )}
+                <TableCell align="center"><b>STATUS</b></TableCell>
+                <TableCell align="center"><b>AKSI</b></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 5 }}><CircularProgress size={30} /></TableCell>
-                </TableRow>
-              ) : (Array.isArray(reports) && reports.length > 0) ? (
-                reports.map((row) => (
-                  <TableRow key={row.id} hover>
-                    <TableCell>{row.report_date}</TableCell>
-                    <TableCell><Chip label={row.report_type?.toUpperCase()} size="small" variant="outlined" /></TableCell>
-                    <TableCell><code style={{ color: '#d32f2f' }}>{row.doc_id}</code></TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={row.is_approved ? `DI-ACC: ${row.approved_by}` : "Menunggu ACC"} 
-                        color={row.is_approved ? "success" : "warning"} 
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      {!row.is_approved ? (
-                        <Button 
-                          variant="contained" 
-                          color="success" 
-                          size="small"
-                          onClick={() => handleApprove(row.doc_id)}
-                          disabled={actionLoading === row.doc_id}
-                        >
-                          {actionLoading === row.doc_id ? 'Proses...' : 'ACC SEKARANG'}
-                        </Button>
+                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 5 }}><CircularProgress /></TableCell></TableRow>
+              ) : data.length > 0 ? (
+                data.map((row) => {
+                  const isApproved = tabValue === 1 ? row.approval_status === 'approved' : row.is_approved;
+                  
+                  return (
+                    <TableRow key={row.id} hover>
+                      {tabValue === 0 ? (
+                        <>
+                          <TableCell>{row.report_date}</TableCell>
+                          <TableCell><Chip label={row.report_type} size="small" /></TableCell>
+                          <TableCell><code>{row.doc_id}</code></TableCell>
+                        </>
                       ) : (
-                        <CheckCircle color="success" />
+                        <>
+                          <TableCell><Typography variant="body2" fontWeight="bold" color="primary">{row.no_gadai}</Typography></TableCell>
+                          <TableCell>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                                <Avatar sx={{ width: 24, height: 24, fontSize: 12 }}>{row.nasabah?.nama_lengkap?.charAt(0)}</Avatar>
+                                <Typography variant="body2">{row.nasabah?.nama_lengkap}</Typography>
+                            </Stack>
+                          </TableCell>
+                          <TableCell>{row.hp?.nama_barang || row.type?.nama_type}</TableCell>
+                          <TableCell align="right">{formatRupiah(row.uang_pinjaman)}</TableCell>
+                        </>
                       )}
-                    </TableCell>
-                  </TableRow>
-                ))
+
+                      <TableCell align="center">
+                        <Chip 
+                          label={isApproved ? "APPROVED" : "PENDING"} 
+                          color={isApproved ? "success" : "warning"}
+                          size="small"
+                          sx={{ fontWeight: 'bold' }}
+                        />
+                      </TableCell>
+
+                      <TableCell align="center">
+                        {isApproved ? (
+                          <Tooltip title="Sudah Disetujui">
+                            <span>
+                              <IconButton disabled>
+                                <CheckCircle color="success" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        ) : (
+                          <Button 
+                            variant="contained" 
+                            size="small"
+                            onClick={() => handleApproveSBG(row.id)}
+                            disabled={actionLoading === row.id}
+                            sx={{ textTransform: 'none', borderRadius: '8px' }}
+                          >
+                            {actionLoading === row.id ? '...' : 'ACC'}
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 5 }}>
-                    <Stack alignItems="center" spacing={1}>
-                      <ErrorOutline color="disabled" />
-                      <Typography color="text.secondary">Tidak ada data laporan.</Typography>
-                    </Stack>
+                  <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
+                    <ErrorOutline color="disabled" sx={{ fontSize: 40 }} />
+                    <Typography variant="body2" color="text.secondary">Tidak ada data ditemukan.</Typography>
                   </TableCell>
                 </TableRow>
               )}

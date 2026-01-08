@@ -205,7 +205,17 @@ export default {
               url: '/pengajuan-laporan',
               icon: icons.AssessmentOutlinedIcon,
               role: [ 'hm',]
-            }
+            },
+
+
+                 {
+      id: 'Laporan Mingguan Admin',
+      title: 'Laporan mingguan',
+      type: 'item',
+      url: '/laporan-mingguan',
+      icon: icons.AssessmentOutlinedIcon,
+      role: ['admin']
+    },
       ]
     },
 

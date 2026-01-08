@@ -1,12 +1,12 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext, useCallback } from "react";
 import {
     Card, CardHeader, CardContent, Divider,
     Table, TableContainer, TableHead, TableBody,
     TableRow, TableCell, TablePagination,
     Stack, Box, CircularProgress, Paper,
-    Typography, TextField, Chip, Tabs, Tab, Tooltip
+    Typography, TextField, Chip, Tabs, Tab, Tooltip, Button
 } from "@mui/material";
-import { Check, Close as CloseIcon, WarningAmber } from "@mui/icons-material";
+import { Check, Close as CloseIcon, WarningAmber, ListAlt, AssignmentTurnedIn, History } from "@mui/icons-material";
 import axiosInstance from "api/axiosInstance";
 import { AuthContext } from "AuthContex/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -18,7 +18,11 @@ const AdminLaporanPage = () => {
     const [data, setData] = useState([]);
     const [filtered, setFiltered] = useState([]);
     const [types, setTypes] = useState([]);
-    const [activeTab, setActiveTab] = useState("all");
+    
+    // State Filter
+    const [activeTabStatus, setActiveTabStatus] = useState("all"); // Filter Status (Baru)
+    const [activeTabType, setActiveTabType] = useState("all");     // Filter Type
+    
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
@@ -37,74 +41,49 @@ const AdminLaporanPage = () => {
             minimumFractionDigits: 0,
         }).format(val || 0);
 
-    const fetchData = async () => {
+    // ✅ FETCH DATA dengan Parameter Status
+    const fetchData = useCallback(async () => {
+        setLoading(true);
         try {
-            const res = await axiosInstance.get(endpoint);
+            // Jika tab status bukan 'all', masukkan ke parameter query
+            const params = activeTabStatus !== "all" ? { status: activeTabStatus } : {};
+            const res = await axiosInstance.get(endpoint, { params });
+            
             if (res.data?.success) {
                 const list = Array.isArray(res.data.data) ? res.data.data : [];
-                
-                // 🔍 DEBUG: Cek struktur data dari backend
-                console.log("📦 Total data:", list.length);
-                console.log("📦 Sample data pertama:", list[0]);
-                console.log("📦 Semua field type di data:", list.map(d => ({
-                    no_gadai: d.no_gadai,
-                    type: d.type,
-                    nama_nasabah: d.nama_nasabah
-                })));
-                
                 setData(list);
                 setFiltered(list);
-            } else {
-                setError(res.data?.message || "Gagal memuat data laporan.");
             }
         } catch (err) {
             setError(err.response?.data?.message || "Server error");
         } finally {
             setLoading(false);
         }
-    };
+    }, [activeTabStatus, endpoint]);
 
     const fetchTypes = async () => {
         try {
             const res = await axiosInstance.get(typeEndpoint);
             if (res.data?.success) {
-                // Pastikan data types terurut berdasarkan nomor_type atau nama
-                const sortedTypes = res.data.data.sort((a, b) => 
-                    a.nomor_type.localeCompare(b.nomor_type)
-                );
-                setTypes(sortedTypes);
+                setTypes(res.data.data);
             }
-        } catch (e) {
-            console.error("Gagal load types:", e);
-        }
+        } catch (e) { console.error(e); }
     };
 
     useEffect(() => {
         fetchData();
         fetchTypes();
-    }, []);
+    }, [fetchData]);
 
     useEffect(() => {
         let result = [...data];
         
-        // ✅ FIX: Filter berdasarkan tab type yang aktif
-        if (activeTab !== "all") {
-            console.log("🔍 Active Tab:", activeTab);
-            console.log("🔍 Data sebelum filter:", result.length);
-            
-            result = result.filter((item) => {
-                const itemType = safe(item.type || "");
-                const tabType = safe(activeTab);
-                
-                console.log(`  - Item: "${item.no_gadai}" | Type: "${itemType}" | Match: ${itemType === tabType}`);
-                
-                return itemType === tabType;
-            });
-            
-            console.log("✅ Data setelah filter:", result.length);
+        // Filter Type (Local Filter)
+        if (activeTabType !== "all") {
+            result = result.filter((item) => safe(item.type) === safe(activeTabType));
         }
         
-        // Filter berdasarkan search term
+        // Filter Search
         const search = safe(searchTerm);
         if (search) {
             result = result.filter(
@@ -116,265 +95,137 @@ const AdminLaporanPage = () => {
         
         setFiltered(result);
         setPage(0);
-    }, [activeTab, searchTerm, data]);
+    }, [activeTabType, searchTerm, data]);
 
-    const handleChangePage = (_, newPage) => setPage(newPage);
-    const handleChangeRowsPerPage = (e) => {
-        setRowsPerPage(parseInt(e.target.value, 10));
-        setPage(0);
+    const getStatusStyle = (status) => {
+        const s = safe(status);
+        if (s === "lunas") return { color: "success", label: "LUNAS" };
+        if (s === "proses") return { color: "warning", label: "PROSES" };
+        if (s === "terlelang") return { color: "error", label: "TERLELANG" };
+        return { color: "default", label: s.toUpperCase() };
     };
 
-    const getStatusIcon = (val) => {
-        if (!val) return null;
-        const v = val.toLowerCase();
-        if (v.includes("approved")) return <Check sx={{ color: "white", fontSize: 16 }} />;
-        if (v.includes("rejected")) return <CloseIcon sx={{ color: "white", fontSize: 16 }} />;
-        return null;
-    };
-
-    const getStatusColor = (val) => {
-        if (!val) return "default";
-        const v = val.toLowerCase();
-        if (v.includes("approved")) return "success";
-        if (v.includes("rejected")) return "error";
-        return "default";
-    };
-
-    // ✅ FIX: Fungsi untuk hitung total data per type
-    const getTypeCount = (typeName) => {
-        if (typeName === "all") return data.length;
-        
-        const count = data.filter((item) => {
-            const itemType = safe(item.type || "");
-            const searchType = safe(typeName);
-            
-            // Debug per item
-            console.log(`🔍 Comparing: "${itemType}" === "${searchType}"`, itemType === searchType);
-            
-            return itemType === searchType;
-        }).length;
-        
-        console.log(`📊 Count untuk "${typeName}":`, count);
-        return count;
-    };
-
-    if (loading)
-        return (
-            <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}>
-                <CircularProgress />
-            </Stack>
-        );
-
-    if (error) {
-        return (
-            <Card sx={{ borderRadius: 2, boxShadow: 3, p: 3 }}>
-                <Typography color="error" align="center">{error}</Typography>
-            </Card>
-        );
-    }
+    if (loading && data.length === 0)
+        return ( <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}><CircularProgress /></Stack> );
 
     return (
         <Card sx={{ borderRadius: 2, boxShadow: 3 }}>
             <CardHeader
                 title={user?.role === "hm" ? "Laporan HM" : "Laporan Admin"}
-                titleTypographyProps={{ variant: 'h6', fontWeight: 'bold' }}
                 action={
                     <TextField
-                        variant="outlined"
-                        size="small"
-                        placeholder="Cari nasabah / no gadai..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        variant="outlined" size="small" placeholder="Cari nasabah / no gadai..."
+                        value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
                         sx={{ width: { xs: "100%", sm: 300 }, backgroundColor: 'white' }}
                     />
                 }
             />
-            <Divider />
+            
+            <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: '#f8fafc' }}>
+    <Tabs
+    value={activeTabStatus}
+    onChange={(e, v) => setActiveTabStatus(v)}
+    sx={{ px: 2, bgcolor: '#f8fafc' }}
+>
+    <Tab label="SEMUA" value="all" />
+    <Tab label="PROSES" value="proses" />
+    <Tab label="SELESAI" value="selesai" />
+    <Tab label="LUNAS" value="lunas" />
+</Tabs>
+</Box>
 
-            {/* ✅ TAB FILTER BERDASARKAN TYPE */}
+            {/* ✅ TABS TYPE (Local Filter) */}
             <Tabs
-                value={activeTab}
-                onChange={(e, v) => setActiveTab(v)}
+                value={activeTabType}
+                onChange={(e, v) => setActiveTabType(v)}
                 variant="scrollable"
-                scrollButtons="auto"
-                sx={{ 
-                    px: 2, 
-                    borderBottom: 1, 
-                    borderColor: 'divider',
-                    '& .MuiTab-root': {
-                        textTransform: 'none',
-                        fontWeight: 500,
-                        fontSize: '0.9rem'
-                    }
-                }}
+                sx={{ px: 2, bgcolor: '#fff' }}
             >
-                <Tab 
-                    label={`Semua (${getTypeCount("all")})`} 
-                    value="all" 
-                />
+                <Tab label="Semua Jenis" value="all" />
                 {types.map((t) => (
-                    <Tab 
-                        key={t.id} 
-                        label={`${t.nama_type} (${getTypeCount(t.nama_type)})`} 
-                        value={t.nama_type.toLowerCase()} 
-                    />
+                    <Tab key={t.id} label={t.nama_type} value={t.nama_type.toLowerCase()} />
                 ))}
             </Tabs>
 
             <CardContent sx={{ p: 0 }}>
-                {filtered.length === 0 ? (
-                    <Box sx={{ p: 4, textAlign: 'center' }}>
-                        <Typography variant="body1" color="textSecondary">
-                            {searchTerm 
-                                ? `Tidak ada data yang cocok dengan "${searchTerm}"`
-                                : "Tidak ada data untuk ditampilkan"
-                            }
-                        </Typography>
-                    </Box>
-                ) : (
-                    <>
-                        <TableContainer>
-                            <Table size="small">
-                                <TableHead>
-                                    <TableRow sx={{ backgroundColor: "#f8f9fa" }}>
-                                        <TableCell sx={{ fontWeight: 'bold' }}>No</TableCell>
-                                        <TableCell sx={{ fontWeight: 'bold' }}>No Gadai</TableCell>
-                                        <TableCell sx={{ fontWeight: 'bold' }}>Nasabah</TableCell>
-                                        <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
-                                        <TableCell sx={{ fontWeight: 'bold' }}>Tenor</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>Pinjaman</TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: 'bold' }}>Telat</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>Denda</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 'bold', color: 'primary.main' }}>Hutang</TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: 'bold' }}>Checker</TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: 'bold' }}>HM</TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: 'bold' }}>Aksi</TableCell>
+                <TableContainer>
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow sx={{ backgroundColor: "#f8f9fa" }}>
+                                <TableCell>No</TableCell>
+                                <TableCell>No Gadai</TableCell>
+                                <TableCell>Nasabah</TableCell>
+                                <TableCell>Status</TableCell> {/* Field Baru */}
+                                <TableCell align="right">Pinjaman</TableCell>
+                                <TableCell align="center">Telat</TableCell>
+                                <TableCell align="right" sx={{ color: 'primary.main', fontWeight: 'bold' }}>Hutang</TableCell>
+                                <TableCell align="center">Checker</TableCell>
+                                <TableCell align="center">HM</TableCell>
+                                <TableCell align="center">Aksi</TableCell>
+                            </TableRow>
+                        </TableHead>
+
+                        <TableBody>
+                            {filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row, idx) => {
+                                const st = getStatusStyle(row.status);
+                                return (
+                                    <TableRow key={row.id} hover>
+                                        <TableCell>{page * rowsPerPage + idx + 1}</TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2" fontWeight="bold">{row.no_gadai}</Typography>
+                                            <Typography variant="caption" color="textSecondary">{row.type}</Typography>
+                                        </TableCell>
+                                        <TableCell>{row.nama_nasabah}</TableCell>
+                                        
+                                        {/* ✅ KOLOM STATUS */}
+                                        <TableCell>
+                                            <Chip label={st.label} color={st.color} size="small" sx={{ fontWeight: 'bold', fontSize: '0.65rem' }} />
+                                        </TableCell>
+
+                                        <TableCell align="right">{formatRp(row.pinjaman_pokok)}</TableCell>
+                                        
+                                        <TableCell align="center">
+                                            {row.hari_terlambat > 0 ? (
+                                                <Typography color="error" variant="body2" fontWeight="bold">+{row.hari_terlambat} h</Typography>
+                                            ) : "-"}
+                                        </TableCell>
+
+                                        <TableCell align="right">
+                                            <Typography variant="body2" fontWeight="bold" color="primary.main">{formatRp(row.total_hutang)}</Typography>
+                                        </TableCell>
+
+                                        <TableCell align="center">
+                                            <Chip color={row.acc_checker === 'approved' ? 'success' : 'default'} sx={{ width: 10, height: 10 }} />
+                                        </TableCell>
+                                        <TableCell align="center">
+                                            <Chip color={row.acc_hm === 'approved' ? 'success' : 'default'} sx={{ width: 10, height: 10 }} />
+                                        </TableCell>
+
+                                        <TableCell align="center">
+                                            <Button 
+                                                size="small" variant="contained" 
+                                                onClick={() => navigate(`/admin-detail/${row.id}`)}
+                                                sx={{ fontSize: '10px' }}
+                                            >
+                                                DETAIL
+                                            </Button>
+                                        </TableCell>
                                     </TableRow>
-                                </TableHead>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
 
-                                <TableBody>
-                                    {filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row, idx) => (
-                                        <TableRow key={row.id} hover>
-                                            <TableCell>{page * rowsPerPage + idx + 1}</TableCell>
-                                            
-                                            <TableCell>
-                                                <Typography variant="body2" fontWeight="medium">{row.no_gadai}</Typography>
-                                                <Typography variant="caption" color="textSecondary">JT: {row.jatuh_tempo}</Typography>
-                                            </TableCell>
-                                            
-                                            <TableCell>{row.nama_nasabah}</TableCell>
-                                            
-                                            {/* ✅ KOLOM TYPE - Ambil dari berbagai kemungkinan field */}
-                                            <TableCell>
-                                                <Chip 
-                                                    label={row.type || row.nama_type || row.type_barang || "-"} 
-                                                    size="small" 
-                                                    variant="outlined"
-                                                    color="primary"
-                                                    sx={{ fontWeight: 500 }}
-                                                />
-                                            </TableCell>
-
-                                            {/* ✅ KOLOM TENOR */}
-                                            <TableCell align="center">
-                                                <Typography variant="body2" sx={{ fontWeight: '500' }}>
-                                                    {row.tenor_pilihan || "15 Hari"}
-                                                </Typography>
-                                            </TableCell>
-
-                                            <TableCell align="right">{formatRp(row.pinjaman_pokok)}</TableCell>
-                                            
-                                            {/* ✅ KOLOM TELAT */}
-                                            <TableCell align="center">
-                                                {row.hari_terlambat > 0 ? (
-                                                    <Chip 
-                                                        label={`${row.hari_terlambat} Hari`} 
-                                                        size="small" 
-                                                        sx={{ 
-                                                            fontWeight: 'bold',
-                                                            backgroundColor: '#ffebee',
-                                                            color: '#c62828',
-                                                            border: '1px solid #ef5350'
-                                                        }}
-                                                        icon={<WarningAmber style={{ fontSize: 14, color: '#c62828' }} />}
-                                                    />
-                                                ) : (
-                                                    <Typography variant="body2" color="textSecondary">-</Typography>
-                                                )}
-                                            </TableCell>
-
-                                            <TableCell align="right">{formatRp(row.denda)}</TableCell>
-                                            
-                                            <TableCell align="right">
-                                                <Typography variant="body2" fontWeight="bold" color="primary.main">
-                                                    {formatRp(row.total_hutang)}
-                                                </Typography>
-                                            </TableCell>
-
-                                            {/* KOLOM CHECKER */}
-                                            <TableCell align="center">
-                                                <Tooltip title={row.acc_checker || "-"}>
-                                                    <Chip
-                                                        icon={getStatusIcon(row.acc_checker)}
-                                                        color={getStatusColor(row.acc_checker)}
-                                                        size="small"
-                                                        sx={{ width: 28, height: 28, '& .MuiChip-icon': { ml: 1, mr: -1 } }}
-                                                    />
-                                                </Tooltip>
-                                            </TableCell>
-
-                                            {/* KOLOM HM */}
-                                            <TableCell align="center">
-                                                <Tooltip title={row.acc_hm || "-"}>
-                                                    <Chip
-                                                        icon={getStatusIcon(row.acc_hm)}
-                                                        color={getStatusColor(row.acc_hm)}
-                                                        size="small"
-                                                        sx={{ width: 28, height: 28, '& .MuiChip-icon': { ml: 1, mr: -1 } }}
-                                                    />
-                                                </Tooltip>
-                                            </TableCell>
-
-                                            {/* KOLOM AKSI */}
-                                            <TableCell align="center">
-                                                <button
-                                                    onClick={() => navigate(`/admin-detail/${row.id}`)}
-                                                    style={{
-                                                        padding: "6px 16px",
-                                                        border: "none",
-                                                        borderRadius: "4px",
-                                                        backgroundColor: "#1976d2",
-                                                        color: "white",
-                                                        cursor: "pointer",
-                                                        fontSize: "12px",
-                                                        fontWeight: "bold",
-                                                        transition: "all 0.2s"
-                                                    }}
-                                                    onMouseOver={(e) => e.target.style.backgroundColor = "#1565c0"}
-                                                    onMouseOut={(e) => e.target.style.backgroundColor = "#1976d2"}
-                                                >
-                                                    DETAIL
-                                                </button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-
-                        <TablePagination
-                            rowsPerPageOptions={[10, 25, 50, 100]}
-                            component="div"
-                            count={filtered.length}
-                            page={page}
-                            rowsPerPage={rowsPerPage}
-                            onPageChange={handleChangePage}
-                            onRowsPerPageChange={handleChangeRowsPerPage}
-                            labelRowsPerPage="Baris per halaman:"
-                            labelDisplayedRows={({ from, to, count }) => `${from}-${to} dari ${count}`}
-                        />
-                    </>
-                )}
+                <TablePagination
+                    rowsPerPageOptions={[10, 25, 50]}
+                    component="div"
+                    count={filtered.length}
+                    page={page}
+                    rowsPerPage={rowsPerPage}
+                    onPageChange={(e, p) => setPage(p)}
+                    onRowsPerPageChange={(e) => setRowsPerPage(parseInt(e.target.value, 10))}
+                />
             </CardContent>
         </Card>
     );

@@ -3,16 +3,15 @@ import {
   Grid, Card, CardContent, Typography, TextField, Button, MenuItem, 
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
   Box, Stack, Divider, Alert, CircularProgress, InputAdornment, 
-  Avatar, Paper, Chip, IconButton, Tooltip,Dialog, Zoom
+  Avatar, Paper, Chip, IconButton, Tooltip, Dialog, Zoom
 } from '@mui/material';
 import { 
   Payments, History, Send, CloudUpload, 
-  AddCircle, RemoveCircle, Visibility, Close, Gavel 
+  AddCircle, RemoveCircle, Visibility, Close, Gavel, ReceiptLong
 } from '@mui/icons-material';
 import axiosInstance from 'api/axiosInstance';
 import { AuthContext } from "AuthContex/AuthContext";
 import { gridSpacing } from 'config.js';
-
 
 const KasirOperasional = () => {
   const { user } = useContext(AuthContext);
@@ -34,7 +33,6 @@ const KasirOperasional = () => {
     bukti_transaksi: null
   });
 
-  // State untuk tampilan input nominal bermasker
   const [displayNominal, setDisplayNominal] = useState('');
 
   const getApiUrl = (resource) => (userRole === "checker" ? `/checker/${resource}` : `/${resource}`);
@@ -58,7 +56,6 @@ const KasirOperasional = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Handle Input Masking Nominal
   const handleNominalChange = (e) => {
     const value = e.target.value.replace(/\D/g, "");
     setFormData({ ...formData, nominal: value });
@@ -104,77 +101,22 @@ const KasirOperasional = () => {
     <Grid container spacing={gridSpacing}>
       <Grid item xs={12} md={4}>
         <Stack spacing={gridSpacing}>
-          {/* CARD SALDO */}
           <Card sx={{ bgcolor: '#075345ff', color: '#fff', borderRadius: '20px', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
-  <CardContent sx={{ p: 4 }}>
-    <Typography variant="subtitle2" sx={{ opacity: 0.7, color: 'inherit' }}>
-      SALDO KASIR (FISIK)
-    </Typography>
-    <Typography 
-      variant="h2" 
-      sx={{ 
-        fontWeight: 900, 
-        my: 1, 
-        color: '#ffffff' 
-      }}
-    >
-      {formatRupiah(saldo)}
-    </Typography>
-  </CardContent>
-</Card>
+            <CardContent sx={{ p: 4 }}>
+              <Typography variant="subtitle2" sx={{ opacity: 0.7, color: 'inherit' }}>SALDO KASIR (FISIK)</Typography>
+              <Typography variant="h2" sx={{ fontWeight: 900, my: 1, color: '#ffffff' }}>{formatRupiah(saldo)}</Typography>
+            </CardContent>
+          </Card>
 
-          {/* MENU CEPAT */}
           <Card sx={{ borderRadius: '20px', border: '1px solid #eee' }}>
             <CardContent>
               <Typography variant="h5" fontWeight="800" gutterBottom>Menu Cepat</Typography>
               <Divider sx={{ mb: 2 }} />
               <Stack spacing={1.5}>
-                <Button 
-                  fullWidth variant="outlined" color="success" startIcon={<AddCircle />} 
-                  onClick={() => {
-                    setFormData({...formData, kategori: 'operasional_toko', tipe_operasional: 'masuk', deskripsi: 'Pemasukan Tebusan/Sewa'});
-                    setDisplayNominal('');
-                  }}
-                >
-                  Pemasukan (Tebus)
-                </Button>
-                <Button 
-                  fullWidth variant="outlined" color="error" startIcon={<RemoveCircle />} 
-                  onClick={() => {
-                    setFormData({...formData, kategori: 'operasional_toko', tipe_operasional: 'keluar', deskripsi: 'Pembayaran Untuk Gadai'});
-                    setDisplayNominal('');
-                  }}
-                >
-                  Pengeluaran (Cair)
-                </Button>
-                <Button 
-  fullWidth 
-  variant="outlined" 
-  color="secondary" 
-  startIcon={<Gavel />} 
-  onClick={() => {
-    setFormData({
-      ...formData, 
-      kategori: 'operasional_toko', 
-      tipe_operasional: 'masuk', 
-      deskripsi: 'Hasil Pelelangan Barang Jaminan'
-    });
-    setDisplayNominal('');
-  }}
->
-  Hasil Lelang (Masuk)
-</Button>
-
-
-                <Button 
-                  fullWidth variant="contained" color="warning" startIcon={<Send />} 
-                  onClick={() => {
-                    setFormData({...formData, kategori: 'setor_ke_admin', tipe_operasional: 'keluar', deskripsi: 'Setoran Uang ke Admin'});
-                    setDisplayNominal('');
-                  }}
-                >
-                  Setor ke Pusat
-                </Button>
+                <Button fullWidth variant="outlined" color="success" startIcon={<AddCircle />} onClick={() => { setFormData({...formData, kategori: 'operasional_toko', tipe_operasional: 'masuk', deskripsi: 'Pemasukan Tebusan/Sewa'}); setDisplayNominal(''); }}>Pemasukan (Tebus)</Button>
+                <Button fullWidth variant="outlined" color="error" startIcon={<RemoveCircle />} onClick={() => { setFormData({...formData, kategori: 'operasional_toko', tipe_operasional: 'keluar', deskripsi: 'Pembayaran Untuk Gadai'}); setDisplayNominal(''); }}>Pengeluaran (Cair)</Button>
+                <Button fullWidth variant="outlined" color="secondary" startIcon={<Gavel />} onClick={() => { setFormData({...formData, kategori: 'operasional_toko', tipe_operasional: 'masuk', deskripsi: 'Hasil Pelelangan Barang Jaminan'}); setDisplayNominal(''); }}>Hasil Lelang (Masuk)</Button>
+                <Button fullWidth variant="contained" color="warning" startIcon={<Send />} onClick={() => { setFormData({...formData, kategori: 'setor_ke_admin', tipe_operasional: 'keluar', deskripsi: 'Setoran Uang ke Admin'}); setDisplayNominal(''); }}>Setor ke Pusat</Button>
               </Stack>
             </CardContent>
           </Card>
@@ -185,18 +127,12 @@ const KasirOperasional = () => {
         <Card sx={{ borderRadius: '20px', border: '1px solid #eee' }}>
           <CardContent>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 3 }}>
-              <Avatar sx={{ bgcolor: formData.tipe_operasional === 'masuk' ? '#2e7d32' : '#075345ff' }}>
-                <Payments />
-              </Avatar>
-              <Typography variant="h4" fontWeight="800">
-                Input {formData.kategori === 'setor_ke_admin' ? 'Setoran Pusat' : (formData.tipe_operasional === 'masuk' ? 'Pemasukan' : 'Pengeluaran')}
-              </Typography>
+              <Avatar sx={{ bgcolor: formData.tipe_operasional === 'masuk' ? '#2e7d32' : '#075345ff' }}><Payments /></Avatar>
+              <Typography variant="h4" fontWeight="800">Input {formData.kategori === 'setor_ke_admin' ? 'Setoran Pusat' : (formData.tipe_operasional === 'masuk' ? 'Pemasukan' : 'Pengeluaran')}</Typography>
             </Stack>
 
             {statusMsg.text && (
-              <Alert severity={statusMsg.type} sx={{ mb: 3, borderRadius: '10px' }} onClose={() => setStatusMsg({type:'', text:''})}>
-                {statusMsg.text}
-              </Alert>
+              <Alert severity={statusMsg.type} sx={{ mb: 3, borderRadius: '10px' }} onClose={() => setStatusMsg({type:'', text:''})}>{statusMsg.text}</Alert>
             )}
 
             <form onSubmit={handleSubmit}>
@@ -207,37 +143,21 @@ const KasirOperasional = () => {
                     <MenuItem value="setor_ke_admin">Setor ke Pusat</MenuItem>
                   </TextField>
                 </Grid>
-
                 <Grid item xs={12} sm={6}>
-                  <TextField 
-                    select fullWidth label="Tipe Arus" 
-                    disabled={formData.kategori === 'setor_ke_admin'}
-                    value={formData.kategori === 'setor_ke_admin' ? 'keluar' : formData.tipe_operasional} 
-                    onChange={(e) => setFormData({...formData, tipe_operasional: e.target.value})}
-                  >
+                  <TextField select fullWidth label="Tipe Arus" disabled={formData.kategori === 'setor_ke_admin'} value={formData.kategori === 'setor_ke_admin' ? 'keluar' : formData.tipe_operasional} onChange={(e) => setFormData({...formData, tipe_operasional: e.target.value})}>
                     <MenuItem value="masuk">Pemasukan </MenuItem>
                     <MenuItem value="keluar">Pengeluaran </MenuItem>
                   </TextField>
                 </Grid>
-
                 <Grid item xs={12} sm={6}>
-                  <TextField 
-                    fullWidth label="Nominal" 
-                    value={displayNominal} 
-                    onChange={handleNominalChange}
-                    required
-                    placeholder="0"
-                    InputProps={{ startAdornment: <InputAdornment position="start">Rp</InputAdornment> }} 
-                  />
+                  <TextField fullWidth label="Nominal" value={displayNominal} onChange={handleNominalChange} required placeholder="0" InputProps={{ startAdornment: <InputAdornment position="start">Rp</InputAdornment> }} />
                 </Grid>
-
                 <Grid item xs={12} sm={6}>
                   <TextField select fullWidth label="Metode" value={formData.metode} onChange={(e) => setFormData({...formData, metode: e.target.value})}>
                     <MenuItem value="cash">Tunai (Cash)</MenuItem>
                     <MenuItem value="transfer">Transfer</MenuItem>
                   </TextField>
                 </Grid>
-
                 {formData.metode === 'transfer' && (
                   <Grid item xs={12}>
                     <Button component="label" variant="outlined" fullWidth startIcon={<CloudUpload />} sx={{ py: 1.5, borderStyle: 'dashed' }}>
@@ -246,34 +166,19 @@ const KasirOperasional = () => {
                     </Button>
                   </Grid>
                 )}
-
                 <Grid item xs={12}>
                   <TextField fullWidth label="Keterangan" multiline rows={2} value={formData.deskripsi} onChange={(e) => setFormData({...formData, deskripsi: e.target.value})} required />
                 </Grid>
-
                 <Grid item xs={12}>
-                  <Button 
-                    fullWidth size="large" variant="contained" type="submit" 
-                    disabled={btnLoading || (formData.tipe_operasional === 'keluar' && saldo < formData.nominal)} 
-                    sx={{ 
-                      py: 2, borderRadius: '12px', fontWeight: 'bold',
-                      bgcolor: formData.tipe_operasional === 'masuk' ? '#2e7d32' : '#075345ff'
-                    }}
-                  >
+                  <Button fullWidth size="large" variant="contained" type="submit" disabled={btnLoading || (formData.tipe_operasional === 'keluar' && saldo < formData.nominal)} sx={{ py: 2, borderRadius: '12px', fontWeight: 'bold', bgcolor: formData.tipe_operasional === 'masuk' ? '#2e7d32' : '#075345ff' }}>
                     {btnLoading ? <CircularProgress size={24} color="inherit" /> : `SIMPAN TRANSAKSI`}
                   </Button>
-                  {(formData.tipe_operasional === 'keluar' && saldo < formData.nominal) && (
-                    <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block', textAlign: 'center', fontWeight: 'bold' }}>
-                      ⚠️ Saldo kasir tidak cukup untuk pengeluaran ini!
-                    </Typography>
-                  )}
                 </Grid>
               </Grid>
             </form>
           </CardContent>
         </Card>
 
-        {/* RIWAYAT HARI INI */}
         <Box sx={{ mt: 3 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
             <Typography variant="h5" fontWeight="800"><History /> Mutasi Hari Ini</Typography>
@@ -309,17 +214,46 @@ const KasirOperasional = () => {
                         {row.pengeluaran > 0 ? <Typography color="error.main" fontWeight="900">{formatRupiah(row.pengeluaran)}</Typography> : '-'}
                       </TableCell>
                       <TableCell align="center">
-                        <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
+                        <Stack direction="row" spacing={0.5} justifyContent="center" alignItems="center">
+                          {/* FIX: Gunakan properti 'status' sesuai JSON API */}
                           <Chip 
-                            label={row.status_validasi} 
+                            label={row.status === 'tervalidasi' ? 'LUNAS' : 'PENDING'} 
                             size="small" 
-                            color={row.status_validasi === 'tervalidasi' ? 'success' : 'warning'} 
+                            color={row.status === 'tervalidasi' ? 'success' : 'warning'} 
                             sx={{ fontSize: '0.65rem', height: 20 }}
                           />
-                          {row.bukti_transaksi && (
-                            <IconButton size="small" onClick={() => setPreviewImg(row.bukti_transaksi)}>
-                              <Visibility fontSize="small" />
-                            </IconButton>
+                          
+                          {/* Bukti dari Toko */}
+                          {row.bukti_toko && (
+                             <Tooltip title="Lihat Bukti Toko">
+                                <IconButton size="small" onClick={() => setPreviewImg(row.bukti_toko)}>
+                                  <Visibility fontSize="small" color="primary" />
+                                </IconButton>
+                             </Tooltip>
+                          )}
+
+                          {/* FIX: Tambah Lihat Bukti Admin & Catatan Admin */}
+                          {row.status === 'tervalidasi' && (
+                            <>
+                              {row.bukti_admin && (
+                                <Tooltip title="Lihat Bukti Admin">
+                                  <IconButton size="small" onClick={() => setPreviewImg(row.bukti_admin)}>
+                                    <Avatar 
+                                      src={row.bukti_admin} 
+                                      variant="rounded" 
+                                      sx={{ width: 22, height: 22, border: '1px solid #2e7d32', cursor: 'pointer' }} 
+                                    />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                              {row.catatan_admin && (
+                                <Tooltip title={`Catatan Admin: ${row.catatan_admin}`}>
+                                  <IconButton size="small" color="success">
+                                    <ReceiptLong sx={{ fontSize: 18 }} />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                            </>
                           )}
                         </Stack>
                       </TableCell>
@@ -332,7 +266,6 @@ const KasirOperasional = () => {
         </Box>
       </Grid>
 
-      {/* MODAL PREVIEW GAMBAR */}
       <Dialog open={!!previewImg} onClose={() => setPreviewImg(null)} maxWidth="sm" fullWidth>
          <Box sx={{ p: 1, position: 'relative' }}>
             <IconButton onClick={() => setPreviewImg(null)} sx={{ position: 'absolute', right: 8, top: 8, bgcolor: 'rgba(0,0,0,0.5)', color: '#fff' }}>

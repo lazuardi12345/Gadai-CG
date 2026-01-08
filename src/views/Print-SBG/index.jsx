@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { CircularProgress, Button, Box, Typography } from "@mui/material";
@@ -13,7 +13,9 @@ import {
     pdf,
 } from "@react-pdf/renderer";
 import templateBg from "assets/images/SBG-HP-FIX.jpg";
-import { AuthContext } from "AuthContex/AuthContext";
+
+import TtdManagerImg from 'assets/images/ttd.png'; 
+import StempelImg from 'assets/images/stemple.png'; 
 
 Font.register({
     family: "Roboto",
@@ -50,7 +52,6 @@ const cleanText = (text) => {
         .trim();
 };
 
-// ===== Revisi format data HP sesuai API terbaru =====
 const formatHpDetails = (hp) => {
     if (!hp) return "-";
 
@@ -134,10 +135,14 @@ const terbilang = (angka) => {
     return "Angka terlalu besar";
 };
 
-// ===== PDF TEMPLATE =====
 const SuratBuktiGadaiPDF = ({ data }) => {
     const nasabah = data?.nasabah || {};
     const hp = data?.hp || {};
+    
+    const isApproved = 
+        data?.is_approved === true || 
+        data?.is_approved === 1 || 
+        data?.approval_status === 'approved';
 
     return (
         <Document>
@@ -145,7 +150,6 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                 size={[187 * 2.83465, 263 * 2.83465]}
                 style={{ position: "relative", fontFamily: "Roboto" }}
             >
-                {/* Background */}
                 <Image
                     src={templateBg}
                     style={{
@@ -157,7 +161,6 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                     }}
                 />
 
-                {/* Overlay Data */}
                 <View
                     style={{
                         position: "absolute",
@@ -167,7 +170,6 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         height: "100%",
                     }}
                 >
-                    {/* Data Nasabah */}
                     <SafeText style={{ position: "absolute", top: 68, left: 190, fontSize: 13, fontWeight: "bold" }}>
                         {data.no_gadai}
                     </SafeText>
@@ -187,7 +189,6 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {nasabah.no_hp}
                     </SafeText>
 
-                    {/* Tanggal */}
                     <SafeText style={{ position: "absolute", top: 105, left: 303, fontSize: 7, fontWeight: "bold" }}>
                         {data.tanggal_gadai}
                     </SafeText>
@@ -195,7 +196,6 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {data.jatuh_tempo}
                     </SafeText>
 
-                    {/* Barang HP (Kiri bawah) */}
                     <SafeText style={{ position: "absolute", top: 158, left: 90, fontSize: 7 }}>
                         {cleanText(hp.nama_barang)}
                     </SafeText>
@@ -221,7 +221,6 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {(hp.kerusakan_list || []).map(k => k.nama_kerusakan).join(", ")}
                     </SafeText>
 
-                    {/* Nilai Pinjaman */}
                     <SafeText style={{ position: "absolute", top: 148, left: 320, fontSize: 7, fontWeight: "bold" }}>
                         {formatRupiah(data.taksiran)}
                     </SafeText>
@@ -242,12 +241,10 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {`${terbilang(data.uang_pinjaman)} Rupiah`}
                     </SafeText>
 
-                    {/* Data Barcode / Kanan atas */}
                     <SafeText style={{ position: "absolute", top: 110, left: 430, fontSize: 8, fontWeight: "bold" }}>
                         {data.no_gadai}
                     </SafeText>
 
-                    {/* DETAIL HP KANAN */}
                     <SafeText 
                         style={{ 
                             position: "absolute", 
@@ -262,10 +259,36 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {formatHpDetails(hp)} 
                     </SafeText>
 
-                    {/* Tanda tangan */}
                     <SafeText style={{ position: "absolute", top: 239, left: 46, fontSize: 7 }}>
                         {nasabah.nama_lengkap}
                     </SafeText>
+
+                    {isApproved && (
+                        <>
+                            {data.metadata?.qr_code && (
+                                <Image 
+                                    src={data.metadata.qr_code} 
+                                    style={{ position: "absolute", top: 302, left: 330, width: 50, height: 50 }} 
+                                />
+
+                            )}
+
+                            <Image 
+                                    src={data.metadata.qr_code} 
+                                    style={{ position: "absolute", top: 42, left: 440, width: 65, height: 65 }} 
+                                />
+
+                            <Image 
+                                src={TtdManagerImg} 
+                                style={{ position: "absolute", top: 205, left: 295, width: 70, height: 55, zIndex: 1 }} 
+                            />
+
+                            <Image 
+                                src={StempelImg} 
+                                style={{ position: "absolute", top: 200, left: 270, width: 60, height: 60, zIndex: 2, opacity: 0.8 }} 
+                            />
+                        </>
+                    )}
                 </View>
             </Page>
         </Document>
@@ -274,12 +297,16 @@ const SuratBuktiGadaiPDF = ({ data }) => {
 
 const PrintSuratGadaiPage = () => {
     const { id } = useParams();
-    const { user } = useContext(AuthContext);
+    
+    // 🔹 PERUBAHAN: Ambil role dari localStorage
+    const user = JSON.parse(localStorage.getItem("auth_user"));
     const userRole = (user?.role || "").toLowerCase();
 
     const [dataGadai, setDataGadai] = useState(null);
     const [loading, setLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState("");
+    const [submitting, setSubmitting] = useState(false);
+    const [successMsg, setSuccessMsg] = useState("");
 
     const fetchData = async () => {
         setLoading(true);
@@ -306,6 +333,37 @@ const PrintSuratGadaiPage = () => {
         fetchData();
     }, [id, userRole]);
 
+    const handleAjukanSBG = async () => {
+        if (!dataGadai) return;
+        
+        setSubmitting(true);
+        setErrorMsg("");
+        setSuccessMsg("");
+
+        try {
+            let submitUrl = "";
+            if (userRole === "checker") {
+                submitUrl = `/checker/detail-gadai/submit/${id}`;
+            } else if (userRole === "petugas") {
+                submitUrl = `/petugas/detail-gadai/submit/${id}`;
+            } else {
+                throw new Error("Role tidak memiliki akses untuk ajukan SBG");
+            }
+
+            const res = await axiosInstance.post(submitUrl);
+            setSuccessMsg(res.data.message || "SBG berhasil diajukan untuk approval!");
+            
+            setTimeout(() => {
+                fetchData();
+            }, 1500);
+        } catch (err) {
+            console.error("Gagal mengajukan SBG:", err);
+            setErrorMsg(err.response?.data?.message || "Gagal mengajukan SBG");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     const handlePrintPDF = async () => {
         if (!dataGadai) return;
         const blob = await pdf(<SuratBuktiGadaiPDF data={dataGadai} />).toBlob();
@@ -320,7 +378,7 @@ const PrintSuratGadaiPage = () => {
     if (loading)
         return <CircularProgress sx={{ display: "block", mx: "auto", mt: 10 }} />;
 
-    if (errorMsg)
+    if (errorMsg && !dataGadai)
         return (
             <Box textAlign="center" mt={4}>
                 <Typography color="error">{errorMsg}</Typography>
@@ -332,21 +390,166 @@ const PrintSuratGadaiPage = () => {
 
     if (!dataGadai) return <p>Data gadai tidak ditemukan.</p>;
 
-    return (
-        <Box sx={{ p: 3, textAlign: "center" }}>
-            <Button variant="contained" color="primary" onClick={handlePrintPDF}>
-                Cetak / Download Surat Bukti Gadai
-            </Button>
+    const approvalStatus = dataGadai?.approval_status || 'draft';
+const isApproved = dataGadai?.is_approved === true || 
+                   dataGadai?.is_approved === 1 || 
+                   dataGadai?.approval_status === 'approved';
+const isPending = approvalStatus === 'pending';
 
-            <Box mt={2}>
-                <PDFDownloadLink
-                    document={<SuratBuktiGadaiPDF data={dataGadai} />}
-                    fileName={`Surat-Bukti-Gadai-${dataGadai.no_gadai}.pdf`}
-                >
-                    {({ loading }) =>
-                        loading ? "Menyiapkan file..." : "⬇️ Download Surat Bukti Gadai"
-                    }
-                </PDFDownloadLink>
+// LOGIKA BARU: Tambahkan status 'selesai' di sini
+const canSubmit = (userRole === 'checker' || userRole === 'petugas') 
+                  && (dataGadai?.status === 'proses' || dataGadai?.status === 'selesai') 
+                  && approvalStatus === 'draft';
+return (
+        <Box sx={{ 
+            p: { xs: 2, md: 4 }, 
+            display: 'flex', 
+            justifyContent: 'center', 
+            bgcolor: '#f4f6f8', 
+            minHeight: '100vh' 
+        }}>
+            <Box sx={{ 
+                maxWidth: 500, 
+                width: '100%', 
+                bgcolor: 'white', 
+                borderRadius: 4, 
+                boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
+                overflow: 'hidden'
+            }}>
+                {/* Header Elegan */}
+                <Box sx={{ 
+                    bgcolor: isApproved ? '#2e7d32' : '#1976d2', 
+                    p: 3, 
+                    color: 'white', 
+                    textAlign: 'center' 
+                }}>
+                    <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 1 }}>
+                        SURAT BUKTI GADAI
+                    </Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                        {dataGadai.no_gadai}
+                    </Typography>
+                </Box>
+
+                <Box sx={{ p: 4 }}>
+                    {/* Status Section */}
+                    <Box sx={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        mb: 4,
+                        p: 2,
+                        borderRadius: 2,
+                        bgcolor: '#f8f9fa',
+                        border: '1px solid #edf2f7'
+                    }}>
+                        <Box textAlign="left">
+                            <Typography variant="caption" color="textSecondary" sx={{ display: 'block', fontWeight: 'bold' }}>
+                                STATUS TRANSAKSI
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#2d3748' }}>
+                                {dataGadai.status.toUpperCase()}
+                            </Typography>
+                        </Box>
+                        <Box textAlign="right">
+                            <Typography variant="caption" color="textSecondary" sx={{ display: 'block', fontWeight: 'bold' }}>
+                                STATUS APPROVAL
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                                fontWeight: 'bold', 
+                                color: isApproved ? '#2e7d32' : (isPending ? '#ed8936' : '#718096') 
+                            }}>
+                                {approvalStatus.toUpperCase()}
+                            </Typography>
+                        </Box>
+                    </Box>
+
+                    {/* Action Section */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        
+                        {canSubmit && (
+                            <Button 
+                                variant="contained" 
+                                color="warning"
+                                fullWidth
+                                disableElevation
+                                sx={{ 
+                                    py: 1.5, 
+                                    borderRadius: 2, 
+                                    fontWeight: 'bold',
+                                    textTransform: 'none',
+                                    fontSize: '1rem',
+                                    boxShadow: '0 4px 12px rgba(237, 137, 54, 0.2)'
+                                }}
+                                onClick={handleAjukanSBG}
+                                disabled={submitting}
+                            >
+                                {submitting ? <CircularProgress size={24} color="inherit" /> : "Ajukan ACC Online"}
+                            </Button>
+                        )}
+
+                        {isPending && (
+                            <Box sx={{ 
+                                p: 2, 
+                                bgcolor: '#fffaf0', 
+                                borderRadius: 2, 
+                                border: '1px solid #feebc8',
+                                textAlign: 'center'
+                            }}>
+                                <Typography variant="body2" sx={{ color: '#c05621', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                                    ⏳ Menunggu Verifikasi Manager
+                                </Typography>
+                            </Box>
+                        )}
+
+                        {/* Print Button Section */}
+                        <Box sx={{ mt: 2 }}>
+                            <Typography variant="caption" sx={{ mb: 1, display: 'block', color: '#718096', textAlign: 'center', fontWeight: 500 }}>
+                                {isApproved ? "DOKUMEN SUDAH TERVERIFIKASI" : "DOKUMEN DRAFT"}
+                            </Typography>
+                            
+                            <Button 
+                                variant="contained" 
+                                color={isApproved ? "success" : "inherit"}
+                                onClick={handlePrintPDF} 
+                                fullWidth
+                                disableElevation
+                                sx={{ 
+                                    py: 2, 
+                                    borderRadius: 2, 
+                                    fontWeight: 'bold',
+                                    textTransform: 'none',
+                                    fontSize: '1rem',
+                                    bgcolor: isApproved ? '#2e7d32' : '#e2e8f0',
+                                    color: isApproved ? 'white' : '#4a5568',
+                                    '&:hover': {
+                                        bgcolor: isApproved ? '#1b5e20' : '#cbd5e0',
+                                    }
+                                }}
+                            >
+                                {isApproved ? "Cetak SBG Resmi (E-Signature)" : "Cetak Draft (TTD Manual)"}
+                            </Button>
+                        </Box>
+
+                        {successMsg && (
+                            <Typography variant="caption" sx={{ mt: 1, color: '#2e7d32', textAlign: 'center', fontWeight: 'bold' }}>
+                                ✅ {successMsg}
+                            </Typography>
+                        )}
+                        
+                        {errorMsg && (
+                            <Typography variant="caption" sx={{ mt: 1, color: '#e53e3e', textAlign: 'center', fontWeight: 'bold' }}>
+                                ⚠️ {errorMsg}
+                            </Typography>
+                        )}
+                    </Box>
+                </Box>
+
+                {/* Footer Tipis */}
+                <Box sx={{ p: 2, textAlign: 'center', borderTop: '1px solid #edf2f7' }}>
+                    <Typography variant="caption" color="textDisabled">
+                        PT Sentra Gadai Indonesia System
+                    </Typography>
+                </Box>
             </Box>
         </Box>
     );

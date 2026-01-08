@@ -4,7 +4,7 @@ import {
   TableHead, TableBody, TableRow, TableCell, TablePagination,
   IconButton, TextField, Button, CircularProgress, Typography,
   Stack, Chip, Tooltip, Box, Dialog, DialogTitle,
-  DialogContent, DialogActions, MenuItem, Paper, Alert
+  DialogContent, DialogActions, MenuItem, Paper, Alert, Avatar, Grid
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -16,10 +16,14 @@ import {
   CloudUpload as UploadIcon,
   ReceiptLong as ReceiptIcon,
   Cancel as CancelIcon,
-  VerifiedUser as VerifiedIcon,
   Delete as DeleteIcon,
   Smartphone as SmartphoneOutlinedIcon, 
-  Diamond as DiamondOutlinedIcon,                           
+  Diamond as DiamondOutlinedIcon,
+  Inventory as InventoryIcon,
+  Balance as BalanceIcon,
+  Straighten as StraightenIcon,
+  PhotoLibrary as PhotoLibraryIcon,
+  Visibility as VisibilityIcon
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
@@ -40,42 +44,22 @@ const DetailGadaiPage = () => {
   const [openValidasi, setOpenValidasi] = useState(false);
   const [openLunas, setOpenLunas] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
-
-  const PopupDetailBarang = ({ open, onClose, itemId, itemType, userRole }) => {
-  const [loading, setLoading] = useState(true);
-  const [detail, setDetail] = useState(null);
-  }
   
   const [nominalBayar, setNominalBayar] = useState("");
   const [metodeBayar, setMetodeBayar] = useState("cash");
   const [fileBukti, setFileBukti] = useState(null);
   const [targetBayar, setTargetBayar] = useState(0);
   const [processLoading, setProcessLoading] = useState(false);
+  const [openDelete, setOpenDelete] = useState(false);
 
-  
+  // State untuk Preview Foto
+  const [previewImage, setPreviewImage] = useState(null);
+
   const getApiUrl = (resource) => {
     if (userRole === "petugas") return `/petugas/${resource}`;
     if (userRole === "checker") return `/checker/${resource}`;
     return `/${resource}`;
   };
-
-const [openDelete, setOpenDelete] = useState(false);
-
-const handleDeleteGadai = async () => {
-  setProcessLoading(true);
-  try {
-    const res = await axiosInstance.delete(`${getApiUrl("detail-gadai")}/${selectedItem.id}`);
-    if (res.data.success) {
-      setOpenDelete(false);
-      fetchData();
-      alert("Data berhasil dihapus");
-    }
-  } catch (err) {
-    alert(err.response?.data?.message || "Gagal menghapus data");
-  } finally {
-    setProcessLoading(false);
-  }
-};
 
   const fetchData = async () => {
     setLoading(true);
@@ -93,36 +77,50 @@ const handleDeleteGadai = async () => {
     }
   };
 
-
-  
-
-  useEffect(() => { fetchData(); }, [userRole]);
-
-  useEffect(() => {
-    const filtered = data.filter(item => {
-      const isCurrentlyExtending = item.perpanjangan_tempos?.some(p => p.status_bayar === "pending");
-      if (isCurrentlyExtending) return false;
-
-      const matchSearch = 
-        item.no_gadai?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.nasabah?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      return matchSearch;
-    });
-    setFilteredData(filtered);
-    setPage(0);
-  }, [searchTerm, data]);
+  const handleOpenValidasi = async (id) => {
+    setProcessLoading(true);
+    setSelectedItem(null); 
+    try {
+      const res = await axiosInstance.get(`${getApiUrl("detail-gadai")}/${id}`);
+      if (res.data.success) {
+        setSelectedItem(res.data.data); 
+        setOpenValidasi(true);
+      }
+    } catch (err) {
+      alert("Gagal mengambil detail unit");
+    } finally {
+      setProcessLoading(false);
+    }
+  };
 
   const handleValidasiSelesai = async () => {
+    if (!selectedItem) return;
     setProcessLoading(true);
     try {
       const res = await axiosInstance.patch(`${getApiUrl("detail-gadai")}/${selectedItem.id}/validasi-selesai`);
       if (res.data.success) {
         setOpenValidasi(false);
         fetchData();
+        alert("Validasi berhasil diselesaikan.");
       }
     } catch (err) {
-      alert("Gagal validasi status");
+      alert(err.response?.data?.message || "Gagal validasi status");
+    } finally {
+      setProcessLoading(false);
+    }
+  };
+
+  const handleDeleteGadai = async () => {
+    setProcessLoading(true);
+    try {
+      const res = await axiosInstance.delete(`${getApiUrl("detail-gadai")}/${selectedItem.id}`);
+      if (res.data.success) {
+        setOpenDelete(false);
+        fetchData();
+        alert("Data berhasil dihapus");
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Gagal menghapus data");
     } finally {
       setProcessLoading(false);
     }
@@ -133,7 +131,6 @@ const handleDeleteGadai = async () => {
         alert("Nominal bayar kurang!");
         return;
     }
-    
     setProcessLoading(true);
     try {
       const formData = new FormData();
@@ -161,6 +158,21 @@ const handleDeleteGadai = async () => {
     }
   };
 
+  useEffect(() => { fetchData(); }, [userRole]);
+
+  useEffect(() => {
+    const filtered = data.filter(item => {
+      const isCurrentlyExtending = item.perpanjangan_tempos?.some(p => p.status_bayar === "pending");
+      if (isCurrentlyExtending) return false;
+      const matchSearch = 
+        item.no_gadai?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.nasabah?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchSearch;
+    });
+    setFilteredData(filtered);
+    setPage(0);
+  }, [searchTerm, data]);
+
   const getStatusColor = (status) => {
     if (status === "proses") return "warning";
     if (status === "selesai") return "info";
@@ -171,17 +183,12 @@ const handleDeleteGadai = async () => {
   const getApprovalStatus = (approvals) => {
     const checker = approvals?.find(a => a.role === 'checker');
     const hm = approvals?.find(a => a.role === 'hm');
-    
     return { checker, hm };
   };
 
   const renderApprovalBadge = (approval) => {
-    if (!approval) {
-      return <Chip label="Belum" size="small" variant="outlined" sx={{ fontSize: '0.65rem' }} />;
-    }
-
+    if (!approval) return <Chip label="Belum" size="small" variant="outlined" sx={{ fontSize: '0.65rem' }} />;
     const isApproved = approval.status?.includes('approved');
-    
     return (
       <Chip 
         label={isApproved ? "Approved" : "Rejected"}
@@ -193,36 +200,51 @@ const handleDeleteGadai = async () => {
     );
   };
 
-  // LOGIKA NAVIGASI DINAMIS BERDASARKAN TYPE
   const getPrintSBGRoute = (item) => {
     const typeName = item.type?.nama_type?.toLowerCase() || '';
     if (["retro", "logam_mulia", "perhiasan", "logam mulia"].includes(typeName)) {
       return `/print-surat-bukti-gadai-emas/${item.id}`;
     }
-    if (typeName === "handphone") {
-      return `/print-surat-bukti-gadai-hp/${item.id}`;
-    }
-    // Default fallback
+    if (typeName === "handphone") return `/print-surat-bukti-gadai-hp/${item.id}`;
     return `/print-surat-bukti-gadai-emas/${item.id}`;
   };
 
-const getUnitIcon = (typeName) => {
-  const name = typeName?.toLowerCase() || '';
+  const getUnitIcon = (typeName) => {
+    const name = typeName?.toLowerCase() || '';
+    if (name.includes('hp') || name.includes('handphone')) return <SmartphoneOutlinedIcon sx={{ fontSize: 14 }} />;
+    if (name.includes('emas') || name.includes('logam') || name.includes('perhiasan') || name.includes('retro')) return <DiamondOutlinedIcon sx={{ fontSize: 14 }} />;
+    return <InfoIcon sx={{ fontSize: 14 }} />;
+  };
 
-  if (name.includes('hp') || name.includes('handphone')) {
-    return <SmartphoneOutlinedIcon sx={{ fontSize: 14 }} />;
-  }
-  if (
-    name.includes('emas') || 
-    name.includes('logam') || 
-    name.includes('perhiasan') || 
-    name.includes('retro') 
-  ) {
-    return <DiamondOutlinedIcon sx={{ fontSize: 14 }} />;
-  }
-  
-  return <InfoIcon sx={{ fontSize: 14 }} />;
-};
+  // Komponen Helper untuk Menampilkan Foto Dokumen
+  const ImageThumbnail = ({ url, label }) => {
+    if (!url) return null;
+    return (
+      <Grid item xs={4} sm={3}>
+        <Box 
+          onClick={() => setPreviewImage({ url, label })}
+          sx={{ 
+            position: 'relative', 
+            cursor: 'pointer', 
+            borderRadius: 2, 
+            overflow: 'hidden', 
+            border: '1px solid #ddd',
+            '&:hover .overlay': { opacity: 1 }
+          }}
+        >
+          <img src={url} alt={label} style={{ width: '100%', height: '80px', objectFit: 'cover', display: 'block' }} />
+          <Box className="overlay" sx={{ 
+            position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
+            bgcolor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            opacity: 0, transition: '0.3s'
+          }}>
+            <VisibilityIcon sx={{ color: 'white' }} />
+          </Box>
+        </Box>
+        <Typography variant="caption" align="center" display="block" sx={{ fontSize: '0.6rem', mt: 0.5, noWrap: true }}>{label}</Typography>
+      </Grid>
+    );
+  };
 
   const isManagement = ["hm", "checker"].includes(userRole);
 
@@ -231,8 +253,6 @@ const getUnitIcon = (typeName) => {
       <CircularProgress />
     </Box>
   );
-
- // ... (bagian import dan state tetap sama)
 
   return (
     <Card sx={{ boxShadow: 4, borderRadius: 4 }}>
@@ -262,83 +282,49 @@ const getUnitIcon = (typeName) => {
                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>Status Pengajuan</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>Alur Transaksi</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>Cetak Struk / Bukti</TableCell>
-                {/* BAGIAN ERROR SUDAH DIHAPUS DARI SINI */}
                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>Aksi</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item, index) => {
                 const { checker, hm } = getApprovalStatus(item.approvals);
-                
                 return (
                   <TableRow key={item.id} hover>
                     <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
-                    
-                   <TableCell>
-  <Stack spacing={0.3}>
-    <Typography variant="body2" fontWeight="bold" color="primary">
-      {item.no_gadai}
-    </Typography>
-
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-      <Typography variant="caption" sx={{ fontWeight: 600 }}>
-        Nasabah:
-      </Typography>
-      <Typography variant="caption" color="text.secondary">
-        {item.nasabah?.nama_lengkap || '-'}
-      </Typography>
-    </Box>
-
-    <Box 
-      sx={{ 
-        mt: 0.5, 
-        p: 0.5, 
-        bgcolor: '#f1f5f9', 
-        borderRadius: 1, 
-        borderLeft: '3px solid #1e293b',
-        display: 'inline-flex', 
-        width: 'fit-content'
-      }}
-    >
-      <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 'bold' }}>
-        {getUnitIcon(item.type?.nama_type)} {item.type?.nama_type || 'Tanpa Type'}
-      </Typography>
-    </Box>
-  </Stack>
-</TableCell>
-
+                    <TableCell>
+                      <Stack spacing={0.3}>
+                        <Typography variant="body2" fontWeight="bold" color="primary">{item.no_gadai}</Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 600 }}>Nasabah:</Typography>
+                          <Typography variant="caption" color="text.secondary">{item.nasabah?.nama_lengkap || '-'}</Typography>
+                        </Box>
+                        <Box sx={{ mt: 0.5, p: 0.5, bgcolor: '#f1f5f9', borderRadius: 1, borderLeft: '3px solid #1e293b', display: 'inline-flex', width: 'fit-content' }}>
+                          <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 'bold' }}>
+                            {getUnitIcon(item.type?.nama_type)} {item.type?.nama_type || 'Tanpa Type'}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </TableCell>
                     <TableCell align="center">
                       <Stack spacing={0.2}>
                         <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>Gadai: {item.tanggal_gadai}</Typography>
-                        <Typography variant="caption" fontWeight="bold" color="error.main" sx={{ fontSize: '0.65rem' }}>
-                          JT: {item.jatuh_tempo}
-                        </Typography>
+                        <Typography variant="caption" fontWeight="bold" color="error.main" sx={{ fontSize: '0.65rem' }}>JT: {item.jatuh_tempo}</Typography>
                       </Stack>
                     </TableCell>
-
                     <TableCell align="right">
                       <Stack spacing={0.2}>
                         <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>Taksiran: {Number(item.taksiran).toLocaleString("id-ID")}</Typography>
-                        <Typography variant="body2" fontWeight="bold" color="primary.main">
-                          {Number(item.uang_pinjaman).toLocaleString("id-ID")}
-                        </Typography>
+                        <Typography variant="body2" fontWeight="bold" color="primary.main">{Number(item.uang_pinjaman).toLocaleString("id-ID")}</Typography>
                       </Stack>
                     </TableCell>
-
                     <TableCell align="center">
                       <Stack spacing={0.5} alignItems="center">
                         <Chip label={item.status.toUpperCase()} color={getStatusColor(item.status)} size="small" sx={{ fontSize: '0.65rem', fontWeight: 'bold' }} />
                         {item.perpanjangan_tempos?.length > 0 && (
-                          <Chip 
-                            variant="outlined" color="secondary" size="small"
-                            icon={<ExtensionIcon style={{ fontSize: 12 }} />}
-                            label={`${item.perpanjangan_tempos.filter(p => p.status_bayar === 'lunas').length}x`}
-                            sx={{ fontSize: '0.65rem', height: 20 }}
-                          />
+                          <Chip variant="outlined" color="secondary" size="small" icon={<ExtensionIcon style={{ fontSize: 12 }} />} label={`${item.perpanjangan_tempos.filter(p => p.status_bayar === 'lunas').length}x`} sx={{ fontSize: '0.65rem', height: 20 }} />
                         )}
                       </Stack>
                     </TableCell>
-
                     <TableCell align="center">
                       <Stack spacing={0.5} alignItems="center">
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -351,30 +337,16 @@ const getUnitIcon = (typeName) => {
                         </Box>
                       </Stack>
                     </TableCell>
-
                     <TableCell align="center">
                       {isManagement && (
                         <Stack direction="row" spacing={1} justifyContent="center">
                           {item.status === "proses" && (
-                            <Button 
-                              variant="contained" color="info" size="small" 
-                              onClick={() => { setSelectedItem(item); setOpenValidasi(true); }}
-                              sx={{ fontSize: '0.65rem', textTransform: 'none' }}
-                            >
+                            <Button variant="contained" color="info" size="small" onClick={() => handleOpenValidasi(item.id)} sx={{ fontSize: '0.65rem', textTransform: 'none' }}>
                               Cek Selesai
                             </Button>
                           )}
                           {item.status === "selesai" && (
-                            <Button 
-                              variant="contained" color="success" size="small" 
-                              onClick={() => {
-                                setSelectedItem(item);
-                                setTargetBayar(item.uang_pinjaman);
-                                setNominalBayar("");
-                                setOpenLunas(true);
-                              }}
-                              sx={{ fontSize: '0.65rem', textTransform: 'none' }}
-                            >
+                            <Button variant="contained" color="success" size="small" onClick={() => { setSelectedItem(item); setTargetBayar(item.uang_pinjaman); setNominalBayar(""); setOpenLunas(true); }} sx={{ fontSize: '0.65rem', textTransform: 'none' }}>
                               Bayar Lunas
                             </Button>
                           )}
@@ -382,56 +354,31 @@ const getUnitIcon = (typeName) => {
                         </Stack>
                       )}
                     </TableCell>
-
                     <TableCell align="center">
                       <Stack direction="row" spacing={0.5} justifyContent="center">
                         <Tooltip title={`Print SBG (${item.type?.nama_type || 'Gadai'})`}>
-                          <IconButton 
-                            size="small" 
-                            color="primary" 
-                            onClick={() => navigate(getPrintSBGRoute(item))}
-                          >
-                            <PrintIcon fontSize="small" />
-                          </IconButton>
+                          <IconButton size="small" color="primary" onClick={() => navigate(getPrintSBGRoute(item))}><PrintIcon fontSize="small" /></IconButton>
                         </Tooltip>
-
                         <Tooltip title="Print Struk Awal">
-                          <IconButton size="small" color="secondary" onClick={() => navigate(`/print-struk-awal/${item.id}`)}>
-                            <ReceiptIcon fontSize="small" />
-                          </IconButton>
+                          <IconButton size="small" color="secondary" onClick={() => navigate(`/print-struk-awal/${item.id}`)}><ReceiptIcon fontSize="small" /></IconButton>
                         </Tooltip>
-
                         {item.perpanjangan_tempos?.some(p => p.status_bayar === "pending") && (
                           <Tooltip title="Print Struk Perpanjangan (Pending)">
-                            <IconButton 
-                              size="small" 
-                              color="warning" 
-                              onClick={() => navigate(`/print-struk-perpanjangan/${item.id}`)}
-                            >
-                              <ExtensionIcon fontSize="small" />
-                            </IconButton>
+                            <IconButton size="small" color="warning" onClick={() => navigate(`/print-struk-perpanjangan/${item.id}`)}><ExtensionIcon fontSize="small" /></IconButton>
                           </Tooltip>
                         )}
-
                         {item.status === "lunas" && (
                           <Tooltip title="Print Struk Pelunasan">
-                            <IconButton size="small" color="success" onClick={() => navigate(`/print-struk-pelunasan/${item.id}`)}>
-                              <PaymentsIcon fontSize="small" />
-                            </IconButton>
+                            <IconButton size="small" color="success" onClick={() => navigate(`/print-struk-pelunasan/${item.id}`)}><PaymentsIcon fontSize="small" /></IconButton>
                           </Tooltip>
                         )}
                       </Stack>
                     </TableCell>
-
                     <TableCell align="center">
                       <Stack direction="row" spacing={0.5} justifyContent="center">
-                        <IconButton size="small" color="secondary" onClick={() => navigate(`/edit-detail-gadai/${item.id}`)}>
-                          <EditIcon fontSize="small" />
-                        </IconButton>
+                        <IconButton size="small" color="secondary" onClick={() => navigate(`/edit-detail-gadai/${item.id}`)}><EditIcon fontSize="small" /></IconButton>
                         {userRole === "hm" && (
-                          <IconButton size="small" sx={{ color: 'error.main' }} onClick={() => { setSelectedItem(item); setOpenDelete(true); }}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
+                          <IconButton size="small" sx={{ color: 'error.main' }} onClick={() => { setSelectedItem(item); setOpenDelete(true); }}><DeleteIcon fontSize="small" /></IconButton>
                         )}
                       </Stack>
                     </TableCell>
@@ -441,99 +388,144 @@ const getUnitIcon = (typeName) => {
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination
-          rowsPerPageOptions={[10, 25, 50]}
-          component="div"
-          count={filteredData.length}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={(_, p) => setPage(p)}
-          onRowsPerPageChange={(e) => setRowsPerPage(parseInt(e.target.value, 10))}
-        />
+        <TablePagination rowsPerPageOptions={[10, 25, 50]} component="div" count={filteredData.length} rowsPerPage={rowsPerPage} page={page} onPageChange={(_, p) => setPage(p)} onRowsPerPageChange={(e) => setRowsPerPage(parseInt(e.target.value, 10))} />
       </CardContent>
 
-      <Dialog open={openValidasi} onClose={() => setOpenValidasi(false)} maxWidth="xs" fullWidth>
-  <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'info.main', color: 'white', mb: 2 }}>
-    <InfoIcon /> Konfirmasi Validasi Checker
-  </DialogTitle>
-  <DialogContent>
-    <Stack spacing={2} sx={{ mt: 1 }}>
-      <Typography variant="body1">
-        Unit <b>{selectedItem?.no_gadai}</b>
-      </Typography>
-      
-      <Alert severity="info" variant="outlined" sx={{ borderRadius: 2 }}>
-        Pastikan Anda sudah memeriksa foto unit, IMEI/Kadar Emas, dan kelengkapan lainnya sebelum melakukan validasi.
-      </Alert>
+      {/* --- DIALOG CEK SELESAI (DENGAN DOKUMEN PENDUKUNG) --- */}
+      <Dialog open={openValidasi} onClose={() => setOpenValidasi(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'info.main', color: 'white', py: 2 }}>
+          <Avatar sx={{ bgcolor: 'white', color: 'info.main', width: 32, height: 32 }}><InventoryIcon fontSize="small" /></Avatar>
+          <Box>
+            <Typography variant="subtitle1" fontWeight="bold" lineHeight={1.2}>Validasi Unit & Dokumen</Typography>
+            <Typography variant="caption" sx={{ opacity: 0.8 }}>Pastikan fisik & foto dokumen sesuai</Typography>
+          </Box>
+        </DialogTitle>
+        
+        <DialogContent dividers sx={{ bgcolor: '#fbfbfb' }}>
+          {processLoading && !selectedItem ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress size={30} /></Box>
+          ) : (
+            <Grid container spacing={3} sx={{ mt: 1 }}>
+              {/* KOLOM KIRI: Data Teknis */}
+              <Grid item xs={12} md={6}>
+                <Stack spacing={2}>
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'white' }}>
+                    <Typography variant="caption" color="textSecondary">Nomor Gadai / Nasabah</Typography>
+                    <Typography variant="body2" fontWeight="bold">{selectedItem?.no_gadai}</Typography>
+                    <Typography variant="body1" fontWeight="bold" color="primary">{selectedItem?.nasabah?.nama_lengkap}</Typography>
+                  </Paper>
 
-      {/* TOMBOL LIHAT DETAIL DI DALAM DIALOG */}
-      <Button
-        fullWidth
-        variant="outlined"
-        color="primary"
-        startIcon={<InfoIcon />}
-        onClick={() => {
-          // Logika navigasi berdasarkan tipe barang
-          const typeName = selectedItem?.type?.nama_type?.toLowerCase() || '';
-          if (typeName.includes('hp')) {
-            navigate(`/detail-gadai-hp/${selectedItem?.id_hp || selectedItem?.id}`);
-          } else {
-            navigate(`/detail-gadai-emas/${selectedItem?.id_emas || selectedItem?.id}`);
-          }
-        }}
-        sx={{ py: 1.2, fontWeight: 'bold' }}
-      >
-        Lihat Detail Unit (Foto & Fisik)
-      </Button>
-    </Stack>
-  </DialogContent>
-  <Divider />
-  <DialogActions sx={{ p: 2, bgcolor: '#f8f9fa' }}>
-    <Button onClick={() => setOpenValidasi(false)} color="inherit">Batal</Button>
-    <Button 
-      variant="contained" 
-      color="info" 
-      onClick={handleValidasiSelesai} 
-      disabled={processLoading}
-      sx={{ fontWeight: 'bold' }}
-    >
-      {processLoading ? "Memproses..." : "Ya, Selesaikan"}
-    </Button>
-  </DialogActions>
-</Dialog>
+                  {/* DATA SPESIFIK UNIT */}
+                  {selectedItem?.hp && (
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                      <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}><SmartphoneOutlinedIcon fontSize="small" color="primary"/> Detail HP</Typography>
+                      <Grid container spacing={1}>
+                        <Grid item xs={6}><Typography variant="caption">Merk/Type</Typography><Typography variant="body2">{selectedItem.hp.merk?.nama_merk} {selectedItem.hp.type_hp?.nama_type}</Typography></Grid>
+                        <Grid item xs={6}><Typography variant="caption">IMEI</Typography><Typography variant="body2">{selectedItem.hp.imei}</Typography></Grid>
+                        <Grid item xs={12}>
+                          <Typography variant="caption">Kerusakan:</Typography>
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {selectedItem.hp.kerusakan_list?.map((k, i) => <Chip key={i} label={k.nama_kerusakan} size="small" color="error" variant="outlined" sx={{ fontSize: '0.6rem' }} />)}
+                          </Box>
+                        </Grid>
+                      </Grid>
+                    </Paper>
+                  )}
 
+                  {selectedItem?.perhiasan && (
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                      <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}><DiamondOutlinedIcon fontSize="small" color="warning"/> Detail Perhiasan</Typography>
+                      <Typography variant="body2">{selectedItem.perhiasan.nama_barang}</Typography>
+                      <Typography variant="body2" fontWeight="bold">{selectedItem.perhiasan.berat_bersih} gr | {selectedItem.perhiasan.kadar_emas}%</Typography>
+                    </Paper>
+                  )}
 
+                  {selectedItem?.retro && (
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                      <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}><DiamondOutlinedIcon fontSize="small" color="secondary"/> Detail Retro</Typography>
+                      <Typography variant="body2">{selectedItem.retro.nama_barang}</Typography>
+                      <Typography variant="body2" fontWeight="bold">{selectedItem.retro.karat} K | {selectedItem.retro.berat} gr</Typography>
+                    </Paper>
+                  )}
+                </Stack>
+              </Grid>
+
+              {/* KOLOM KANAN: Galeri Dokumen Pendukung */}
+              <Grid item xs={12} md={6}>
+                <Box sx={{ p: 2, border: '1px dashed #ccc', borderRadius: 2, bgcolor: '#fff' }}>
+                  <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}><PhotoLibraryIcon fontSize="small" /> Dokumen Pendukung</Typography>
+                  
+                  <Grid container spacing={1.5}>
+                    {/* FOTO HP */}
+                    {selectedItem?.dokumen_pendukung_hp && (
+                      <>
+                        <ImageThumbnail url={selectedItem.dokumen_pendukung_hp.body} label="Body" />
+                        <ImageThumbnail url={selectedItem.dokumen_pendukung_hp.imei} label="IMEI" />
+                        <ImageThumbnail url={selectedItem.dokumen_pendukung_hp.about} label="About" />
+                        <ImageThumbnail url={selectedItem.dokumen_pendukung_hp.akun} label="Akun" />
+                        <ImageThumbnail url={selectedItem.dokumen_pendukung_hp.cam_depan} label="Cam Depan" />
+                        <ImageThumbnail url={selectedItem.dokumen_pendukung_hp.cam_belakang} label="Cam Belakang" />
+                        <ImageThumbnail url={selectedItem.dokumen_pendukung_hp.battery} label="Battery" />
+                        <ImageThumbnail url={selectedItem.dokumen_pendukung_hp.utools} label="uTools" />
+                      </>
+                    )}
+
+                    {/* FOTO EMAS/RETRO */}
+                    {selectedItem?.dokumen_pendukung_emas && (
+                      <>
+                        <ImageThumbnail url={selectedItem.dokumen_pendukung_emas.emas_timbangan_url} label="Timbangan" />
+                        <ImageThumbnail url={selectedItem.dokumen_pendukung_emas.gosokan_timer_url} label="Gosokan Timer" />
+                        <ImageThumbnail url={selectedItem.dokumen_pendukung_emas.gosokan_ktp_url} label="Gosokan KTP" />
+                        <ImageThumbnail url={selectedItem.dokumen_pendukung_emas.batu_url} label="Batu" />
+                        <ImageThumbnail url={selectedItem.dokumen_pendukung_emas.cap_merek_url} label="Cap Merek" />
+                        <ImageThumbnail url={selectedItem.dokumen_pendukung_emas.karatase_url} label="Karatase" />
+                      </>
+                    )}
+
+                    {(!selectedItem?.dokumen_pendukung_hp && !selectedItem?.dokumen_pendukung_emas) && (
+                      <Grid item xs={12}><Typography variant="caption" color="textSecondary">Tidak ada foto dokumen pendukung.</Typography></Grid>
+                    )}
+                  </Grid>
+                </Box>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f8f9fa' }}>
+          <Button onClick={() => setOpenValidasi(false)} color="inherit">Batal</Button>
+          <Button variant="contained" color="info" onClick={handleValidasiSelesai} disabled={processLoading} sx={{ px: 4 }}>
+            {processLoading ? "Memproses..." : "Ya, Selesaikan"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* --- DIALOG PREVIEW FOTO --- */}
+      <Dialog open={Boolean(previewImage)} onClose={() => setPreviewImage(null)} maxWidth="md">
+        <DialogTitle sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {previewImage?.label}
+          <IconButton onClick={() => setPreviewImage(null)} size="small"><CancelIcon /></IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0, bgcolor: 'black', display: 'flex', justifyContent: 'center' }}>
+          <img src={previewImage?.url} alt="Preview" style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }} />
+        </DialogContent>
+      </Dialog>
+
+      {/* --- DIALOG DELETE --- */}
       <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>
-  <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-    <DeleteIcon color="error" /> Konfirmasi Hapus
-  </DialogTitle>
-  <DialogContent>
-    <Typography>
-      Apakah Anda yakin ingin menghapus data gadai <b>{selectedItem?.no_gadai}</b>? 
-      <br />
-      <Typography variant="caption" color="error.main">
-        *Tindakan ini tidak dapat dibatalkan.
-      </Typography>
-    </Typography>
-  </DialogContent>
-  <DialogActions sx={{ p: 2 }}>
-    <Button onClick={() => setOpenDelete(false)}>Batal</Button>
-    <Button 
-      variant="contained" 
-      color="error" 
-      onClick={handleDeleteGadai} 
-      disabled={processLoading}
-    >
-      {processLoading ? "Menghapus..." : "Ya, Hapus Data"}
-    </Button>
-  </DialogActions>
-</Dialog>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><DeleteIcon color="error" /> Konfirmasi Hapus</DialogTitle>
+        <DialogContent>
+          <Typography>Apakah Anda yakin ingin menghapus data gadai <b>{selectedItem?.no_gadai}</b>?<br />
+          <Typography variant="caption" color="error.main">*Tindakan ini tidak dapat dibatalkan.</Typography></Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenDelete(false)}>Batal</Button>
+          <Button variant="contained" color="error" onClick={handleDeleteGadai} disabled={processLoading}>{processLoading ? "Menghapus..." : "Ya, Hapus Data"}</Button>
+        </DialogActions>
+      </Dialog>
 
+      {/* --- DIALOG LUNAS --- */}
       <Dialog open={openLunas} onClose={() => setOpenLunas(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 4 } }}>
-        <Box sx={{ bgcolor: 'success.main', color: 'white', px: 3, py: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <PaymentsIcon />
-          <Typography variant="h6" fontWeight="bold">Pelunasan Unit</Typography>
-        </Box>
+        <Box sx={{ bgcolor: 'success.main', color: 'white', px: 3, py: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}><PaymentsIcon /><Typography variant="h6" fontWeight="bold">Pelunasan Unit</Typography></Box>
         <DialogContent sx={{ mt: 2 }}>
           <Stack spacing={2.5}>
             <Box sx={{ p: 2, bgcolor: '#f0fdf4', borderRadius: 3, textAlign: 'center' }}>
@@ -546,13 +538,10 @@ const getUnitIcon = (typeName) => {
             </TextField>
             {metodeBayar === "transfer" && (
               <Button variant="outlined" component="label" fullWidth startIcon={<UploadIcon />} color={fileBukti ? "success" : "primary"}>
-                {fileBukti ? fileBukti.name : "Upload Bukti Transfer"}
-                <input type="file" hidden accept="image/*" onChange={(e) => setFileBukti(e.target.files[0])} />
+                {fileBukti ? fileBukti.name : "Upload Bukti Transfer"}<input type="file" hidden accept="image/*" onChange={(e) => setFileBukti(e.target.files[0])} />
               </Button>
             )}
-            <Box>
-              <TextField fullWidth autoFocus size="small" type="number" label="Nominal Diterima" value={nominalBayar} onChange={(e) => setNominalBayar(e.target.value)} />
-            </Box>
+            <Box><TextField fullWidth autoFocus size="small" type="number" label="Nominal Diterima" value={nominalBayar} onChange={(e) => setNominalBayar(e.target.value)} /></Box>
             {nominalBayar && (
               <Box sx={{ p: 1.5, borderRadius: 2, display: 'flex', justifyContent: 'space-between', bgcolor: Number(nominalBayar) >= targetBayar ? 'success.50' : 'error.50' }}>
                 <Typography variant="caption">{Number(nominalBayar) >= targetBayar ? "Kembalian" : "Kurang"}</Typography>
@@ -563,9 +552,7 @@ const getUnitIcon = (typeName) => {
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={() => setOpenLunas(false)}>Batal</Button>
-          <Button variant="contained" color="success" disabled={!nominalBayar || Number(nominalBayar) < targetBayar || (metodeBayar === 'transfer' && !fileBukti) || processLoading} onClick={handleSubmitLunas}>
-            {processLoading ? "Memproses..." : "Konfirmasi Lunas"}
-          </Button>
+          <Button variant="contained" color="success" disabled={!nominalBayar || Number(nominalBayar) < targetBayar || (metodeBayar === 'transfer' && !fileBukti) || processLoading} onClick={handleSubmitLunas}>{processLoading ? "Memproses..." : "Konfirmasi Lunas"}</Button>
         </DialogActions>
       </Dialog>
     </Card>

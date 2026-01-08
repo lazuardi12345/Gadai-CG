@@ -22,6 +22,7 @@ import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 // Komponen Card Brankas Lokal
 const WalletReportCard = ({ primary, secondary, color, icon: Icon }) => (
@@ -45,7 +46,14 @@ const Default = () => {
   const [loading, setLoading] = useState(true);
 
   // 1. States
-  const [brankas, setBrankas] = useState({ saldo: 0, masuk: 0, keluar: 0 });
+ const [brankas, setBrankas] = useState({ 
+  saldo_toko_saat_ini: 0, 
+  saldo_rekening_saat_ini: 0, 
+  total_modal_dari_pusat: 0,
+  total_setoran_ke_admin: 0,
+  total_setoran_pending: 0,
+  info_bulan: '' 
+});
   const [selectedYear, setSelectedYear] = useState(dayjs().year());
   const [chartBrankas, setChartBrankas] = useState({ pemasukan: [], pengeluaran: [], saldo: [] });
   const [dataCount, setDataCount] = useState({ hp: 0, perhiasan: 0, retro: 0, logam_mulia: 0, total_global: 0 });
@@ -86,15 +94,15 @@ const Default = () => {
     }
   };
 
-  const fetchMainDashboardData = async () => {
-    setLoading(true);
-    try {
-      const [totalRes, summaryRes, lelangRes, brankasRes] = await Promise.all([
-        axiosInstance.get('/total-semua'),
-        axiosInstance.get('/summary'),
-        axiosInstance.get('/dashboard/pelelangan-stats'),
-        axiosInstance.get('/dashboard/brankas-stats')
-      ]);
+ const fetchMainDashboardData = async () => {
+  setLoading(true);
+  try {
+    const [totalRes, summaryRes, lelangRes, brankasRes] = await Promise.all([
+      axiosInstance.get('/total-semua'),
+      axiosInstance.get('/summary'),
+      axiosInstance.get('/dashboard/pelelangan-stats'),
+      axiosInstance.get('/dashboard/brankas-stats') 
+    ]);
 
       // Process Total Units
       if (totalRes?.data?.success) {
@@ -134,19 +142,22 @@ const Default = () => {
 
       // Process Brankas Stats
       if (brankasRes?.data?.success) {
-        setBrankas({
-          saldo: brankasRes.data.summary.saldo_akhir_saat_ini,
-          masuk: brankasRes.data.summary.total_pemasukan_bulan_ini,
-          keluar: brankasRes.data.summary.total_pengeluaran_bulan_ini
-        });
-      }
-    } catch (error) {
-      console.error('Dashboard Fetch Error:', error);
-    } finally {
-      setLoading(false);
+      const { summary, info } = brankasRes.data;
+      setBrankas({
+        saldo_toko_saat_ini: summary.saldo_toko_saat_ini,
+        saldo_rekening_saat_ini: summary.saldo_rekening_saat_ini,
+        total_modal_dari_pusat: summary.total_modal_dari_pusat,
+        total_setoran_ke_admin: summary.total_setoran_ke_admin,
+        total_setoran_pending: summary.total_setoran_pending,
+        info_bulan: info.bulan 
+      });
     }
-  };
-
+  } catch (error) {
+    console.error('Dashboard Fetch Error:', error);
+  } finally {
+    setLoading(false);
+  }
+};
   // 3. Effects
   useEffect(() => {
     fetchMainDashboardData();
@@ -165,21 +176,63 @@ const Default = () => {
   return (
     <Grid container spacing={gridSpacing}>
       {/* SECTION 1: BRANKAS CARDS */}
-      <Grid item xs={12}>
-        <Typography variant="h4" sx={{ mb: 2, fontWeight: 700, color: '#004D40' }}>Kalkulasi Brankas Bulanan</Typography>
-        <Grid container spacing={gridSpacing}>
-          <Grid item lg={4} md={6} xs={12}>
-            <WalletReportCard primary={safeRupiah(brankas.saldo)} secondary="Saldo Brankas" color="#004D40" icon={AccountBalanceWalletIcon} />
-          </Grid>
-          <Grid item lg={4} md={6} xs={12}>
-            <WalletReportCard primary={safeRupiah(brankas.masuk)} secondary={`Kas Masuk (${dayjs().format('MMMM')})`} color="#00796B" icon={TrendingUpIcon} />
-          </Grid>
-          <Grid item lg={4} md={12} xs={12}>
-            <WalletReportCard primary={safeRupiah(brankas.keluar)} secondary={`Kas Keluar (${dayjs().format('MMMM')})`} color="#4DB6AC" icon={TrendingDownIcon} />
-          </Grid>
+    <Grid item xs={12}>
+      <Typography variant="h4" sx={{ mb: 2, fontWeight: 700, color: '#004D40' }}>
+        Kalkulasi Brankas & Rekening ({brankas.info_bulan})
+      </Typography>
+      
+      <Grid container spacing={gridSpacing}>
+        {/* 1. Saldo Fisik di Toko */}
+        <Grid item lg={2.4} md={6} xs={12}>
+          <WalletReportCard 
+            primary={safeRupiah(brankas.saldo_toko_saat_ini)} 
+            secondary="Saldo Fisik (Toko)" 
+            color="#1e3c72" 
+            icon={AccountBalanceWalletIcon} 
+          />
+        </Grid>
+
+        {/* 2. Saldo di Rekening Bank (INI YANG BARU) */}
+        <Grid item lg={2.4} md={6} xs={12}>
+          <WalletReportCard 
+            primary={safeRupiah(brankas.saldo_rekening_saat_ini)} 
+            secondary="Saldo Rekening (Bank)" 
+            color="#0e7490" 
+            icon={AccountBalanceIcon} 
+          />
+        </Grid>
+
+        {/* 3. Total Modal Masuk */}
+        <Grid item lg={2.4} md={6} xs={12}>
+          <WalletReportCard 
+            primary={safeRupiah(brankas.total_modal_dari_pusat)} 
+            secondary="Total Injeksi Modal" 
+            color="#00796B" 
+            icon={TrendingUpIcon} 
+          />
+        </Grid>
+
+        {/* 4. Setoran Lunas (Verified) */}
+        <Grid item lg={2.4} md={6} xs={12}>
+          <WalletReportCard 
+            primary={safeRupiah(brankas.total_setoran_ke_admin)} 
+            secondary="Setoran Terverifikasi" 
+            color="#2e7d32" 
+            icon={CheckCircleIcon} 
+          />
+        </Grid>
+
+        {/* 5. Setoran Pending (Selesai Proses tapi Belum Lunas di Pusat) */}
+        <Grid item lg={2.4} md={6} xs={12}>
+          <WalletReportCard 
+            primary={safeRupiah(brankas.total_setoran_pending)} 
+            secondary="Setoran Pending" 
+            color="#ef6c00" 
+            icon={TrendingDownIcon} 
+          />
         </Grid>
       </Grid>
-
+    </Grid>
       {/* SECTION 2: BRANKAS CHART */}
       <Grid item xs={12}>
         <Card sx={{ borderRadius: 2 }}>
