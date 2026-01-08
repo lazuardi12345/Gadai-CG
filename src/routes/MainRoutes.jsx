@@ -100,6 +100,9 @@ const LaporanHarianChecker = Loadable(lazy(() => import('views/LaporanHarianChec
 const LaporanApproval = Loadable(lazy(() => import('views/AccLaporan/index')));
 const LaporanHarianPetugas = Loadable(lazy(() => import('views/LaporanHarianPetugas/index')));
 const LaporanMingguanAdmin = Loadable(lazy(() => import('views/Admin/LaporanMingguan/index')));
+const LaporanStrukAwalMingguan = Loadable(lazy(() => import('views/Admin/LaporanMingguan/strukAwal')));
+const RekapPerpanjanganMingguan = Loadable(lazy(() => import('views/Admin/LaporanMingguan/StrukPerpanjangan')));
+const RekapPelunasanMingguan = Loadable(lazy(() => import('views/Admin/LaporanMingguan/strukPelunasan')));
 // ==============================|| MAIN ROUTES ||============================== //
 const MainRoutes = {
   path: '/',
@@ -173,6 +176,9 @@ const MainRoutes = {
     { path: '/pengajuan-laporan', element: <LaporanApproval/> },
     { path: '/laporan-harian-petugas', element: <LaporanHarianPetugas/> },
     { path: '/laporan-mingguan', element: <LaporanMingguanAdmin/> },
+    { path: '/laporan-struk-awal', element: <LaporanStrukAwalMingguan/> },
+    { path: '/laporan-struk-perpanjangan', element: <RekapPerpanjanganMingguan/> },
+    { path: '/laporan-struk-pelunasan', element: <RekapPelunasanMingguan/> },
 
 
 

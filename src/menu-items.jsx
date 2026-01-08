@@ -214,7 +214,35 @@ export default {
       type: 'item',
       url: '/laporan-mingguan',
       icon: icons.AssessmentOutlinedIcon,
-      role: ['admin']
+      role: ['admin',]
+    },
+
+     {
+      id: 'Laporan struk awal Mingguan Admin',
+      title: 'struk awal',
+      type: 'item',
+      url: '/laporan-struk-awal',
+      icon: icons.AssessmentOutlinedIcon,
+      role: ['admin', 'hm']
+    },
+
+
+     {
+      id: 'Laporan struk Mingguan Admin',
+      title: 'struk perpanjangan',
+      type: 'item',
+      url: '/laporan-struk-perpanjangan',
+      icon: icons.AssessmentOutlinedIcon,
+      role: ['admin', 'hm']
+    },
+
+    {
+      id: 'Laporan struk pelunasan Mingguan Admin',
+      title: 'struk pelunasan',
+      type: 'item',
+      url: '/laporan-struk-pelunasan',
+      icon: icons.AssessmentOutlinedIcon,
+      role: ['admin', 'hm']
     },
       ]
     },
