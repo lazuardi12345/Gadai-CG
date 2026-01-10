@@ -13,7 +13,6 @@ const PrintStrukPelunasanLelangPage = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  /* ================= API URL ================= */
   const getApiUrl = () => {
     if (!detailGadaiId) return null;
 
@@ -23,11 +22,11 @@ const PrintStrukPelunasanLelangPage = () => {
       case "admin":
         return `/admin/pelelangan/${detailGadaiId}`;
       default:
-        return `/pelelangan/${detailGadaiId}`; // HM
+        return `/pelelangan/${detailGadaiId}`; 
     }
   };
 
-  /* ================= FETCH ================= */
+
   useEffect(() => {
     const fetchData = async () => {
       const url = getApiUrl();
@@ -59,30 +58,27 @@ const PrintStrukPelunasanLelangPage = () => {
     return <Typography align="center">Data tidak ditemukan</Typography>;
   }
 
-/* ================= MAPPING DATA ================= */
-  // Pastikan mengambil dari pelelangan -> detail_gadai
+
   const pelelangan = data?.pelelangan || {};
   const detail = pelelangan?.detail_gadai || {};
   const kalkulasi = data?.kalkulasi || {};
   const nasabah = detail?.nasabah || {};
 
-  /* ================= SAFE VALUE HELPER ================= */
   const safe = (v) =>
     v === null || v === undefined || typeof v === "object"
       ? "-"
       : String(v);
 
-/* ================= LOGIKA BARANG (HP/PERHIASAN/DLL) ================= */
+
 let barangNama = detail?.type?.nama_type || "-"; 
 let barangDetail = "-";
 
-// Helper untuk merapikan text grade (misal: a_tanpa_dus -> A TANPA DUS)
 const formatLabel = (text) => {
   if (!text) return "-";
   return String(text).replace(/_/g, " ").toUpperCase();
 };
 
-// 1. Logika untuk Handphone (hp)
+
 if (detail?.hp) {
   const hp = detail.hp;
   
@@ -98,28 +94,38 @@ IMEI      : ${safe(hp.imei)}
 `.trim();
 } 
 
-// 2. Logika untuk Perhiasan
+
 else if (detail?.perhiasan) {
   const p = detail.perhiasan;
   barangDetail = `
-JENIS     : ${safe(p.jenis_perhiasan)}
-BERAT     : ${safe(p.berat)} gram
-KADAR     : ${safe(p.kadar)}
+NAMA BARANG : ${safe(p.nama_barang)}
+BERAT       : ${safe(p.berat)} gram
+KARAT       : ${safe(p.karat)}
 `.trim();
 }
 
-  // 3. Logika untuk Logam Mulia (jika ada)
-  else if (detail?.logam_mulia) {
-    const lm = detail.logam_mulia;
-    barangDetail = `
-BRAND     : ${safe(lm.brand)}
-BERAT     : ${safe(lm.berat)} gram
+
+else if (detail?.logam_mulia) {
+  const p = detail.logam_mulia;
+  barangDetail = `
+NAMA BARANG : ${safe(p.nama_barang)}
+BERAT       : ${safe(p.berat)} gram
+KARAT       : ${safe(p.karat)}
 `.trim();
-  }
+}
+
+else if (detail?.retro) {
+  const p = detail.retro;
+  barangDetail = `
+NAMA BARANG : ${safe(p.nama_barang)}
+BERAT       : ${safe(p.berat)} gram
+KARAT       : ${safe(p.karat)}
+`.trim();
+}
   /* ================= TANGGAL ================= */
   const pelunasanDate = new Date(
-    pelelangan?.tanggal_pelunasan || new Date()
-  );
+  pelelangan?.waktu_bayar || new Date()
+);
 
   const hari = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
   const bulan = [

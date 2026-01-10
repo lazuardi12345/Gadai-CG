@@ -126,37 +126,75 @@ const DetailGadaiPage = () => {
     }
   };
 
-  const handleSubmitLunas = async () => {
-    if (Number(nominalBayar) < targetBayar) {
-        alert("Nominal bayar kurang!");
-        return;
+const handleSubmitLunas = async () => {
+  if (!nominalBayar || !metodeBayar) {
+    alert("Harap isi nominal dan pilih metode pembayaran.");
+    return;
+  }
+
+  setProcessLoading(true);
+  try {
+    const formData = new FormData();
+    formData.append("nominal_bayar", nominalBayar);
+    
+    // SINKRONISASI: Database kamu pakai 'cash', bukan 'tunai'
+    const metodeFix = metodeBayar === "tunai" || metodeBayar === "cash" ? "cash" : "transfer";
+    formData.append("metode_pembayaran", metodeFix);
+
+    if (fileBukti) {
+      formData.append("bukti_transfer", fileBukti);
     }
-    setProcessLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append("nominal_bayar", nominalBayar);
-      formData.append("metode_pembayaran", metodeBayar);
-      if (fileBukti) formData.append("bukti_transfer", fileBukti);
 
-      const res = await axiosInstance.post(
-        `${getApiUrl("detail-gadai")}/${selectedItem.id}/pelunasan?_method=PATCH`, 
-        formData, 
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
-
-      if (res.data.success) {
-        setOpenLunas(false);
-        setFileBukti(null);
-        fetchData();
-        alert("Pembayaran Berhasil!");
-        navigate(`/print-struk-pelunasan/${selectedItem.id}`);
+    // TRICK: Kirim POST dengan spoofing _method=PATCH supaya Laravel bisa baca FormData + File
+    const res = await axiosInstance.post(
+      `${getApiUrl("detail-gadai")}/${selectedItem.id}/pelunasan?_method=PATCH`,
+      formData, 
+      { 
+        headers: { "Content-Type": "multipart/form-data" } 
       }
-    } catch (err) {
-      alert(err.response?.data?.message || "Gagal memproses pelunasan");
-    } finally {
-      setProcessLoading(false);
+    );
+
+    if (res.data.success) {
+      const { perhitungan, kembalian } = res.data.data;
+      
+      setOpenLunas(false);
+      setFileBukti(null);
+      setNominalBayar("");
+      fetchData(); // Refresh tabel
+      
+      alert(
+        `Pelunasan Berhasil!\n\n` +
+        `Pokok: Rp ${Number(perhitungan.pokok).toLocaleString("id-ID")}\n` +
+        `Denda: Rp ${Number(perhitungan.denda).toLocaleString("id-ID")}\n` +
+        `Total Bayar: Rp ${Number(perhitungan.total_bayar).toLocaleString("id-ID")}\n` +
+        `Kembalian: Rp ${Number(kembalian).toLocaleString("id-ID")}`
+      );
+      
+      navigate(`/print-struk-pelunasan/${selectedItem.id}`);
     }
-  };
+  } catch (err) {
+    if (err.response?.status === 422) {
+      const errorData = err.response.data;
+      if (errorData.perhitungan) {
+        // Jika nominal kurang
+        const p = errorData.perhitungan;
+        alert(
+          `Nominal kurang!\n\n` +
+          `Yang harus dibayar: Rp ${Number(p.total_bayar).toLocaleString("id-ID")}\n` +
+          `Silahkan masukkan nominal yang sesuai.`
+        );
+      } else {
+        // Jika error validasi lainnya (required field, dll)
+        const msg = Object.values(errorData.errors).flat().join("\n");
+        alert("Gagal Validasi:\n" + msg);
+      }
+    } else {
+      alert(err.response?.data?.message || "Terjadi kesalahan sistem saat pelunasan.");
+    }
+  } finally {
+    setProcessLoading(false);
+  }
+};
 
   useEffect(() => { fetchData(); }, [userRole]);
 
@@ -305,12 +343,39 @@ const DetailGadaiPage = () => {
                         </Box>
                       </Stack>
                     </TableCell>
-                    <TableCell align="center">
-                      <Stack spacing={0.2}>
-                        <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>Gadai: {item.tanggal_gadai}</Typography>
-                        <Typography variant="caption" fontWeight="bold" color="error.main" sx={{ fontSize: '0.65rem' }}>JT: {item.jatuh_tempo}</Typography>
-                      </Stack>
-                    </TableCell>
+                   <TableCell align="center">
+  <Stack spacing={0.2} alignItems="center">
+    <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
+      Gadai: {item.tanggal_gadai}
+    </Typography>
+    <Typography variant="caption" fontWeight="bold" color="error.main" sx={{ fontSize: '0.65rem' }}>
+      JT: {item.jatuh_tempo}
+    </Typography>
+
+    {/* PERBAIKAN DISINI: Langsung akses item.hari_keterlambatan */}
+    {item.hari_keterlambatan > 0 && (
+      <Tooltip title={`Terlambat ${item.hari_keterlambatan} hari`}>
+        <Chip 
+          label={`Telat ${item.hari_keterlambatan} Hari`} 
+          size="small" 
+          color="error" 
+          sx={{ 
+            fontSize: '0.6rem', 
+            height: 18, 
+            fontWeight: 'bold', 
+            mt: 0.5,
+            animation: 'pulse 1.5s infinite',
+            '@keyframes pulse': {
+              '0%': { opacity: 1 },
+              '50%': { opacity: 0.6 },
+              '100%': { opacity: 1 }
+            }
+          }} 
+        />
+      </Tooltip>
+    )}
+  </Stack>
+</TableCell>
                     <TableCell align="right">
                       <Stack spacing={0.2}>
                         <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>Taksiran: {Number(item.taksiran).toLocaleString("id-ID")}</Typography>
@@ -345,11 +410,71 @@ const DetailGadaiPage = () => {
                               Cek Selesai
                             </Button>
                           )}
-                          {item.status === "selesai" && (
-                            <Button variant="contained" color="success" size="small" onClick={() => { setSelectedItem(item); setTargetBayar(item.uang_pinjaman); setNominalBayar(""); setOpenLunas(true); }} sx={{ fontSize: '0.65rem', textTransform: 'none' }}>
-                              Bayar Lunas
-                            </Button>
-                          )}
+                         {item.status === "selesai" && (
+  <Button 
+    variant="contained" 
+    color="success" 
+    size="small" 
+    onClick={() => { 
+      setSelectedItem(item);
+      setNominalBayar("");
+      setFileBukti(null);
+      
+      // 🔥 Hitung LANGSUNG di frontend (TANPA request ke backend)
+      const pokok = Number(item.uang_pinjaman || 0);
+      
+      // Ambil jatuh tempo terbaru
+      const perpanjanganTerbaru = item.perpanjangan_tempos?.length
+        ? item.perpanjangan_tempos[item.perpanjangan_tempos.length - 1]
+        : null;
+      const jatuhTempoTerbaru = perpanjanganTerbaru?.jatuh_tempo_baru || item.jatuh_tempo;
+      
+      // Hitung hari keterlambatan
+      const today = new Date();
+      const jatuhTempoDate = new Date(jatuhTempoTerbaru);
+      let selisihHari = Math.ceil((today - jatuhTempoDate) / (1000 * 60 * 60 * 24));
+      
+      const toleransi = 1;
+      if (selisihHari <= toleransi) {
+        selisihHari = 0;
+      } else {
+        selisihHari -= toleransi;
+      }
+      
+      // Tentukan jenis skema (HP = 0.3%, Non-HP = 0.1%)
+      const typeNama = (item.type?.nama_type || '').toLowerCase();
+      const jenisSkema = ['handphone', 'elektronik'].includes(typeNama) ? 'hp' : 'non-hp';
+      
+      // Hitung denda dan penalty
+      let denda = 0, penalty = 0;
+      if (selisihHari > 0) {
+        const persenDendaPerHari = jenisSkema === 'hp' ? 0.003 : 0.001;
+        denda = pokok * persenDendaPerHari * selisihHari;
+        if (selisihHari > 15) {
+          penalty = 180000;
+        }
+      }
+      
+      // Total bayar dengan pembulatan
+      const totalBayarSebelum = pokok + denda + penalty;
+      const totalBayar = Math.ceil(totalBayarSebelum / 1000) * 1000;
+      
+      console.log('Perhitungan Preview:', {
+        pokok,
+        denda,
+        penalty,
+        selisihHari,
+        totalBayar
+      });
+      
+      setTargetBayar(totalBayar);
+      setOpenLunas(true);
+    }} 
+    sx={{ fontSize: '0.65rem', textTransform: 'none' }}
+  >
+    Bayar Lunas
+  </Button>
+)}
                           {item.status === "lunas" && <Typography variant="caption" color="success.main" fontWeight="bold">LUNAS ✓</Typography>}
                         </Stack>
                       )}
@@ -523,38 +648,70 @@ const DetailGadaiPage = () => {
         </DialogActions>
       </Dialog>
 
-      {/* --- DIALOG LUNAS --- */}
-      <Dialog open={openLunas} onClose={() => setOpenLunas(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 4 } }}>
-        <Box sx={{ bgcolor: 'success.main', color: 'white', px: 3, py: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}><PaymentsIcon /><Typography variant="h6" fontWeight="bold">Pelunasan Unit</Typography></Box>
-        <DialogContent sx={{ mt: 2 }}>
-          <Stack spacing={2.5}>
-            <Box sx={{ p: 2, bgcolor: '#f0fdf4', borderRadius: 3, textAlign: 'center' }}>
-              <Typography variant="caption" color="success.dark" fontWeight="bold">TOTAL TEBUSAN</Typography>
-              <Typography variant="h4" color="success.main" fontWeight="900">Rp {Number(targetBayar).toLocaleString("id-ID")}</Typography>
-            </Box>
-            <TextField select fullWidth label="Metode Pembayaran" value={metodeBayar} onChange={(e) => setMetodeBayar(e.target.value)} size="small">
-              <MenuItem value="cash">Cash / Tunai</MenuItem>
-              <MenuItem value="transfer">Transfer Bank</MenuItem>
-            </TextField>
-            {metodeBayar === "transfer" && (
-              <Button variant="outlined" component="label" fullWidth startIcon={<UploadIcon />} color={fileBukti ? "success" : "primary"}>
-                {fileBukti ? fileBukti.name : "Upload Bukti Transfer"}<input type="file" hidden accept="image/*" onChange={(e) => setFileBukti(e.target.files[0])} />
-              </Button>
-            )}
-            <Box><TextField fullWidth autoFocus size="small" type="number" label="Nominal Diterima" value={nominalBayar} onChange={(e) => setNominalBayar(e.target.value)} /></Box>
-            {nominalBayar && (
-              <Box sx={{ p: 1.5, borderRadius: 2, display: 'flex', justifyContent: 'space-between', bgcolor: Number(nominalBayar) >= targetBayar ? 'success.50' : 'error.50' }}>
-                <Typography variant="caption">{Number(nominalBayar) >= targetBayar ? "Kembalian" : "Kurang"}</Typography>
-                <Typography variant="caption" fontWeight="bold">Rp {Number(Math.abs(nominalBayar - targetBayar)).toLocaleString("id-ID")}</Typography>
-              </Box>
-            )}
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setOpenLunas(false)}>Batal</Button>
-          <Button variant="contained" color="success" disabled={!nominalBayar || Number(nominalBayar) < targetBayar || (metodeBayar === 'transfer' && !fileBukti) || processLoading} onClick={handleSubmitLunas}>{processLoading ? "Memproses..." : "Konfirmasi Lunas"}</Button>
-        </DialogActions>
-      </Dialog>
+
+<Dialog open={openLunas} onClose={() => setOpenLunas(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 4 } }}>
+  <Box sx={{ bgcolor: 'success.main', color: 'white', px: 3, py: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+    <PaymentsIcon />
+    <Typography variant="h6" fontWeight="bold">Pelunasan Unit</Typography>
+  </Box>
+  <DialogContent sx={{ mt: 2 }}>
+    <Stack spacing={2.5}>
+      {/* Info Total Tebusan */}
+      <Box sx={{ p: 2, bgcolor: '#f0fdf4', borderRadius: 3, textAlign: 'center' }}>
+        <Typography variant="caption" color="success.dark" fontWeight="bold">TOTAL TEBUSAN (POKOK+DENDA+PENALTY)</Typography>
+        <Typography variant="h4" color="success.main" fontWeight="900">
+          Rp {Number(targetBayar).toLocaleString("id-ID")}
+        </Typography>
+      </Box>
+
+      <TextField
+        fullWidth
+        label="Nominal Bayar (Uang dari Nasabah)"
+        type="number"
+        variant="outlined"
+        value={nominalBayar}
+        onChange={(e) => setNominalBayar(e.target.value)}
+        helperText="Masukkan jumlah uang yang diterima"
+      />
+
+      <TextField
+        select
+        fullWidth
+        label="Metode Pembayaran"
+        value={metodeBayar}
+        onChange={(e) => setMetodeBayar(e.target.value)}
+      >
+        <MenuItem value="cash">Tunai (Cash)</MenuItem>
+        <MenuItem value="transfer">Transfer Bank</MenuItem>
+      </TextField>
+
+      {metodeBayar === "transfer" && (
+        <Button
+          variant="outlined"
+          component="label"
+          startIcon={<UploadIcon />}
+          color={fileBukti ? "success" : "primary"}
+          fullWidth
+        >
+          {fileBukti ? fileBukti.name : "Upload Bukti Transfer"}
+          <input type="file" hidden accept="image/*" onChange={(e) => setFileBukti(e.target.files[0])} />
+        </Button>
+      )}
+    </Stack>
+  </DialogContent>
+  <DialogActions sx={{ p: 3 }}>
+    <Button onClick={() => setOpenLunas(false)} color="inherit">Batal</Button>
+    <Button 
+      variant="contained" 
+      color="success" 
+      onClick={handleSubmitLunas} 
+      disabled={processLoading}
+      sx={{ px: 4, borderRadius: 2 }}
+    >
+      {processLoading ? "Memproses..." : "Bayar Sekarang"}
+    </Button>
+  </DialogActions>
+</Dialog>
     </Card>
   );
 };

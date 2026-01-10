@@ -207,43 +207,6 @@ export default {
               role: [ 'hm',]
             },
 
-
-                 {
-      id: 'Laporan Mingguan Admin',
-      title: 'Laporan mingguan',
-      type: 'item',
-      url: '/laporan-mingguan',
-      icon: icons.AssessmentOutlinedIcon,
-      role: ['admin',]
-    },
-
-     {
-      id: 'Laporan struk awal Mingguan Admin',
-      title: 'struk awal',
-      type: 'item',
-      url: '/laporan-struk-awal',
-      icon: icons.AssessmentOutlinedIcon,
-      role: ['admin', 'hm']
-    },
-
-
-     {
-      id: 'Laporan struk Mingguan Admin',
-      title: 'struk perpanjangan',
-      type: 'item',
-      url: '/laporan-struk-perpanjangan',
-      icon: icons.AssessmentOutlinedIcon,
-      role: ['admin', 'hm']
-    },
-
-    {
-      id: 'Laporan struk pelunasan Mingguan Admin',
-      title: 'struk pelunasan',
-      type: 'item',
-      url: '/laporan-struk-pelunasan',
-      icon: icons.AssessmentOutlinedIcon,
-      role: ['admin', 'hm']
-    },
       ]
     },
 
@@ -323,7 +286,51 @@ export default {
       type: 'group',
       icon: icons.AccountTreeOutlinedIcon,
       children: [
-        { id: 'admin-laporan', title: 'Laporan Admin', type: 'item', url: '/admin', icon: icons.AccountTreeOutlinedIcon, role: ['hm', 'admin'] }
+        { id: 'admin-laporan', title: 'Laporan Admin', type: 'item', url: '/admin', icon: icons.AccountTreeOutlinedIcon, role: ['hm', 'admin'] },
+         {
+      id: 'Laporan Mingguan Admin',
+      title: 'Laporan mingguan',
+      type: 'item',
+      url: '/laporan-mingguan',
+      icon: icons.AssessmentOutlinedIcon,
+      role: ['admin',]
+    },
+
+     {
+      id: 'Laporan struk awal Mingguan Admin',
+      title: 'struk awal',
+      type: 'item',
+      url: '/laporan-struk-awal',
+      icon: icons.AssessmentOutlinedIcon,
+      role: ['admin', 'hm']
+    },
+
+
+     {
+      id: 'Laporan struk Mingguan Admin',
+      title: 'struk perpanjangan',
+      type: 'item',
+      url: '/laporan-struk-perpanjangan',
+      icon: icons.AssessmentOutlinedIcon,
+      role: ['admin', 'hm']
+    },
+
+    {
+      id: 'Laporan struk pelunasan Mingguan Admin',
+      title: 'struk pelunasan',
+      type: 'item',
+      url: '/laporan-struk-pelunasan',
+      icon: icons.AssessmentOutlinedIcon,
+      role: ['admin', 'hm']
+    },
+    {
+      id: 'Laporan struk pelunasan lelang Mingguan Admin',
+      title: 'struk pelunasan lelang',
+      type: 'item',
+      url: '/laporan-struk-pelunasan-lelang',
+      icon: icons.AssessmentOutlinedIcon,
+      role: ['admin', 'hm']
+    },
       ]
     },
 

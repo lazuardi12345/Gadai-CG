@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useContext } from "react";
 import { useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
-import { CircularProgress, Button, Box } from "@mui/material";
+import { CircularProgress, Button, Box, Typography } from "@mui/material";
 import { AuthContext } from "AuthContex/AuthContext";
 import logo from "assets/images/LogoBaru1.png";
 
@@ -14,29 +14,21 @@ const PrintStrukPelunasanPage = () => {
   const [loading, setLoading] = useState(true);
   const printRef = useRef();
 
-  // 🔹 Tentukan endpoint API berdasarkan role
   const getApiUrl = () => {
     switch (userRole) {
-      case "petugas":
-        return `/petugas/detail-gadai/${id}`;
-      case "checker":
-        return `/checker/detail-gadai/${id}`;
-      case "hm":
-      default:
-        return `/detail-gadai/${id}`;
+      case "petugas": return `/petugas/detail-gadai/${id}`;
+      case "checker": return `/checker/detail-gadai/${id}`;
+      default: return `/detail-gadai/${id}`;
     }
   };
 
-  // 🔹 Ambil data
   useEffect(() => {
     const fetchData = async () => {
       try {
         const res = await axiosInstance.get(getApiUrl());
         if (res.data?.success) setData(res.data.data);
-        else setData(null);
       } catch (err) {
         console.error(err);
-        setData(null);
       } finally {
         setLoading(false);
       }
@@ -44,147 +36,58 @@ const PrintStrukPelunasanPage = () => {
     fetchData();
   }, [id, userRole]);
 
-  if (loading)
-    return <CircularProgress sx={{ display: "block", mx: "auto", mt: 10 }} />;
+  if (loading) return <CircularProgress sx={{ display: "block", mx: "auto", mt: 10 }} />;
   if (!data) return <p>Tidak ada data.</p>;
 
   const detail = data;
   const nasabah = detail?.nasabah || {};
   const petugas = nasabah?.user?.name || "-";
   const typeNama = detail?.type?.nama_type?.toLowerCase() || "-";
+
+  // Data Keuangan dari Backend
   const pokok = Number(detail?.uang_pinjaman || 0);
-
-  // 🔹 Ambil jatuh tempo terbaru jika diperpanjang
-  const perpanjanganTerbaru = detail?.perpanjangan_tempos?.length
-    ? detail.perpanjangan_tempos[detail.perpanjangan_tempos.length - 1]
-    : null;
-  const jatuhTempoTerbaru =
-    perpanjanganTerbaru?.jatuh_tempo_baru || detail?.jatuh_tempo;
-
-  // 🔹 Hitung denda dan penalty
-  const today = new Date();
-  const jatuhTempoDate = new Date(jatuhTempoTerbaru);
-
-  let selisihHari = Math.ceil((today - jatuhTempoDate) / (1000 * 60 * 60 * 24));
-  const toleransi = 1;
-  if (selisihHari <= toleransi) selisihHari = 0;
-  else selisihHari -= toleransi;
-
-  let jenisSkema = ["handphone", "elektronik"].includes(typeNama)
-    ? "hp"
-    : "non-hp";
-  let denda = 0,
-    penalty = 0;
-
-  if (selisihHari > 0) {
-    const persenDendaPerHari = jenisSkema === "hp" ? 0.003 : 0.001; // 0.3% hp / 0.1% emas
-    denda = pokok * persenDendaPerHari * selisihHari;
-    if (selisihHari > 15) penalty = 180000;
-  }
-
-  // 🔹 PEMBULATAN KE ATAS untuk Total Bayar
-  const totalBayarSebelum = pokok + denda + penalty;
-  const totalBayar = Math.ceil(totalBayarSebelum / 1000) * 1000;
+  const nominalBayarDB = Number(detail?.nominal_bayar || 0);
   
-  // 🔹 Hitung selisih pembulatan
-  const selisihPembulatan = totalBayar - totalBayarSebelum;
+  // Ambil denda & penalty (Sudah bersih dari Backend)
+  const denda = Number(detail?.perhitungan?.denda || 0);
+  const penalty = Number(detail?.perhitungan?.penalty || 0);
+  const totalBayar = Number(detail?.perhitungan?.total_bayar || nominalBayarDB);
+  // Ambil hari keterlambatan yang sudah terkunci di Backend
+  const hariTerlambat = detail?.hari_keterlambatan || detail?.perhitungan?.hari_terlambat || 0;
 
-  // 🔹 Helper format
-  const formatRupiah = (val) =>
-    `Rp. ${Number(val || 0).toLocaleString("id-ID")}`;
+  const formatRupiah = (val) => `Rp. ${Number(val || 0).toLocaleString("id-ID")}`;
 
-  const formatHariTanggal = (date) => {
-    const hari = [
-      "Minggu",
-      "Senin",
-      "Selasa",
-      "Rabu",
-      "Kamis",
-      "Jumat",
-      "Sabtu",
-    ];
-    const bulan = [
-      "Januari",
-      "Februari",
-      "Maret",
-      "April",
-      "Mei",
-      "Juni",
-      "Juli",
-      "Agustus",
-      "September",
-      "Oktober",
-      "November",
-      "Desember",
-    ];
+  const formatHariTanggal = (dateStr) => {
+    const date = dateStr ? new Date(dateStr) : new Date();
+    const hari = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+    const bulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
     const pad = (n) => n.toString().padStart(2, "0");
-    const tanggalStr = `${hari[date.getDay()]}, ${date.getDate()} ${
-      bulan[date.getMonth()]
-    } ${date.getFullYear()}`;
+    const tanggalStr = `${hari[date.getDay()]}, ${date.getDate()} ${bulan[date.getMonth()]} ${date.getFullYear()}`;
     const jamStr = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
     return { tanggalStr, jamStr };
   };
 
-  const { tanggalStr, jamStr } = formatHariTanggal(today);
+  const { tanggalStr, jamStr } = formatHariTanggal(detail?.tanggal_bayar);
 
-  // 🔹 Detail barang
-  let barangNama = "-",
-    barangDetail = "-",
-    labelBarangDetail = "-";
+  // --- LOGIC TAMPILAN BARANG ---
+  let barangNama = "-", barangDetail = "-", labelBarangDetail = "-";
+  const cleanText = (val) => (val && typeof val !== 'object') ? String(val).replace(/,|\/+/g, "").trim() : "-";
 
-  const cleanText = (val) => {
-    if (val === null || val === undefined) return "-";
-    if (typeof val === "object") return "-";
-    return String(val)
-      .replace(/,|\/+/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-  };
-
-  const formatGrade = (text) => {
-    if (!text) return "-";
-    return String(text).replace(/_/g, " ").toUpperCase();
-  };
-
-  switch (typeNama) {
-    case "handphone":
-    case "elektronik":
-      if (detail.hp) {
-        barangNama = cleanText(detail.hp.nama_barang);
-
-        const merk = cleanText(detail.hp.merk?.nama_merk);
-        const typeHp = cleanText(detail.hp.type_hp?.nama_type);
-        const ram = cleanText(detail.hp.ram);
-        const rom = cleanText(detail.hp.rom);
-
-        const grade = formatGrade(detail.hp.grade_type); 
-
-        barangDetail = 
-          `MERK / TYPE : ${merk} / ${typeHp}\n` +
-          `ROM / RAM   : ${rom} / ${ram}\n` + 
-          `GRADE       : ${grade}`;
-        labelBarangDetail = ""; 
-      }
-      break;
-
-    case "perhiasan":
-    case "logam mulia":
-    case "retro":
-      const item = detail.perhiasan || detail.logam_mulia || detail.retro;
-      if (item) {
-        barangNama = cleanText(item.nama_barang);
-        const karat = cleanText(item.karat);
-        const berat = cleanText(item.berat);
-        barangDetail = `${karat} / ${berat}`;
-        labelBarangDetail = "Karat / Berat";
-      }
-      break;
-    default:
-      barangNama = "-";
-      barangDetail = "-";
+  if (typeNama.includes("handphone") || typeNama.includes("elektronik")) {
+    if (detail.hp) {
+      barangNama = cleanText(detail.hp.nama_barang);
+      barangDetail = `MERK/TYPE: ${cleanText(detail.hp.merk?.nama_merk)} ${cleanText(detail.hp.type_hp?.nama_type)}\nIMEI: ${cleanText(detail.hp.imei)}`;
+      labelBarangDetail = "Detail Barang";
+    }
+  } else {
+    const item = detail.perhiasan || detail.logam_mulia || detail.retro;
+    if (item) {
+      barangNama = cleanText(item.nama_barang);
+      barangDetail = `${cleanText(item.karat || item.karatase)} / ${cleanText(item.berat || item.berat_bersih)} gr`;
+      labelBarangDetail = "Karat / Berat";
+    }
   }
 
-  // 🔹 Fungsi cetak struk
   const handlePrint = () => {
     const printWindow = window.open("", "", "width=400,height=600");
     printWindow.document.write(`
@@ -193,105 +96,43 @@ const PrintStrukPelunasanPage = () => {
           <title>Struk Pelunasan</title>
           <style>
             @page { size: 80mm auto; margin: 0; }
-
-            html, body {
-              width: 80mm;
-              margin: 0;
-              padding: 0;
-              font-family: "Courier New", monospace;
-              font-size: 11px;
-              font-weight: 600;
-              color: #000;
-              line-height: 1.25;
-              text-shadow: 0.15px 0 0 #000, -0.15px 0 0 #000; /* efek tebal halus */
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-
-            .print-box { width: 100%; padding: 4px 5px; }
-
+            body { width: 75mm; margin: 0; padding: 5px; font-family: "Courier New", monospace; font-size: 11px; font-weight: 600; }
             .center { text-align: center; }
-            .bold {
-              font-weight: 700;
-              text-shadow: 0.2px 0 0 #000, -0.2px 0 0 #000;
-            }
-
-            img {
-              display: block;
-              margin: 0 auto 6px auto;
-              width: 130px;
-            }
-
-            .row {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 2px;
-            }
-
-            hr {
-              border: none;
-              border-top: 1px dashed #000;
-              margin: 5px 0;
-            }
-
-            pre {
-              white-space: pre-wrap;
-              word-break: break-word;
-              margin: 0;
-            }
-
-            /* Pastikan tidak ada ruang kosong bawah */
-            @media print {
-              body::after { content: none !important; }
-              body { margin-bottom: 0; padding-bottom: 0; height: auto !important; overflow: hidden !important; }
-            }
+            .bold { font-weight: 700; }
+            img { display: block; margin: 0 auto 6px auto; width: 120px; }
+            .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+            hr { border: none; border-top: 1px dashed #000; margin: 5px 0; }
+            pre { white-space: pre-wrap; margin: 0; font-family: inherit; }
           </style>
         </head>
         <body>
-          <div class="print-box">
-            <div class="center">
-              <img src="${logo}" alt="Logo" />
-              <div>No Transaksi</div>
-              <div class="bold">${detail?.no_gadai || "-"}</div>
-            </div>
-
-            <div class="row"><span>Hari, Tanggal</span><span>${tanggalStr}</span></div>
-            <div class="row"><span>Waktu</span><span>${jamStr}</span></div>
-            <div class="row"><span>Petugas</span><span>${petugas}</span></div>
-
-            <div class="center bold" style="margin:6px 0;">PEMBAYARAN LUNAS</div>
-
-            <div class="row"><span>Nama Barang</span><span>${barangNama}</span></div>
-            <div class="row"><span>${labelBarangDetail}</span><span><pre>${barangDetail}</pre></span></div>
-            <hr />
-
-            <div class="row"><span>Pokok Pinjaman</span><span>${formatRupiah(pokok)}</span></div>
-            ${denda > 0 ? `<div class="row"><span>Denda</span><span>${formatRupiah(denda)}</span></div>` : ""}
-            ${penalty > 0 ? `<div class="row"><span>Penalty</span><span>${formatRupiah(penalty)}</span></div>` : ""}
-            ${selisihPembulatan > 0 ? `<div class="row"><span>Pembulatan</span><span>${formatRupiah(selisihPembulatan)}</span></div>` : ""}
-            <div class="row"><span>Telat</span><span>${selisihHari} hari</span></div>
-            <div class="row bold"><span>Total Bayar</span><span>${formatRupiah(totalBayar)}</span></div>
-            <hr />
-
-            <div class="row"><span>Tanggal Gadai</span><span>${detail?.tanggal_gadai || "-"}</span></div>
-            <div class="row"><span>Jatuh Tempo</span><span>${jatuhTempoTerbaru}</span></div>
-            <hr />
-
-            <div class="center">
-              <div>Terima kasih atas kepercayaan Anda!</div>
-              <div>Gadai cepat, aman, dan terpercaya di</div>
-              <div class="bold">SENTRA GADAI INDONESIA</div>
-            </div>
+          <div class="center">
+            <img src="${logo}" />
+            <div>No Transaksi</div>
+            <div class="bold">${detail?.no_gadai || "-"}</div>
           </div>
-
-          <script>
-            window.onload = function() {
-              setTimeout(() => {
-                window.print();
-                window.close();
-              }, 150);
-            }
-          </script>
+          <div class="row"><span>Tanggal Lunas</span><span>${tanggalStr}</span></div>
+          <div class="row"><span>Jam</span><span>${jamStr}</span></div>
+          <div class="row"><span>Petugas</span><span>${petugas}</span></div>
+          <hr />
+          <div class="center bold">PELUNASAN SELESAI</div>
+          <div class="row"><span>Barang</span><span>${barangNama}</span></div>
+          <div class="row"><span>${labelBarangDetail}</span><span><pre>${barangDetail}</pre></span></div>
+          <hr />
+          <div class="row"><span>Pokok Pinjaman</span><span>${formatRupiah(pokok)}</span></div>
+          ${denda > 0 ? `<div class="row"><span>Denda</span><span>${formatRupiah(denda)}</span></div>` : ""}
+          ${penalty > 0 ? `<div class="row"><span>Penalty</span><span>${formatRupiah(penalty)}</span></div>` : ""}
+          <div class="row"><span>Keterlambatan</span><span>${hariTerlambat} hari</span></div>
+          <hr />
+          <div class="row bold" style="font-size: 13px;"><span>TOTAL BAYAR</span><span>${formatRupiah(totalBayar)}</span></div>
+          <div class="row"><span>Metode</span><span>${(detail?.metode_pembayaran || "cash").toUpperCase()}</span></div>
+          <hr />
+          <div class="center">
+            <div>Terima kasih atas kepercayaan Anda!</div>
+            <div>Unit barang telah diserahkan kembali.</div>
+            <div class="bold">SENTRA GADAI INDONESIA</div>
+          </div>
+          <script>window.onload = function() { window.print(); window.close(); }</script>
         </body>
       </html>
     `);
@@ -299,38 +140,48 @@ const PrintStrukPelunasanPage = () => {
   };
 
   return (
-    <Box sx={{ maxWidth: 400, mx: "auto", p: 2, textAlign: "center", fontFamily: "monospace" }}>
-      <div ref={printRef} style={{ border: "1px dashed #ccc", padding: "12px", marginBottom: "12px" }}>
-        <img src={logo} alt="Logo" style={{ width: "120px", margin: "0 auto 8px auto" }} />
-        <div>No Transaksi: <b>{detail?.no_gadai || "-"}</b></div>
-        <div>Hari, Tanggal: {tanggalStr}</div>
-        <div>Waktu: {jamStr}</div>
-        <div>Petugas: {petugas}</div>
+    <Box sx={{ maxWidth: 400, mx: "auto", p: 2, textAlign: "center" }}>
+      <Box ref={printRef} sx={{ border: "1px dashed #ccc", p: 2, mb: 2, textAlign: "left", fontFamily: "monospace" }}>
+        <Box sx={{ textAlign: "center", mb: 2 }}>
+            <img src={logo} alt="Logo" style={{ width: "120px" }} />
+            <Typography variant="body2" fontWeight="bold">No: {detail?.no_gadai}</Typography>
+        </Box>
+        
+        <Typography variant="caption" display="block">Tanggal: {tanggalStr} {jamStr}</Typography>
+        <Typography variant="caption" display="block">Petugas: {petugas}</Typography>
+        <hr />
+        <Typography variant="body2" fontWeight="bold" align="center">STRUK PELUNASAN</Typography>
+        <hr />
+        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="caption">Pokok Pinjaman:</Typography>
+            <Typography variant="caption">{formatRupiah(pokok)}</Typography>
+        </Box>
+        {denda > 0 && (
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="caption">Denda:</Typography>
+                <Typography variant="caption">{formatRupiah(denda)}</Typography>
+            </Box>
+        )}
+        {penalty > 0 && (
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="caption">Penalty:</Typography>
+                <Typography variant="caption">{formatRupiah(penalty)}</Typography>
+            </Box>
+        )}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="caption">Telat:</Typography>
+            <Typography variant="caption">{hariTerlambat} hari</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+            <Typography variant="body2" fontWeight="bold">TOTAL BAYAR:</Typography>
+            <Typography variant="body2" fontWeight="bold">{formatRupiah(totalBayar)}</Typography>
+        </Box>
+        <hr />
+        <Typography variant="caption" align="center" display="block">Unit barang telah diserahkan kembali.</Typography>
+        <Typography variant="caption" align="center" display="block" fontWeight="bold">SENTRA GADAI INDONESIA</Typography>
+      </Box>
 
-        <div style={{ marginTop: "6px", fontWeight: "bold" }}>PEMBAYARAN LUNAS</div>
-
-        <div style={{ textAlign: "left", marginTop: "6px" }}>
-          <div>Nama Barang: {barangNama}</div>
-          <pre>{labelBarangDetail}: {barangDetail}</pre>
-          <hr />
-          <div>Pokok Pinjaman: {formatRupiah(pokok)}</div>
-          {denda > 0 && <div>Denda: {formatRupiah(denda)}</div>}
-          {penalty > 0 && <div>Penalty: {formatRupiah(penalty)}</div>}
-          {selisihPembulatan > 0 && <div>Pembulatan: {formatRupiah(selisihPembulatan)}</div>}
-          <div>Telat: {selisihHari} hari</div>
-          <div><b>Total Bayar: {formatRupiah(totalBayar)}</b></div>
-          <div>Tanggal Gadai: {detail?.tanggal_gadai || "-"}</div>
-          <div>Jatuh Tempo: {jatuhTempoTerbaru}</div>
-        </div>
-
-        <div style={{ marginTop: "8px", fontSize: "12px" }}>
-          <p>Terima kasih atas kepercayaan Anda!</p>
-          <p>Gadai cepat, aman, dan terpercaya di</p>
-          <p><b>SENTRA GADAI INDONESIA</b></p>
-        </div>
-      </div>
-
-      <Button variant="contained" color="primary" onClick={handlePrint}>
+      <Button variant="contained" fullWidth onClick={handlePrint} size="large">
         Cetak Struk Pelunasan
       </Button>
     </Box>

@@ -29,15 +29,15 @@ const LaporanMingguanAdmin = () => {
 
   const paperStyle = { 
     width: '210mm', 
-    height: '297mm', // Tinggi mutlak A4
+    height: '297mm', 
     margin: '0 auto', 
-    p: '42mm 15mm 15mm 15mm', // Padding bawah diperkecil agar pas dengan desain
+    p: '42mm 15mm 15mm 15mm', 
     position: 'relative', 
     display: 'flex', 
-    flexDirection: 'column', // Elemen disusun vertikal
+    flexDirection: 'column', 
     bgcolor: '#fff',
     backgroundImage: `url("${KopSuratImg}")`, 
-    backgroundSize: '100% 100%', // Menutup seluruh halaman termasuk footer hijau
+    backgroundSize: '100% 100%', 
     backgroundRepeat: 'no-repeat',
     boxShadow: '0 20px 50px rgba(0,0,0,0.2)', 
     boxSizing: 'border-box',
@@ -73,8 +73,6 @@ const LaporanMingguanAdmin = () => {
                 Periode: {reportData?.metadata?.rentang_waktu}
               </Typography>
             </Box>
-
-            {/* Kontainer Tabel dengan flexGrow agar mendorong footer ke bawah */}
             <Box sx={{ flexGrow: 1 }}>
               <TableContainer>
                 <Table size="small" sx={{ tableLayout: 'fixed', border: '1.5px solid #000' }}>
@@ -124,7 +122,6 @@ const LaporanMingguanAdmin = () => {
               </TableContainer>
             </Box>
 
-            {/* Signature Area: Akan selalu di bawah karena flexGrow di atasnya */}
             <Box sx={{ pt: 4, pb: 4 }}>
               <Grid container justifyContent="space-between" alignItems="flex-end">
                 <Grid item xs={5}>

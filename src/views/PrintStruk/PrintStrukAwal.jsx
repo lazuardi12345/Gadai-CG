@@ -57,10 +57,8 @@ const PrintStrukPage = () => {
   const tglGadai = new Date(detail?.tanggal_gadai);
   const tglJatuhTempo = new Date(detail?.jatuh_tempo);
 
-  // === Hitung lama hari ===
   let selisihHari = Math.ceil((tglJatuhTempo - tglGadai) / (1000 * 60 * 60 * 24));
 
-  // Tambahkan toleransi 1 hari
   const blokHari = [15, 30, 45, 60, 75, 90, 105, 120];
   for (let batas of blokHari) {
     if (selisihHari === batas + 1) {
@@ -70,12 +68,9 @@ const PrintStrukPage = () => {
   }
 
   let persenJasa = 0;
-  let jenisSkema = "";
   const typeLower = (typeNama || "").toLowerCase();
 
-  // === Jika barang HP ===
   if (typeLower === "handphone" || typeLower === "hp") {
-    jenisSkema = "HP";
     if (selisihHari <= 15) persenJasa = 0.045;
     else if (selisihHari <= 30) persenJasa = 0.095;
     else if (selisihHari <= 45) persenJasa = 0.145;
@@ -85,7 +80,6 @@ const PrintStrukPage = () => {
       persenJasa = 0.195 + extraBlocks * 0.05;
     }
   } else {
-    // === Barang selain HP ===
     if (selisihHari <= 15) persenJasa = 0.015;
     else if (selisihHari <= 30) persenJasa = 0.025;
     else if (selisihHari <= 45) persenJasa = 0.04;
@@ -96,28 +90,23 @@ const PrintStrukPage = () => {
     }
   }
 
-
-  const jasaSewaRaw = pinjaman * persenJasa;
-
+const jasaSewaRaw = pinjaman * persenJasa;
+  const jasaSewa = Math.ceil(jasaSewaRaw / 500) * 500;
 
   let adminPersen = pinjaman * 0.01; 
-  let admin = adminPersen;
+  let adminRaw = adminPersen;
   if (["logam mulia", "retro", "perhiasan"].includes(typeLower)) {
-    admin = Math.max(adminPersen, 10000); 
+    adminRaw = Math.max(adminPersen, 10000); 
   } else {
-    admin = Math.max(adminPersen, 5000); 
+    adminRaw = Math.max(adminPersen, 5000); 
   }
-
+  const admin = Math.ceil(adminRaw / 500) * 500;
 
   const asuransi = 10000;
 
-  const totalPotonganRaw = jasaSewaRaw + admin + asuransi;
-  const totalPotonganBulat = Math.ceil(totalPotonganRaw / 1000) * 1000;
+  const totalPotongan = jasaSewa + admin + asuransi;
+  const totalDiterima = pinjaman - totalPotongan;
 
-
-  const jasaSewa = totalPotonganBulat - admin - asuransi;
-
-  const totalDiterima = pinjaman - totalPotonganBulat;
   const formatRupiah = (val) => `Rp. ${Number(val || 0).toLocaleString("id-ID")}`;
 
   const formatHariTanggal = (date) => {
@@ -162,7 +151,6 @@ const PrintStrukPage = () => {
 
   const type = (typeNama || "").toLowerCase();
 
-  // === Handphone ===
 if (type === "handphone" || type === "hp") {
     const hpData = detail?.hp || {};
 

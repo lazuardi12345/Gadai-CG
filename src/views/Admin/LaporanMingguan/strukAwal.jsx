@@ -1,48 +1,81 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Button, Card, TextField, Stack, CircularProgress, Typography } from '@mui/material';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
+import { Box, Button, Card, TextField, Stack, CircularProgress, Typography, Alert } from '@mui/material';
 import { Print, Refresh } from '@mui/icons-material';
 import axiosInstance from 'api/axiosInstance';
 import logo from "assets/images/LogoBaru1.png";
+import { AuthContext } from "AuthContex/AuthContext"; 
 
 const RekapStrukMingguan = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
+  const [error, setError] = useState(null);
+  const { user } = useContext(AuthContext);
   
-  // Ambil role dari localStorage atau context auth kamu
-  const userRole = localStorage.getItem('role'); // Sesuaikan dengan cara kamu simpan role
+  // Fallback ke localStorage jika context belum ready
+  const userRole = (user?.role || localStorage.getItem('role') || "").toLowerCase();
+  
+  // Debug: Log role saat component mount
+  useEffect(() => {
+    console.log('=== DEBUG INFO ===');
+    console.log('user dari AuthContext:', user);
+    console.log('user.role:', user?.role);
+    console.log('localStorage role:', localStorage.getItem('role'));
+    console.log('Token:', localStorage.getItem('token') ? 'EXISTS' : 'NOT FOUND');
+    console.log('userRole (final):', userRole);
+  }, [user, userRole]);
 
   const [tanggalMulai, setTanggalMulai] = useState(new Date().toISOString().split('T')[0]);
   const [tanggalSelesai, setTanggalSelesai] = useState(new Date().toISOString().split('T')[0]);
 
-  // Fungsi untuk menentukan URL berdasarkan Role
-  const getApiUrl = () => {
-    switch (userRole) {
-      case "admin":
-        return `/admin/laporan/struk-awal-mingguan`;
-      case "hm":
-      default:
-        // HM atau role lain tanpa prefix /admin/
-        return `/laporan/struk-awal-mingguan`;
-    }
-  };
+  // Fungsi penentu URL sesuai role
+  const getApiUrl = useCallback(() => {
+    const path = '/laporan/struk-awal-mingguan';
+    return userRole === "admin" ? `/admin${path}` : path;
+  }, [userRole]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const url = getApiUrl();
+      console.log('=== FETCHING DATA ===');
+      console.log('URL:', url);
+      console.log('Role:', userRole);
+      console.log('Params:', { tanggal_mulai: tanggalMulai, tanggal_selesai: tanggalSelesai });
+      
       const res = await axiosInstance.get(url, { 
         params: { 
           tanggal_mulai: tanggalMulai, 
           tanggal_selesai: tanggalSelesai 
         } 
       });
-      if (res.data.success) setData(res.data.data);
+      
+      console.log('Response:', res.data);
+      
+      if (res.data.success) {
+        setData(res.data.data);
+      } else {
+        setError('Data tidak ditemukan');
+      }
     } catch (err) { 
-      console.error(err); 
+      console.error('=== ERROR ===');
+      console.error('Error:', err);
+      console.error('Status:', err.response?.status);
+      console.error('Response Data:', err.response?.data);
+      console.error('Headers:', err.response?.headers);
+      
+      // Set error message berdasarkan status
+      if (err.response?.status === 403) {
+        setError(`Forbidden (403): Role "${userRole}" tidak memiliki akses. Pastikan Anda login sebagai role yang sesuai.`);
+      } else if (err.response?.status === 401) {
+        setError('Unauthorized (401): Token tidak valid atau sudah expired. Silakan login ulang.');
+      } else {
+        setError(err.response?.data?.message || 'Terjadi kesalahan saat mengambil data');
+      }
     } finally { 
       setLoading(false); 
     }
-  }, [tanggalMulai, tanggalSelesai, userRole]);
+  }, [tanggalMulai, tanggalSelesai, getApiUrl, userRole]);
 
   useEffect(() => { 
     fetchData(); 
@@ -115,7 +148,7 @@ const RekapStrukMingguan = () => {
   return (
     <Box sx={{ p: 3, bgcolor: '#1e293b', minHeight: '100vh' }}>
       <Card sx={{ p: 2, mb: 3 }} className="no-print">
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
           <TextField 
             label="Mulai"
             type="date" 
@@ -139,13 +172,24 @@ const RekapStrukMingguan = () => {
             Print PDF (A4 Landscape)
           </Button>
           <Typography sx={{ color: 'white', ml: 2, fontSize: '12px' }}>
-            Role: <strong>{userRole?.toUpperCase()}</strong> | 4 Kolom per Baris.
+            Role: <strong>{userRole?.toUpperCase() || 'NOT SET'}</strong> | 4 Kolom per Baris.
           </Typography>
         </Stack>
       </Card>
 
+      {/* Error Alert */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} className="no-print">
+          {error}
+        </Alert>
+      )}
+
       {loading ? (
         <Box sx={{ textAlign: 'center', mt: 10 }}><CircularProgress /></Box>
+      ) : data.length === 0 ? (
+        <Alert severity="info" className="no-print">
+          Tidak ada data untuk ditampilkan. Silakan pilih tanggal dan klik "Ambil Data".
+        </Alert>
       ) : (
         <Box className="print-area">
           <div className="struk-grid">
