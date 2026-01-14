@@ -180,6 +180,13 @@ const apiUrl = getApiUrlById("data-nasabah", role, id);
                     <Typography variant="body1">{nasabah.no_hp}</Typography>
                   </Grid>
 
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" color="text.secondary">Bank</Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                      {nasabah.bank ? nasabah.bank.replace(/_/g, ' ') : "-"}
+                    </Typography>
+                  </Grid>
+
                    <Grid item xs={12} sm={6}>
                     <Typography variant="body2" color="text.secondary">Nomor Rekening</Typography>
                     <Typography variant="body1">{nasabah.no_rek}</Typography>

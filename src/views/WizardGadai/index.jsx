@@ -13,6 +13,20 @@ const DOKUMEN_SOP_HP = {
   iPhone: ['body', 'imei', 'about', 'icloud', 'battery', 'utools', 'iunlocker', 'cek_pencurian']
 };
 
+const BANK_LIST = [
+  'BCA', 'BRI', 'BNI', 'MANDIRI', 'BTN', 'SEABANK', 'BANK_JAGO', 'NEO_COMMERCE', 
+  'ALOO_BANK', 'BLU', 'LINE_BANK', 'DIGIBANK', 'TMRW', 'BANK_RAYA', 'HIBANK',
+  'CIMB_NIAGA', 'PERMATA', 'DANAMON', 'PANIN', 'OCBC_NISP', 'MAYBANK', 
+  'COMMONWEALTH', 'DBS', 'UOB', 'HSBC', 'STANDARD_CHARTERED', 'ARTHA_GRAHA', 
+  'MEGA', 'BUKOPIN', 'BTPN', 'SINARMAS', 'MESTIKA', 'BSI', 'MUAMALAT', 
+  'BCA_SYARIAH', 'MEGA_SYARIAH', 'PANIN_SYARIAH', 'BUKOPIN_SYARIAH', 
+  'BTPN_SYARIAH', 'VICTORIA_SYARIAH', 'BANK_DKI', 'BANK_JABAR', 'BANK_JATENG', 
+  'BANK_JATIM', 'BANK_DIY', 'BANK_JAMBI', 'BANK_SUMUT', 'BANK_RIAU_KEPRI', 
+  'BANK_SUMSEL_BABEL', 'BANK_LAMPUNG', 'BANK_KALBAR', 'BANK_KALSEL', 
+  'BANK_KALTIMTARA', 'BANK_KALTENG', 'BANK_SULSELBAR', 'BANK_SULUTGO', 
+  'BANK_NTB', 'BANK_NTT', 'BANK_BALI', 'BANK_PAPUA', 'BANK_BENGKULU', 'BANK_SULTRA'
+];
+
 const getRoleBaseUrl = () => {
   const user = JSON.parse(localStorage.getItem("auth_user"));
   const role = user?.role?.toLowerCase() || "";
@@ -30,11 +44,12 @@ const GadaiHpWizardPage = () => {
   const [loading, setLoading] = useState(false);
   const baseUrl = getRoleBaseUrl();
 
-  const [nasabah, setNasabah] = useState({ 
+ const [nasabah, setNasabah] = useState({ 
     nama_lengkap: "", 
     nik: "", 
     alamat: "", 
     no_hp: "", 
+    bank: "BCA", 
     no_rek: "" 
   });
   const [fotoKtp, setFotoKtp] = useState(null);
@@ -309,6 +324,27 @@ const getPreviewValues = () => {
                 onChange={handleNasabahChange} 
               />
             </Grid>
+
+
+            {/* 2. TAMBAHKAN DROPDOWN BANK DI SINI */}
+            <Grid item xs={12} sm={4}>
+              <TextField
+                select
+                fullWidth
+                label="Bank"
+                name="bank"
+                value={nasabah.bank}
+                onChange={handleNasabahChange}
+              >
+                {BANK_LIST.map((b) => (
+                  <MenuItem key={b} value={b}>
+                    {b.replace(/_/g, " ")}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+
+
             <Grid item xs={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Foto KTP Nasabah *</Typography>
               <input 

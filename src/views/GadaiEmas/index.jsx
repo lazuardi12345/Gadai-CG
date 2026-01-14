@@ -34,6 +34,20 @@ const formatRupiah = (value) => {
   return new Intl.NumberFormat("id-ID").format(number);
 };
 
+const BANK_LIST = [
+  'BCA', 'BRI', 'BNI', 'MANDIRI', 'BTN', 'SEABANK', 'BANK_JAGO', 'NEO_COMMERCE', 
+  'ALOO_BANK', 'BLU', 'LINE_BANK', 'DIGIBANK', 'TMRW', 'BANK_RAYA', 'HIBANK',
+  'CIMB_NIAGA', 'PERMATA', 'DANAMON', 'PANIN', 'OCBC_NISP', 'MAYBANK', 
+  'COMMONWEALTH', 'DBS', 'UOB', 'HSBC', 'STANDARD_CHARTERED', 'ARTHA_GRAHA', 
+  'MEGA', 'BUKOPIN', 'BTPN', 'SINARMAS', 'MESTIKA', 'BSI', 'MUAMALAT', 
+  'BCA_SYARIAH', 'MEGA_SYARIAH', 'PANIN_SYARIAH', 'BUKOPIN_SYARIAH', 
+  'BTPN_SYARIAH', 'VICTORIA_SYARIAH', 'BANK_DKI', 'BANK_JABAR', 'BANK_JATENG', 
+  'BANK_JATIM', 'BANK_DIY', 'BANK_JAMBI', 'BANK_SUMUT', 'BANK_RIAU_KEPRI', 
+  'BANK_SUMSEL_BABEL', 'BANK_LAMPUNG', 'BANK_KALBAR', 'BANK_KALSEL', 
+  'BANK_KALTIMTARA', 'BANK_KALTENG', 'BANK_SULSELBAR', 'BANK_SULUTGO', 
+  'BANK_NTB', 'BANK_NTT', 'BANK_BALI', 'BANK_PAPUA', 'BANK_BENGKULU', 'BANK_SULTRA'
+];
+
 const GadaiEmasFormPage = () => {
   const navigate = useNavigate();
   const baseUrl = getRoleBaseUrl();
@@ -41,7 +55,12 @@ const GadaiEmasFormPage = () => {
 
   // Nasabah
   const [nasabah, setNasabah] = useState({
-    nama_lengkap: "", nik: "", alamat: "", no_hp: "", no_rek: ""
+    nama_lengkap: "", 
+    nik: "", 
+    alamat: "", 
+    no_hp: "", 
+    bank: "BCA", 
+    no_rek: ""
   });
   const [fotoKtp, setFotoKtp] = useState(null);
 
@@ -193,6 +212,25 @@ const handleSubmit = async () => {
           <Grid item xs={12}><TextField fullWidth size="small" label="Alamat" name="alamat" value={nasabah.alamat} onChange={setNasabahField} /></Grid>
           <Grid item xs={6}><TextField fullWidth size="small" label="No HP" name="no_hp" value={nasabah.no_hp} onChange={setNasabahField} /></Grid>
           <Grid item xs={6}><TextField fullWidth size="small" label="No Rekening" name="no_rek" value={nasabah.no_rek} onChange={setNasabahField} /></Grid>
+
+          {/* 2. TAMBAHKAN DROPDOWN BANK DI SINI */}
+          <Grid item xs={4}>
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Bank"
+              name="bank"
+              value={nasabah.bank}
+              onChange={setNasabahField}
+            >
+              {BANK_LIST.map((b) => (
+                <MenuItem key={b} value={b}>
+                  {b.replace(/_/g, " ")}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
 
           <Grid item xs={12}>
             <Button variant="contained" component="label">Upload KTP

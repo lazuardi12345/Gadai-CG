@@ -165,7 +165,8 @@ const DataNasabahPage = () => {
           <Table size="small">
             <TableHead sx={{ backgroundColor: "#f5f5f5" }}>
               <TableRow>
-                {["No", "Nama", "NIK", "Alamat", "No HP", "No Rek", "Foto", "Aksi"].map((h) => (
+                {/* Header disesuaikan, Bank tetap ditampilkan jika nanti kolomnya sudah ada */}
+                {["No", "Nama", "NIK", "No HP", "Bank", "No Rek", "Foto", "Aksi"].map((h) => (
                   <TableCell key={h} align="center">
                     <b>{h}</b>
                   </TableCell>
@@ -179,11 +180,20 @@ const DataNasabahPage = () => {
                   <TableCell align="center">
                     {(pagination.current_page - 1) * pagination.per_page + index + 1}
                   </TableCell>
-                  <TableCell>{nasabah.nama_lengkap}</TableCell>
+                  <TableCell><b>{nasabah.nama_lengkap}</b></TableCell>
                   <TableCell>{nasabah.nik}</TableCell>
-                  <TableCell>{nasabah.alamat}</TableCell>
                   <TableCell>{nasabah.no_hp}</TableCell>
-                  <TableCell>{nasabah.no_rek || "-"}</TableCell>
+                  
+                  {/* Tampilkan Bank (Jika di JSON belum ada, akan tampil "-") */}
+                  <TableCell align="center">
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#1976d2' }}>
+                      {nasabah.bank ? nasabah.bank.replace(/_/g, ' ') : "-"}
+                    </Typography>
+                  </TableCell>
+
+                  {/* PAKAI NO_REK SESUAI RESPON JSON KAMU */}
+                  <TableCell align="center">{nasabah.no_rek || "-"}</TableCell>
+
                   <TableCell align="center">
                     <IconButton
                       color="primary"
@@ -194,27 +204,29 @@ const DataNasabahPage = () => {
                     </IconButton>
                   </TableCell>
                   <TableCell align="center">
-                    <IconButton onClick={() => navigate(`/detail-nasabah/${nasabah.id}`)}>
-                      <VisibilityIcon />
-                    </IconButton>
-                    {(role === "checker" || role === "hm") && (
-                      <IconButton onClick={() => navigate(`/edit-nasabah/${nasabah.id}`)}>
-                        <EditIcon />
+                    <Stack direction="row" justifyContent="center">
+                      <IconButton onClick={() => navigate(`/detail-nasabah/${nasabah.id}`)}>
+                        <VisibilityIcon fontSize="small" />
                       </IconButton>
-                    )}
-                    {role === "hm" && (
-                      <IconButton color="error" onClick={() => handleDelete(nasabah.id)}>
-                        <DeleteIcon />
-                      </IconButton>
-                    )}
+                      {(role === "checker" || role === "hm") && (
+                        <IconButton onClick={() => navigate(`/edit-nasabah/${nasabah.id}`)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                      {role === "hm" && (
+                        <IconButton color="error" onClick={() => handleDelete(nasabah.id)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                    </Stack>
                   </TableCell>
                 </TableRow>
               ))}
 
               {nasabahData.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    Tidak ada data
+                  <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+                    Tidak ada data nasabah.
                   </TableCell>
                 </TableRow>
               )}

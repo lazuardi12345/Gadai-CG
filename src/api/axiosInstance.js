@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://decent-aims-terrorist-ranked.trycloudflare.com/api";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "hhttps://newsletters-extensions-cycling-anymore.trycloudflare.com/api";
 
 const axiosInstance = axios.create({
   baseURL: API_BASE,
