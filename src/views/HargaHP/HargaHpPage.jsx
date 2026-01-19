@@ -223,7 +223,6 @@ const HargaHpPage = () => {
         )}
     </Stack>
     
-    {/* Bonus: Penanda visual jika baru diupdate hari ini */}
     {item.updated_at && (new Date() - new Date(item.updated_at)) < 86400000 && (
         <Typography 
             variant="caption" 
