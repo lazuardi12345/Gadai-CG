@@ -11,12 +11,14 @@ import Routes from 'routes/index';
 import NavigationScroll from './NavigationScroll';
 import { AuthContext } from 'AuthContex/AuthContext';
 
+// IMPORT INI (Pastikan kamu sudah buat filenya)
+import NotificationListener from '../views/Notifications/NotificationListener'; 
+
 const App = () => {
   const customization = useSelector((state) => state.customization);
-  const { loading } = useContext(AuthContext); // ambil loading dari AuthContext
+  const { loading } = useContext(AuthContext);
 
   if (loading) {
-    // tampilkan loader sementara auth sedang load
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress />
@@ -29,6 +31,10 @@ const App = () => {
       <StyledEngineProvider injectFirst>
         <ThemeProvider theme={theme(customization)}>
           <CssBaseline />
+          
+          {/* PASANG DI SINI */}
+          <NotificationListener />
+          
           <Routes />
         </ThemeProvider>
       </StyledEngineProvider>

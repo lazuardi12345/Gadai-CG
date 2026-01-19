@@ -95,6 +95,14 @@ const AdminDetailPage = () => {
     const hp = detail.hp || null;
     const dokumenSop = hp?.dokumen_pendukung_hp || {};
 
+const logamMulia = detail.logam_mulia || null;
+const perhiasan = detail.perhiasan || null;
+const retro = detail.retro || null;
+
+// Ambil salah satu yang tidak null sebagai data emas aktif
+const emasData = logamMulia || perhiasan || retro;
+const isEmas = !!emasData;
+
     const sectionPaperStyle = { p: 3, borderRadius: 2, mb: 4, boxShadow: 2 };
 
     return (
@@ -181,38 +189,89 @@ const AdminDetailPage = () => {
                             </Paper>
                         )}
 
-                        {/* 4. DOKUMEN PENDUKUNG (Filtered) */}
-                        {Object.keys(dokumenSop).length > 0 && (
-                            <Paper sx={sectionPaperStyle}>
-                                <Typography variant="h6" color="info.main" gutterBottom sx={{ fontWeight: 700 }}> Dokumen SOP Barang</Typography>
-                                <Grid container spacing={2}>
-                                    {Object.entries(dokumenSop).map(([key, path]) => {
-                                        // FILTER: Jangan tampilkan field non-gambar
-                                        const ignoreFields = ['id', 'created_at', 'updated_at', 'gadai_hp_id'];
-                                        if (ignoreFields.includes(key) || !path) return null;
 
-                                        const url = getFullUrl(path);
-                                        return (
-                                            <Grid item xs={6} sm={4} md={3} key={key}>
-                                                <Typography variant="caption" fontWeight={700} sx={{ display: 'block', mb: 0.5 }}>
-                                                    {key.toUpperCase()}
-                                                </Typography>
-                                                <Box component="img" src={url}
-                                                    sx={{ 
-                                                        width: '100%', height: 120, objectFit: 'cover', 
-                                                        borderRadius: 2, cursor: 'pointer', border: '1px solid #ddd',
-                                                        "&:hover": { boxShadow: 3, transform: 'scale(1.02)' },
-                                                        transition: '0.2s'
-                                                    }}
-                                                    onClick={() => setSelectedImage(url)}
-                                                />
-                                            </Grid>
-                                        );
-                                    })}
-                                </Grid>
-                            </Paper>
-                        )}
+                        {isEmas && (
+    <Paper sx={sectionPaperStyle}>
+        <Typography variant="h6" color="secondary" gutterBottom sx={{ fontWeight: 700 }}>
+             Spesifikasi Barang ({detail.type?.nama_type})
+        </Typography>
+        <Grid container spacing={2}>
+            <DetailItem label="Nama Barang" value={emasData.nama_barang} />
+            <DetailItem label="Karat" value={`${emasData.karat} K`} />
+            <DetailItem label="Berat" value={`${emasData.berat} Gram`} />
+            <DetailItem label="Kode Cap" value={emasData.kode_cap} />
+            <DetailItem label="Potongan Batu" value={emasData.potongan_batu || "0"} />
+        </Grid>
 
+        {(emasData.kelengkapan_emas || emasData.kelengkapan)?.length > 0 && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: '#fffde7', borderRadius: 1, border: '1px solid #fbc02d' }}>
+                <Typography variant="subtitle2" fontWeight={700}>Kelengkapan Emas:</Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1 }}>
+                    {(emasData.kelengkapan_emas || emasData.kelengkapan).map((k, i) => (
+                        <Chip key={i} label={k.nama_kelengkapan} size="small" variant="outlined" />
+                    ))}
+                </Stack>
+            </Box>
+        )}
+    </Paper>
+)}
+
+                       {/* 4. DOKUMEN PENDUKUNG (HP & EMAS) */}
+{(Object.keys(dokumenSop).length > 0 || (isEmas && emasData.url_dokumen)) && (
+    <Paper sx={sectionPaperStyle}>
+        <Typography variant="h6" color="info.main" gutterBottom sx={{ fontWeight: 700 }}> 
+            Dokumen SOP Barang
+        </Typography>
+        <Grid container spacing={2}>
+            {/* JIKA BARANG HP */}
+            {Object.entries(dokumenSop).map(([key, path]) => {
+                const ignoreFields = ['id', 'created_at', 'updated_at', 'gadai_hp_id'];
+                if (ignoreFields.includes(key) || !path) return null;
+                const url = getFullUrl(path);
+                return (
+                    <Grid item xs={6} sm={4} md={3} key={key}>
+                        <Typography variant="caption" fontWeight={700} sx={{ display: 'block', mb: 0.5 }}>
+                            {key.toUpperCase().replace(/_/g, " ")}
+                        </Typography>
+                        <Box component="img" src={url}
+                            sx={{ 
+                                width: '100%', height: 120, objectFit: 'cover', 
+                                borderRadius: 2, cursor: 'pointer', border: '1px solid #ddd',
+                                "&:hover": { boxShadow: 3, transform: 'scale(1.02)' },
+                                transition: '0.2s'
+                            }}
+                            onClick={() => setSelectedImage(url)}
+                        />
+                    </Grid>
+                );
+            })}
+
+            {/* JIKA BARANG EMAS (Logam Mulia / Perhiasan / Retro) */}
+            {isEmas && emasData.url_dokumen && Object.entries(emasData.url_dokumen).map(([key, url]) => {
+                // Filter field metadata agar tidak tampil sebagai gambar
+                const ignoreEmasFields = ['id', 'emas_type', 'emas_id', 'created_at', 'updated_at'];
+                if (ignoreEmasFields.includes(key) || !url) return null;
+
+                return (
+                    <Grid item xs={6} sm={4} md={3} key={key}>
+                        <Typography variant="caption" fontWeight={700} sx={{ display: 'block', mb: 0.5 }}>
+                            {key.toUpperCase().replace(/_/g, " ")}
+                        </Typography>
+                        <Box component="img" src={url}
+                            sx={{ 
+                                width: '100%', height: 120, objectFit: 'cover', 
+                                borderRadius: 2, cursor: 'pointer', border: '1px solid #ddd',
+                                "&:hover": { boxShadow: 3, transform: 'scale(1.02)' },
+                                transition: '0.2s'
+                            }}
+                            onClick={() => setSelectedImage(url)}
+                        />
+                    </Grid>
+                );
+            })}
+        </Grid>
+    </Paper>
+)}
                         {/* 5. APPROVAL HISTORY */}
                         {approvals.length > 0 && (
                             <Paper sx={sectionPaperStyle}>

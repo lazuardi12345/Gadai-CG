@@ -41,12 +41,26 @@ const KasManagement = () => {
 
   const getApiUrl = (resource) => (userRole === "admin" ? `/admin/${resource}` : `/${resource}`);
 
-  const fetchSummary = async () => {
-    try {
-      const res = await axiosInstance.get(getApiUrl("dashboard/brankas-stats"));
-      if (res.data.success) setSummary(res.data.summary);
-    } catch (err) { console.error(err); }
-  };
+ const fetchSummary = async () => {
+  try {
+    // Sesuaikan dengan route baru: /brankas
+    const res = await axiosInstance.get(getApiUrl("brankas")); 
+    
+    if (res.data.success) {
+      // Kita pastikan data yang masuk ke state adalah angka, bukan null
+      const s = res.data.summary;
+      setSummary({
+        saldo_toko_saat_ini: Number(s.saldo_toko_saat_ini) || 0,
+        saldo_rekening_saat_ini: Number(s.saldo_rekening_saat_ini) || 0,
+        total_modal_dari_pusat: Number(s.total_modal_dari_pusat) || 0,
+        total_setoran_ke_admin: Number(s.total_setoran_ke_admin) || 0,
+        total_setoran_pending: Number(s.total_setoran_pending) || 0
+      });
+    }
+  } catch (err) { 
+    console.error("Fetch Summary Error:", err); 
+  }
+};
 
 const fetchRiwayat = useCallback(async (page = 1) => {
     setLoading(true);
@@ -54,14 +68,22 @@ const fetchRiwayat = useCallback(async (page = 1) => {
       const res = await axiosInstance.get(getApiUrl("brankas/riwayat"), { 
         params: { page, start_date: filters.start_date, end_date: filters.end_date } 
       });
-      console.log("DATA DARI API:", res.data.riwayat); 
+      
       if (res.data.success) {
-        setRiwayat(res.data.riwayat);
-        setPagination(res.data.pagination);
-        setTotals(res.data.grand_total); 
+        setRiwayat(res.data.riwayat || []);
+        setPagination(res.data.pagination || { current_page: 1, last_page: 1 });
+        
+        setTotals(res.data.grand_total || { 
+          pemasukan_keseluruhan: 0, 
+          pengeluaran_keseluruhan: 0, 
+          saldo_netto: 0 
+        }); 
       }
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+    } catch (err) { 
+      console.error(err); 
+    } finally { 
+      setLoading(false); 
+    }
 }, [filters, userRole]);
 
   useEffect(() => { if (isAuthorized) { fetchSummary(); fetchRiwayat(); } }, [fetchRiwayat, isAuthorized]);
@@ -72,55 +94,104 @@ const fetchRiwayat = useCallback(async (page = 1) => {
     setDisplayNominal(value ? new Intl.NumberFormat('id-ID').format(value) : '');
   };
 
-  const handleFinalSubmit = async () => {
-    setBtnLoading(true);
-    const data = new FormData();
-    Object.keys(formData).forEach(key => data.append(key, formData[key]));
-    try {
-      await axiosInstance.post(getApiUrl("brankas/transaksi"), data);
-      setStatusMsg({ type: 'success', text: 'Berhasil!' });
-      setFormData({ ...formData, nominal: '', deskripsi: '', bukti_transaksi: null });
+const handleFinalSubmit = async () => {
+  // Validasi awal: Jika transfer, bukti wajib ada
+  if (formData.metode === 'transfer' && !formData.bukti_transaksi) {
+    alert("Metode transfer wajib melampirkan bukti transaksi!");
+    return;
+  }
+
+  setBtnLoading(true);
+  
+  // Gunakan FormData secara manual untuk memastikan File terkirim sebagai binary
+  const data = new FormData();
+  data.append('kategori', formData.kategori);
+  data.append('metode', formData.metode);
+  data.append('nominal', formData.nominal);
+  data.append('deskripsi', formData.deskripsi);
+  data.append('tipe_operasional', formData.tipe_operasional);
+  
+  if (formData.bukti_transaksi) {
+    data.append('bukti_transaksi', formData.bukti_transaksi);
+  }
+
+  try {
+    const res = await axiosInstance.post(getApiUrl("brankas/transaksi"), data, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+
+    if (res.data.success) {
+      alert("Transaksi berhasil diproses!");
+      // Reset Form
+      setFormData({ 
+        kategori: 'topup_pusat', 
+        metode: 'cash', 
+        nominal: '', 
+        deskripsi: '', 
+        tipe_operasional: 'masuk', 
+        bukti_transaksi: null 
+      });
       setDisplayNominal('');
-      fetchSummary(); fetchRiwayat(1);
-    } catch (err) { setStatusMsg({ type: 'error', text: 'Gagal!' }); }
-    finally { setBtnLoading(false); }
-  };
-
-const handleValidasiSubmit = async () => {
-    // Validasi sederhana di frontend
-    if (!validasiData.deskripsi_validasi || !validasiData.bukti_mutasi) {
-      alert("Catatan dan Bukti Mutasi wajib diisi!");
-      return;
+      // Refresh Data
+      fetchSummary(); 
+      fetchRiwayat(1);
     }
+  } catch (err) {
+    console.error("Submit Error:", err.response?.data);
+    alert("Gagal: " + (err.response?.data?.message || "Terjadi kesalahan"));
+  } finally {
+    setBtnLoading(false);
+  }
+};
+const handleValidasiSubmit = async () => {
+  // 1. Validasi Input: Sesuai aturan SGI, bukti mutasi wajib untuk status LUNAS
+  if (!validasiData.deskripsi_validasi || !validasiData.bukti_mutasi) {
+    alert("Catatan dan Bukti Mutasi wajib diisi untuk proses pelunasan!");
+    return;
+  }
 
-    setBtnLoading(true);
-    
-    // Bikin FormData
-    const data = new FormData();
-    data.append('deskripsi_validasi', validasiData.deskripsi_validasi);
-    data.append('bukti_mutasi', validasiData.bukti_mutasi); 
+  setBtnLoading(true);
 
-    try {
-      // WAJIB tambahin header multipart/form-data
-      const res = await axiosInstance.post(getApiUrl(`brankas/validasi/${selectedId}`), data, {
+  const data = new FormData();
+  data.append('deskripsi_validasi', validasiData.deskripsi_validasi);
+  data.append('bukti_mutasi', validasiData.bukti_mutasi); 
+
+  try {
+    // 3. Eksekusi Request ke Backend
+    const res = await axiosInstance.post(
+      getApiUrl(`brankas/validasi/${selectedId}`), 
+      data, 
+      {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-      });
-
-      if (res.data.success) {
-        setOpenValidasi(false);
-        setValidasiData({ deskripsi_validasi: '', bukti_mutasi: null }); 
-        fetchSummary(); 
-        fetchRiwayat();
-        alert("Status berhasil diubah jadi LUNAS!");
       }
-    } catch (err) {
-      console.error("Error Detail:", err.response?.data);
-      alert("Gagal: " + (err.response?.data?.message || "Terjadi kesalahan pada server"));
-    } finally {
-      setBtnLoading(false);
+    );
+
+    if (res.data.success) {
+      // 4. Tutup Dialog & Reset Form Validasi
+      setOpenValidasi(false);
+      setValidasiData({ 
+        deskripsi_validasi: '', 
+        bukti_mutasi: null 
+      }); 
+      
+      // 5. Refresh Data (Summary & Tabel) agar angka Rp0 atau RpNaN hilang berganti angka asli
+      await Promise.all([
+        fetchSummary(), 
+        fetchRiwayat(pagination.current_page) // Tetap di halaman yang sama
+      ]);
+      
+      alert("Status transaksi berhasil diubah menjadi LUNAS!");
     }
+  } catch (err) {
+    // 6. Handling Error jika gagal (misal: file kegedean atau unauthorized)
+    console.error("Error Detail:", err.response?.data);
+    const errorMsg = err.response?.data?.message || "Terjadi kesalahan pada server saat validasi";
+    alert("Gagal Validasi: " + errorMsg);
+  } finally {
+    setBtnLoading(false);
+  }
 };
 
   const formatRupiah = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
@@ -141,8 +212,8 @@ const handleValidasiSubmit = async () => {
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between">
                     <Box>
-                        <Typography variant="caption" sx={{ opacity: 0.8 }}>{card.label}</Typography>
-                        <Typography variant="h4" fontWeight={800}>{formatRupiah(card.val)}</Typography>
+                        <Typography variant="caption"  sx={{ color: '#ffffff' }}>{card.label}</Typography>
+                        <Typography variant="h4" fontWeight={800}  sx={{ color: '#ffffff' }}>{formatRupiah(card.val)}</Typography>
                     </Box>
                     <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)' }}>{card.icon}</Avatar>
                   </Stack>
@@ -158,17 +229,23 @@ const handleValidasiSubmit = async () => {
         <Paper elevation={0} sx={{ p: 2, borderRadius: '12px', border: '1px solid #e0e0e0', bgcolor: '#fff' }}>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} divider={<Divider orientation="vertical" flexItem />}>
             <Box>
-              <Typography variant="caption" color="textSecondary" fontWeight={700}>TOTAL PEMASUKAN PERIODE</Typography>
-              <Typography variant="h4" color="success.main" fontWeight={800}>{formatRupiah(totals.pemasukan_keseluruhan)}</Typography>
-            </Box>
-            <Box>
-              <Typography variant="caption" color="textSecondary" fontWeight={700}>TOTAL PENGELUARAN PERIODE</Typography>
-              <Typography variant="h4" color="error.main" fontWeight={800}>{formatRupiah(totals.pengeluaran_keseluruhan)}</Typography>
-            </Box>
-            <Box>
-              <Typography variant="caption" color="textSecondary" fontWeight={700}>SALDO NETTO PERIODE</Typography>
-              <Typography variant="h4" color="primary.main" fontWeight={800}>{formatRupiah(totals.saldo_netto)}</Typography>
-            </Box>
+  <Typography variant="caption" color="textSecondary" fontWeight={700}>TOTAL PEMASUKAN PERIODE</Typography>
+  <Typography variant="h4" color="success.main" fontWeight={800}>
+    {formatRupiah(totals?.pemasukan_keseluruhan ?? 0)}
+  </Typography>
+</Box>
+<Box>
+  <Typography variant="caption" color="textSecondary" fontWeight={700}>TOTAL PENGELUARAN PERIODE</Typography>
+  <Typography variant="h4" color="error.main" fontWeight={800}>
+    {formatRupiah(totals?.pengeluaran_keseluruhan ?? 0)}
+  </Typography>
+</Box>
+<Box>
+  <Typography variant="caption" color="textSecondary" fontWeight={700}>SALDO NETTO PERIODE</Typography>
+  <Typography variant="h4" color="primary.main" fontWeight={800}>
+    {formatRupiah(totals?.saldo_netto ?? 0)}
+  </Typography>
+</Box>
           </Stack>
         </Paper>
       </Grid>
@@ -190,6 +267,31 @@ const handleValidasiSubmit = async () => {
               </TextField>
               <TextField label="Nominal" fullWidth value={displayNominal} onChange={handleNominalChange} />
               <TextField label="Deskripsi" multiline rows={2} fullWidth value={formData.deskripsi} onChange={(e) => setFormData({...formData, deskripsi: e.target.value})} />
+
+                {formData.metode === 'transfer' && (
+  <Stack spacing={1}>
+    <Button
+      component="label"
+      variant="outlined"
+      startIcon={<CloudUpload />}
+      color={formData.bukti_transaksi ? "success" : "primary"}
+      fullWidth
+    >
+      {formData.bukti_transaksi ? "File Terpilih" : "Upload Bukti Transfer"}
+      <input
+        type="file"
+        hidden
+        accept="image/*"
+        onChange={(e) => setFormData({ ...formData, bukti_transaksi: e.target.files[0] })}
+      />
+    </Button>
+    {formData.bukti_transaksi && (
+      <Typography variant="caption" color="success.main" sx={{ textAlign: 'center' }}>
+        {formData.bukti_transaksi.name} (Ready to upload)
+      </Typography>
+    )}
+  </Stack>
+)}
               <Button fullWidth variant="contained" onClick={handleFinalSubmit} disabled={btnLoading}>PROSES</Button>
             </Stack>
           </CardContent>
@@ -248,8 +350,7 @@ const handleValidasiSubmit = async () => {
           </IconButton>
         </Tooltip>
       </TableCell>
-
-        <TableCell align="center">
+<TableCell align="center">
   <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
     {row.status === 'pending' ? (
       userRole === 'admin' ? (
@@ -268,6 +369,7 @@ const handleValidasiSubmit = async () => {
       <>
         <Chip label="LUNAS" size="small" color="success" />
 
+        {/* Cek apakah ada file bukti_admin */}
         {row.bukti_admin ? (
           <Tooltip title="Lihat Bukti Mutasi Bank">
             <IconButton size="small" onClick={() => setPreviewImg(row.bukti_admin)}>
@@ -279,7 +381,10 @@ const handleValidasiSubmit = async () => {
             </IconButton>
           </Tooltip>
         ) : (
-          row.status === 'tervalidasi' && <Typography variant="caption" color="error" sx={{fontSize: '10px'}}>No Bukti</Typography>
+          /* Hapus pengecekan row.status === 'tervalidasi' agar tidak muncul teks merah jika statusnya beda tipis */
+          <Typography variant="caption" color="error" sx={{ fontSize: '10px' }}>
+            No Bukti
+          </Typography>
         )}
 
         {row.catatan_admin && (

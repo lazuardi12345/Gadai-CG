@@ -92,6 +92,10 @@ const AdminLaporanPage = () => {
                     safe(item.no_gadai).includes(search)
             );
         }
+        const formatTooltip = (text) => {
+    if (text === "-") return "Belum diproses";
+    return text.replace("_", " ").toUpperCase();
+};
         
         setFiltered(result);
         setPage(0);
@@ -108,7 +112,7 @@ const AdminLaporanPage = () => {
     if (loading && data.length === 0)
         return ( <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}><CircularProgress /></Stack> );
 
-    return (
+   return (
         <Card sx={{ borderRadius: 2, boxShadow: 3 }}>
             <CardHeader
                 title={user?.role === "hm" ? "Laporan HM" : "Laporan Admin"}
@@ -121,26 +125,17 @@ const AdminLaporanPage = () => {
                 }
             />
             
+            {/* Tabs Status & Type tetap sama */}
             <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: '#f8fafc' }}>
-    <Tabs
-    value={activeTabStatus}
-    onChange={(e, v) => setActiveTabStatus(v)}
-    sx={{ px: 2, bgcolor: '#f8fafc' }}
->
-    <Tab label="SEMUA" value="all" />
-    <Tab label="PROSES" value="proses" />
-    <Tab label="SELESAI" value="selesai" />
-    <Tab label="LUNAS" value="lunas" />
-</Tabs>
-</Box>
+                <Tabs value={activeTabStatus} onChange={(e, v) => setActiveTabStatus(v)} sx={{ px: 2 }}>
+                    <Tab label="SEMUA" value="all" />
+                    <Tab label="PROSES" value="proses" />
+                    <Tab label="SELESAI" value="selesai" />
+                    <Tab label="LUNAS" value="lunas" />
+                </Tabs>
+            </Box>
 
-            {/* ✅ TABS TYPE (Local Filter) */}
-            <Tabs
-                value={activeTabType}
-                onChange={(e, v) => setActiveTabType(v)}
-                variant="scrollable"
-                sx={{ px: 2, bgcolor: '#fff' }}
-            >
+            <Tabs value={activeTabType} onChange={(e, v) => setActiveTabType(v)} variant="scrollable" sx={{ px: 2, bgcolor: '#fff' }}>
                 <Tab label="Semua Jenis" value="all" />
                 {types.map((t) => (
                     <Tab key={t.id} label={t.nama_type} value={t.nama_type.toLowerCase()} />
@@ -155,7 +150,13 @@ const AdminLaporanPage = () => {
                                 <TableCell>No</TableCell>
                                 <TableCell>No Gadai</TableCell>
                                 <TableCell>Nasabah</TableCell>
-                                <TableCell>Status</TableCell> {/* Field Baru */}
+                                <TableCell>Status</TableCell>
+                                
+                                {/* --- KOLOM BARU --- */}
+                                <TableCell align="right">Harga Barang</TableCell>
+                                <TableCell align="right">Taksiran</TableCell>
+                                {/* ------------------ */}
+                                
                                 <TableCell align="right">Pinjaman</TableCell>
                                 <TableCell align="center">Telat</TableCell>
                                 <TableCell align="right" sx={{ color: 'primary.main', fontWeight: 'bold' }}>Hutang</TableCell>
@@ -176,10 +177,18 @@ const AdminLaporanPage = () => {
                                             <Typography variant="caption" color="textSecondary">{row.type}</Typography>
                                         </TableCell>
                                         <TableCell>{row.nama_nasabah}</TableCell>
-                                        
-                                        {/* ✅ KOLOM STATUS */}
                                         <TableCell>
                                             <Chip label={st.label} color={st.color} size="small" sx={{ fontWeight: 'bold', fontSize: '0.65rem' }} />
+                                        </TableCell>
+
+                                        {/* --- DATA HARGA BARANG --- */}
+                                        <TableCell align="right">
+                                            {row.harga_barang > 0 ? formatRp(row.harga_barang) : "-"}
+                                        </TableCell>
+
+                                        {/* --- DATA TAKSIRAN --- */}
+                                        <TableCell align="right">
+                                            {formatRp(row.taksiran)}
                                         </TableCell>
 
                                         <TableCell align="right">{formatRp(row.pinjaman_pokok)}</TableCell>
@@ -194,12 +203,47 @@ const AdminLaporanPage = () => {
                                             <Typography variant="body2" fontWeight="bold" color="primary.main">{formatRp(row.total_hutang)}</Typography>
                                         </TableCell>
 
-                                        <TableCell align="center">
-                                            <Chip color={row.acc_checker === 'approved' ? 'success' : 'default'} sx={{ width: 10, height: 10 }} />
-                                        </TableCell>
-                                        <TableCell align="center">
-                                            <Chip color={row.acc_hm === 'approved' ? 'success' : 'default'} sx={{ width: 10, height: 10 }} />
-                                        </TableCell>
+                                        
+
+                                      {/* Indikator Checker */}
+<TableCell align="center">
+    <Tooltip title={row.acc_checker} arrow placement="top">
+        <Box 
+            sx={{ 
+                width: 14, 
+                height: 14, 
+                borderRadius: '50%', 
+                mx: 'auto',
+                cursor: 'help', // Biar kursor berubah pas hover
+                bgcolor: row.acc_checker?.includes('approved') 
+                    ? 'success.main' 
+                    : row.acc_checker?.includes('rejected') 
+                        ? 'error.main' 
+                        : 'grey.400' 
+            }} 
+        />
+    </Tooltip>
+</TableCell>
+
+{/* Indikator HM */}
+<TableCell align="center">
+    <Tooltip title={row.acc_hm} arrow placement="top">
+        <Box 
+            sx={{ 
+                width: 14, 
+                height: 14, 
+                borderRadius: '50%', 
+                mx: 'auto',
+                cursor: 'help',
+                bgcolor: row.acc_hm?.includes('approved') 
+                    ? 'success.main' 
+                    : row.acc_hm?.includes('rejected') 
+                        ? 'error.main' 
+                        : 'grey.400' 
+            }} 
+        />
+    </Tooltip>
+</TableCell>
 
                                         <TableCell align="center">
                                             <Button 

@@ -28,6 +28,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { AuthContext } from "AuthContex/AuthContext";
+import Swal from 'sweetalert2';
 
 const DetailGadaiPage = () => {
   const navigate = useNavigate();
@@ -136,60 +137,72 @@ const handleSubmitLunas = async () => {
   try {
     const formData = new FormData();
     formData.append("nominal_bayar", nominalBayar);
-    
-    // SINKRONISASI: Database kamu pakai 'cash', bukan 'tunai'
-    const metodeFix = metodeBayar === "tunai" || metodeBayar === "cash" ? "cash" : "transfer";
+    const metodeFix = (metodeBayar === "tunai" || metodeBayar === "cash") ? "cash" : "transfer";
     formData.append("metode_pembayaran", metodeFix);
 
     if (fileBukti) {
       formData.append("bukti_transfer", fileBukti);
     }
 
-    // TRICK: Kirim POST dengan spoofing _method=PATCH supaya Laravel bisa baca FormData + File
     const res = await axiosInstance.post(
       `${getApiUrl("detail-gadai")}/${selectedItem.id}/pelunasan?_method=PATCH`,
-      formData, 
-      { 
-        headers: { "Content-Type": "multipart/form-data" } 
-      }
+      formData
     );
 
     if (res.data.success) {
-      const { perhitungan, kembalian } = res.data.data;
+      const { perhitungan, kembalian, nominal_dibayar } = res.data.data;
       
+      // 1. Tutup Dialog & Reset Form
       setOpenLunas(false);
       setFileBukti(null);
       setNominalBayar("");
-      fetchData(); // Refresh tabel
-      
-      alert(
-        `Pelunasan Berhasil!\n\n` +
-        `Pokok: Rp ${Number(perhitungan.pokok).toLocaleString("id-ID")}\n` +
-        `Denda: Rp ${Number(perhitungan.denda).toLocaleString("id-ID")}\n` +
-        `Total Bayar: Rp ${Number(perhitungan.total_bayar).toLocaleString("id-ID")}\n` +
-        `Kembalian: Rp ${Number(kembalian).toLocaleString("id-ID")}`
-      );
-      
+      if (typeof fetchData === "function") fetchData();
+
+      // 2. Tampilkan Pop-up Sukses dengan Detail
+      await Swal.fire({
+        title: 'Pelunasan Berhasil!',
+        icon: 'success',
+        html: `
+          <div style="text-align: left; background: #f9f9f9; padding: 15px; border-radius: 10px; font-family: sans-serif;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <span>Pokok:</span> <b>Rp ${Number(perhitungan.pokok).toLocaleString("id-ID")}</b>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <span>Denda & Jasa:</span> <b>Rp ${Number(perhitungan.denda).toLocaleString("id-ID")}</b>
+            </div>
+            <hr style="border: 0.5px solid #ddd">
+            <div style="display: flex; justify-content: space-between; font-size: 1.1em; color: #2e7d32;">
+              <span>Total Tagihan:</span> <b>Rp ${Number(perhitungan.total_bayar).toLocaleString("id-ID")}</b>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+              <span>Uang Diterima:</span> <b>Rp ${Number(nominal_dibayar).toLocaleString("id-ID")}</b>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 10px; padding: 10px; background: #e8f5e9; border-radius: 5px;">
+              <span style="font-weight: bold;">KEMBALIAN:</span> 
+              <span style="font-weight: bold; color: #2e7d32;">Rp ${Number(kembalian).toLocaleString("id-ID")}</span>
+            </div>
+          </div>
+          <p style="margin-top: 15px; font-size: 0.9em; color: #666;">Klik OK untuk mencetak struk</p>
+        `,
+        confirmButtonText: 'Cetak Struk',
+        confirmButtonColor: '#2e7d32',
+        allowOutsideClick: false
+      });
+
+      // 3. Arahkan ke Halaman Struk
       navigate(`/print-struk-pelunasan/${selectedItem.id}`);
     }
   } catch (err) {
     if (err.response?.status === 422) {
       const errorData = err.response.data;
       if (errorData.perhitungan) {
-        // Jika nominal kurang
-        const p = errorData.perhitungan;
-        alert(
-          `Nominal kurang!\n\n` +
-          `Yang harus dibayar: Rp ${Number(p.total_bayar).toLocaleString("id-ID")}\n` +
-          `Silahkan masukkan nominal yang sesuai.`
-        );
+        Swal.fire('Nominal Kurang', `Total harus dibayar: Rp ${Number(errorData.perhitungan.total_bayar).toLocaleString("id-ID")}`, 'warning');
       } else {
-        // Jika error validasi lainnya (required field, dll)
-        const msg = Object.values(errorData.errors).flat().join("\n");
-        alert("Gagal Validasi:\n" + msg);
+        const msg = Object.values(errorData.errors || {}).flat().join("<br>");
+        Swal.fire('Gagal Validasi', msg, 'error');
       }
     } else {
-      alert(err.response?.data?.message || "Terjadi kesalahan sistem saat pelunasan.");
+      Swal.fire('Terjadi Kesalahan', err.response?.data?.message || 'Gagal memproses pelunasan', 'error');
     }
   } finally {
     setProcessLoading(false);
@@ -254,7 +267,6 @@ const handleSubmitLunas = async () => {
     return <InfoIcon sx={{ fontSize: 14 }} />;
   };
 
-  // Komponen Helper untuk Menampilkan Foto Dokumen
   const ImageThumbnail = ({ url, label }) => {
     if (!url) return null;
     return (
@@ -574,6 +586,20 @@ const handleSubmitLunas = async () => {
                   )}
                 </Stack>
               </Grid>
+
+              {selectedItem?.logam_mulia && (
+  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+    <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+      <DiamondOutlinedIcon fontSize="small" color="warning"/> Detail Logam Mulia
+    </Typography>
+    <Typography variant="body2">
+      {selectedItem.logam_mulia.nama_barang}
+    </Typography>
+    <Typography variant="body2" fontWeight="bold">
+      {selectedItem.logam_mulia.berat} gr | {selectedItem.logam_mulia.karat} K
+    </Typography>
+  </Paper>
+)}
 
               {/* KOLOM KANAN: Galeri Dokumen Pendukung */}
               <Grid item xs={12} md={6}>

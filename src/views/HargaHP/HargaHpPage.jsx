@@ -5,12 +5,13 @@ import {
     DialogActions, Button, CircularProgress, Stack, Grid, Typography, 
     TextField, Paper, MenuItem, FormControl, InputLabel, 
     Select, Box, Breadcrumbs, Link, Avatar, Alert, Tabs, Tab,
-    TablePagination
+    TablePagination, Chip
 } from "@mui/material";
 
 import {
     Calculate as CalculateIcon, Smartphone as PhoneIcon, 
-    ArrowBack as BackIcon, CheckCircleOutline, PendingActions
+    ArrowBack as BackIcon, CheckCircleOutline, PendingActions,
+    AccessTime as TimeIcon
 } from "@mui/icons-material";
 
 import axiosInstance from "api/axiosInstance";
@@ -26,15 +27,10 @@ const HargaHpPage = () => {
     const [typeByMerk, setTypeByMerk] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
-    
-    // State Tab
     const [tabIndex, setTabIndex] = useState(0);
-
-    // State Pagination
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
-    // State Modal & Form
     const [openModal, setOpenModal] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [submitting, setSubmitting] = useState(false);
@@ -56,7 +52,7 @@ const HargaHpPage = () => {
         setLoading(true);
         setSelectedMerk(merk);
         setSearch("");
-        setPage(0); // Reset page saat ganti merk
+        setPage(0); 
         try {
             const res = await axiosInstance.get(`${base}/type-hp/by-merk/${merk.id}`);
             setTypeByMerk(res.data.data || []); 
@@ -64,9 +60,6 @@ const HargaHpPage = () => {
         } catch (error) { console.error(error); } finally { setLoading(false); }
     };
 
-    // --- LOGIC FILTERING & PAGINATION ---
-    
-    // 1. Kelompokkan Data Berdasarkan Tab dan Search
     const filteredData = useMemo(() => {
         const source = tabIndex === 0 
             ? typeByMerk.filter(t => t.id_harga) 
@@ -77,28 +70,9 @@ const HargaHpPage = () => {
         );
     }, [typeByMerk, tabIndex, search]);
 
-    // 2. Potong Data untuk Tampilan Per Halaman
     const paginatedData = useMemo(() => {
         return filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
     }, [filteredData, page, rowsPerPage]);
-
-    // Handler Ganti Tab
-    const handleTabChange = (event, newValue) => {
-        setTabIndex(newValue);
-        setPage(0); // Reset ke halaman 1 saat ganti tab
-    };
-
-    // Handler Pagination
-    const handleChangePage = (event, newPage) => {
-        setPage(newPage);
-    };
-
-    const handleChangeRowsPerPage = (event) => {
-        setRowsPerPage(parseInt(event.target.value, 10));
-        setPage(0);
-    };
-
-    // ------------------------------------
 
     const handlePreview = async () => {
         if (!formData.harga_barang) return;
@@ -109,7 +83,12 @@ const HargaHpPage = () => {
                 pasar_trend: formData.pasar_trend
             });
             setPreviewData(res.data.hasil_kalkulasi);
-        } catch (error) { alert("Gagal simulasi"); } finally { setLoadingPreview(false); }
+        } catch (error) { 
+            console.error(error);
+            alert("Gagal melakukan simulasi kalkulasi."); 
+        } finally { 
+            setLoadingPreview(false); 
+        }
     };
 
     const handleOpenModal = (item = null) => {
@@ -133,11 +112,13 @@ const HargaHpPage = () => {
                 auto_generate_grade: true,
                 recalculate_grade: true 
             };
+
             if (editingId) {
                 await axiosInstance.put(`${base}/harga-hp/${editingId}`, payload);
             } else {
                 await axiosInstance.post(`${base}/harga-hp`, { ...payload, type_hp_id: formData.type_hp_id });
             }
+
             setOpenModal(false);
             handleSelectMerk(selectedMerk); 
         } catch (error) {
@@ -150,10 +131,10 @@ const HargaHpPage = () => {
     const formatRupiah = (num) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(num || 0);
 
     const SimulationRow = ({ label, taksiran, pinjaman }) => (
-        <TableRow>
-            <TableCell sx={{ py: 1, fontWeight: 'bold', fontSize: '0.75rem' }}>{label}</TableCell>
+        <TableRow hover>
+            <TableCell sx={{ py: 1, fontWeight: 600, fontSize: '0.75rem', color: 'text.secondary' }}>{label}</TableCell>
             <TableCell align="right" sx={{ py: 1, fontSize: '0.75rem' }}>{formatRupiah(taksiran)}</TableCell>
-            <TableCell align="right" sx={{ py: 1, fontWeight: 'bold', color: 'success.main', fontSize: '0.8rem' }}>{formatRupiah(pinjaman)}</TableCell>
+            <TableCell align="right" sx={{ py: 1, fontWeight: 'bold', color: 'success.main', fontSize: '0.85rem' }}>{formatRupiah(pinjaman)}</TableCell>
         </TableRow>
     );
 
@@ -164,10 +145,10 @@ const HargaHpPage = () => {
                     <IconButton onClick={() => { setViewMode("merk"); setSearch(""); setTabIndex(0); }} sx={{ bgcolor: 'white', boxShadow: 1 }}><BackIcon /></IconButton>
                 )}
                 <Box>
-                    <Typography variant="h5" fontWeight="bold">{viewMode === "merk" ? "Master Merk" : `Merk: ${selectedMerk?.nama_merk}`}</Typography>
-                    <Breadcrumbs>
-                        <Link underline="hover" color="inherit" sx={{cursor:'pointer'}} onClick={() => { setViewMode("merk"); setTabIndex(0); }}>Home</Link>
-                        {viewMode === "type" && <Typography>{selectedMerk?.nama_merk}</Typography>}
+                    <Typography variant="h5" fontWeight="900" color="primary.main">{viewMode === "merk" ? "Master Database Harga" : selectedMerk?.nama_merk}</Typography>
+                    <Breadcrumbs sx={{ fontSize: '0.85rem' }}>
+                        <Link underline="hover" color="inherit" sx={{ cursor: 'pointer' }} onClick={() => { setViewMode("merk"); setTabIndex(0); }}>Home</Link>
+                        {viewMode === "type" && <Typography color="text.primary">{selectedMerk?.nama_merk}</Typography>}
                     </Breadcrumbs>
                 </Box>
             </Stack>
@@ -175,20 +156,20 @@ const HargaHpPage = () => {
             <TextField 
                 fullWidth 
                 placeholder="Cari tipe atau merk..." 
-                sx={{ mb: 3, bgcolor: 'white' }} 
+                sx={{ mb: 3, "& .MuiOutlinedInput-root": { borderRadius: 3, bgcolor: 'white' } }} 
                 value={search} 
                 onChange={(e) => { setSearch(e.target.value); setPage(0); }} 
             />
 
-            {loading ? <Box textAlign="center" py={5}><CircularProgress /></Box> : (
+            {loading ? <Box textAlign="center" py={10}><CircularProgress /></Box> : (
                 <>
                     {viewMode === "merk" && (
                         <Grid container spacing={3}>
                             {merkList.filter(m => m.nama_merk.toLowerCase().includes(search.toLowerCase())).map((merk) => (
                                 <Grid item xs={12} sm={6} md={3} key={merk.id}>
-                                    <Card sx={{ cursor: 'pointer', textAlign: 'center', p: 3, borderRadius: 3, border: '1px solid #eee', '&:hover': { boxShadow: 4, transform: 'translateY(-4px)', transition: '0.3s' } }} onClick={() => handleSelectMerk(merk)}>
-                                        <Avatar sx={{ bgcolor: 'primary.main', mx: 'auto', mb: 2, width: 60, height: 60 }}><PhoneIcon /></Avatar>
-                                        <Typography variant="h6" fontWeight="bold">{merk.nama_merk}</Typography>
+                                    <Card sx={{ cursor: 'pointer', textAlign: 'center', p: 3, borderRadius: 4, border: '1px solid #eee', transition: '0.3s', '&:hover': { boxShadow: 2, transform: 'translateY(-5px)' } }} onClick={() => handleSelectMerk(merk)}>
+                                        <Avatar sx={{ bgcolor: 'primary.light', mx: 'auto', mb: 2, width: 56, height: 56 }}><PhoneIcon sx={{ color: 'primary.main' }} /></Avatar>
+                                        <Typography variant="subtitle1" fontWeight="bold">{merk.nama_merk}</Typography>
                                     </Card>
                                 </Grid>
                             ))}
@@ -196,131 +177,120 @@ const HargaHpPage = () => {
                     )}
 
                     {viewMode === "type" && (
-                        <Card sx={{ borderRadius: 3 }}>
-                            <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1 }}>
-                                <Tabs value={tabIndex} onChange={handleTabChange} aria-label="tab harga hp">
-                                    <Tab 
-                                        icon={<CheckCircleOutline fontSize="small" />} 
-                                        iconPosition="start" 
-                                        label={`Sudah Ada (${typeByMerk.filter(t => t.id_harga).length})`} 
-                                    />
-                                    <Tab 
-                                        icon={<PendingActions fontSize="small" />} 
-                                        iconPosition="start" 
-                                        label={`Belum Input (${typeByMerk.filter(t => !t.id_harga).length})`} 
-                                    />
-                                </Tabs>
-                            </Box>
-                            
+                        <Card sx={{ borderRadius: 4, overflow: 'hidden' }}>
+                            <Tabs value={tabIndex} onChange={(e, v) => { setTabIndex(v); setPage(0); }} sx={{ px: 2, pt: 1, bgcolor: '#fafafa', borderBottom: 1, borderColor: 'divider' }}>
+                                <Tab icon={<CheckCircleOutline fontSize="small" />} iconPosition="start" label={`Sudah Ada (${typeByMerk.filter(t => t.id_harga).length})`} />
+                                <Tab icon={<PendingActions fontSize="small" />} iconPosition="start" label={`Belum Input (${typeByMerk.filter(t => !t.id_harga).length})`} />
+                            </Tabs>
                             <TableContainer>
-                                <Table size="small">
-                                    <TableHead sx={{ bgcolor: '#fafafa' }}>
+                                <Table size="medium">
+                                    <TableHead sx={{ bgcolor: '#fcfcfc' }}>
                                         <TableRow>
-                                            <TableCell>Tipe</TableCell>
-                                            <TableCell align="right">Harga Pasar</TableCell>
-                                            <TableCell align="center">Aksi</TableCell>
+                                            <TableCell sx={{ fontWeight: 'bold' }}>Tipe Unit & Status Update</TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>Harga Pasar</TableCell>
+                                            <TableCell align="center" sx={{ fontWeight: 'bold' }}>Aksi</TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {paginatedData.length > 0 ? paginatedData.map((item) => (
+                                        {paginatedData.map((item) => (
                                             <TableRow key={item.id} hover>
-                                                <TableCell sx={{ fontWeight: 500 }}>{item.nama_type}</TableCell>
-                                                <TableCell align="right">{item.id_harga ? formatRupiah(item.harga_barang) : "Belum diatur"}</TableCell>
+                                                <TableCell>
+    <Stack direction="row" alignItems="center" spacing={1.5}>
+        <Typography variant="body2" fontWeight={700}>
+            {item.nama_type}
+        </Typography>
+        
+        {/* Render Chip hanya jika ada id_harga dan tanggal valid */}
+        {item.id_harga && item.updated_at && (
+            <Chip 
+                size="small"
+                icon={<TimeIcon style={{ fontSize: '0.75rem' }} />}
+                label={new Date(item.updated_at).toLocaleString('id-ID', { 
+                    day: '2-digit', 
+                    month: 'short', 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                })}
+                sx={{ 
+                    fontSize: '0.65rem', 
+                    height: 20, 
+                    bgcolor: '#f0f4f8', 
+                    color: 'text.secondary',
+                    fontWeight: 600,
+                    border: '1px solid #e0e6ed'
+                }}
+            />
+        )}
+    </Stack>
+    
+    {/* Bonus: Penanda visual jika baru diupdate hari ini */}
+    {item.updated_at && (new Date() - new Date(item.updated_at)) < 86400000 && (
+        <Typography 
+            variant="caption" 
+            sx={{ color: 'success.main', fontSize: '0.6rem', display: 'block', mt: 0.2, fontWeight: 700 }}
+        >
+            • Baru Diperbarui
+        </Typography>
+    )}
+</TableCell>
+                                                <TableCell align="right">
+                                                    {item.id_harga ? <Typography variant="body2" fontWeight="900" color="primary.main">{formatRupiah(item.harga_barang)}</Typography> : <Typography variant="caption" color="error">Data Kosong</Typography>}
+                                                </TableCell>
                                                 <TableCell align="center">
-                                                    <Button 
-                                                        size="small" 
-                                                        variant={item.id_harga ? "outlined" : "contained"} 
-                                                        color={item.id_harga ? "primary" : "warning"} 
-                                                        onClick={() => handleOpenModal(item)}
-                                                    >
-                                                        {item.id_harga ? "Edit Harga" : "Input Harga"}
+                                                    <Button size="small" variant={item.id_harga ? "outlined" : "contained"} color={item.id_harga ? "primary" : "warning"} onClick={() => handleOpenModal(item)} sx={{ borderRadius: 2, textTransform: 'none', px: 3 }}>
+                                                        {item.id_harga ? "Edit" : "Input"}
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
-                                        )) : (
-                                            <TableRow>
-                                                <TableCell colSpan={3} align="center" sx={{ py: 5, color: 'text.secondary' }}>
-                                                    Tidak ada data tipe ditemukan.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
+                                        ))}
                                     </TableBody>
                                 </Table>
                             </TableContainer>
-
-                            <TablePagination
-                                rowsPerPageOptions={[5, 10, 25, 50]}
-                                component="div"
-                                count={filteredData.length}
-                                rowsPerPage={rowsPerPage}
-                                page={page}
-                                onPageChange={handleChangePage}
-                                onRowsPerPageChange={handleChangeRowsPerPage}
-                                labelRowsPerPage="Baris per halaman:"
-                            />
+                            <TablePagination component="div" count={filteredData.length} rowsPerPage={rowsPerPage} page={page} onPageChange={(e, p) => setPage(p)} onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }} />
                         </Card>
                     )}
                 </>
             )}
 
-            {/* MODAL INPUT / EDIT */}
-            <Dialog open={openModal} onClose={() => setOpenModal(false)} fullWidth maxWidth="sm">
-                <DialogTitle sx={{ fontWeight: 'bold' }}>{editingId ? "Update Harga" : "Input Harga Baru"}</DialogTitle>
-                <DialogContent dividers>
-                    <Grid container spacing={2}>
+            <Dialog open={openModal} onClose={() => setOpenModal(false)} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 4 } }}>
+                <DialogTitle sx={{ fontWeight: 900, bgcolor: 'primary.main', color: 'white' }}>{editingId ? "Update Data Harga" : "Input Master Harga Baru"}</DialogTitle>
+                <DialogContent dividers sx={{ mt: 1 }}>
+                    <Grid container spacing={3}>
                         <Grid item xs={12}>
-                            <Typography variant="body2" mb={1}>Unit: <b>{selectedMerk?.nama_merk} - {editingId ? typeByMerk.find(t => t.id === formData.type_hp_id)?.nama_type : "Pilih Tipe"}</b></Typography>
-                            {!editingId && (
+                            <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: '#f8fafc', borderStyle: 'dashed' }}>
+                                <Typography variant="caption" color="text.secondary" gutterBottom display="block">UNIT TERPILIH</Typography>
+                                <Typography variant="h6" fontWeight="bold">
+                                    {selectedMerk?.nama_merk} - {editingId ? typeByMerk.find(t => t.id_harga === editingId)?.nama_type : (typeByMerk.find(t => t.id === formData.type_hp_id)?.nama_type || "Pilih Tipe")}
+                                </Typography>
+                            </Paper>
+                        </Grid>
+
+                        {!editingId && (
+                            <Grid item xs={12}>
                                 <FormControl fullWidth size="small">
-                                    <InputLabel>Pilih Tipe</InputLabel>
-                                    <Select 
-                                        value={formData.type_hp_id} 
-                                        label="Pilih Tipe" 
-                                        onChange={(e) => setFormData({ ...formData, type_hp_id: e.target.value })}
-                                    >
-                                        {/* Dropdown hanya menampilkan tipe yang belum ada harganya jika di mode Input Baru */}
-                                        {typeByMerk.filter(t => !t.id_harga).map(t => (
-                                            <MenuItem key={t.id} value={t.id}>{t.nama_type}</MenuItem>
-                                        ))}
+                                    <InputLabel>Pilih Tipe Perangkat</InputLabel>
+                                    <Select value={formData.type_hp_id} label="Pilih Tipe Perangkat" onChange={(e) => setFormData({ ...formData, type_hp_id: e.target.value })} sx={{ borderRadius: 2 }}>
+                                        {typeByMerk.filter(t => !t.id_harga).map(t => <MenuItem key={t.id} value={t.id}>{t.nama_type}</MenuItem>)}
                                     </Select>
                                 </FormControl>
-                            )}
-                        </Grid>
-                        <Grid item xs={8}>
-                            <TextField 
-                                fullWidth 
-                                size="small" 
-                                label="Harga Pasar (Modal Toko)" 
-                                type="number" 
-                                value={formData.harga_barang} 
-                                onChange={(e) => setFormData({ ...formData, harga_barang: e.target.value })} 
-                            />
-                        </Grid>
-                        <Grid item xs={4}>
-                            <FormControl fullWidth size="small">
-                                <Select value={formData.pasar_trend} onChange={(e) => setFormData({ ...formData, pasar_trend: e.target.value })}>
-                                    <MenuItem value="turun">Trend Turun</MenuItem>
-                                    <MenuItem value="naik">Trend Naik</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </Grid>
+                            </Grid>
+                        )}
+
                         <Grid item xs={12}>
-                            <Button 
-                                fullWidth 
-                                variant="outlined" 
-                                startIcon={<CalculateIcon />} 
-                                onClick={handlePreview} 
-                                disabled={!formData.harga_barang || loadingPreview}
-                            >
-                                {loadingPreview ? "Menghitung..." : "Simulasi Kalkulasi Lengkap"}
+                            <TextField fullWidth label="Harga Pasar Saat Ini" type="number" value={formData.harga_barang} onChange={(e) => setFormData({ ...formData, harga_barang: e.target.value })} InputProps={{ sx: { borderRadius: 2, fontWeight: 'bold' } }} />
+                        </Grid>
+
+                        <Grid item xs={12}>
+                            <Button fullWidth variant="contained" color="inherit" startIcon={<CalculateIcon />} onClick={handlePreview} disabled={!formData.harga_barang || loadingPreview} sx={{ py: 1.2, borderRadius: 2, bgcolor: '#334155', color: 'white', '&:hover': { bgcolor: '#1e293b' } }}>
+                                {loadingPreview ? "Menghitung..." : "Simulasi Taksiran Grade"}
                             </Button>
                         </Grid>
 
                         {previewData && (
                             <Grid item xs={12}>
-                                <TableContainer component={Paper} variant="outlined">
+                                <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3 }}>
                                     <Table size="small">
-                                        <TableHead sx={{ bgcolor: '#f9f9f9' }}>
+                                        <TableHead sx={{ bgcolor: '#f1f5f9' }}>
                                             <TableRow>
                                                 <TableCell sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}>KONDISI UNIT</TableCell>
                                                 <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}>TAKSIRAN</TableCell>
@@ -337,19 +307,14 @@ const HargaHpPage = () => {
                                         </TableBody>
                                     </Table>
                                 </TableContainer>
-                                <Alert severity="info" sx={{ mt: 1, py: 0 }}>* Kalkulasi di atas adalah simulasi sementara.</Alert>
                             </Grid>
                         )}
                     </Grid>
                 </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setOpenModal(false)}>Batal</Button>
-                    <Button 
-                        variant="contained" 
-                        onClick={handleSubmit} 
-                        disabled={submitting || !formData.type_hp_id || !formData.harga_barang}
-                    >
-                        {submitting ? "Menyimpan..." : "Simpan Harga"}
+                <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
+                    <Button onClick={() => setOpenModal(false)} sx={{ fontWeight: 'bold' }}>Batal</Button>
+                    <Button variant="contained" onClick={handleSubmit} disabled={submitting || (!editingId && !formData.type_hp_id) || !formData.harga_barang} sx={{ px: 4, borderRadius: 2 }}>
+                        {submitting ? "Proses..." : "Simpan"}
                     </Button>
                 </DialogActions>
             </Dialog>
