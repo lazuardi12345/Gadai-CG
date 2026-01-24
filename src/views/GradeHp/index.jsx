@@ -171,6 +171,7 @@ const GradeHpPage = () => {
                                     <TableCell align="center" sx={{ fontWeight: 'bold' }}>No</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>Type HP</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>Harga Pasar</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>Harga Barang</TableCell>
                                     <TableCell align="center" sx={{ fontWeight: 'bold' }}>Grade A (Dus)</TableCell>
                                     <TableCell align="center" sx={{ fontWeight: 'bold' }}>Grade B (Dus)</TableCell>
                                     <TableCell align="center" sx={{ fontWeight: 'bold' }}>Grade C (Dus)</TableCell>
@@ -179,7 +180,7 @@ const GradeHpPage = () => {
                             </TableHead>
                             <TableBody>
                                 {tableLoading ? (
-                                    <TableRow><TableCell colSpan={7} align="center" sx={{ py: 3 }}><CircularProgress size={24} /></TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={8} align="center" sx={{ py: 3 }}><CircularProgress size={24} /></TableCell></TableRow>
                                 ) : paginatedData.length > 0 ? (
                                     paginatedData.map((item, index) => (
                                         <TableRow key={item.id} hover>
@@ -188,6 +189,9 @@ const GradeHpPage = () => {
                                                 <Typography variant="body2" fontWeight="bold">
                                                     {item.harga_hp?.type_hp?.nama_type}
                                                 </Typography>
+                                            </TableCell>
+                                            <TableCell sx={{ color: 'secondary.main', fontWeight: 600 }}>
+                                                {formatRupiah(item.harga_hp?.harga_pasar)}
                                             </TableCell>
                                             <TableCell sx={{ color: 'primary.main', fontWeight: 600 }}>
                                                 {formatRupiah(item.harga_hp?.harga_barang)}
@@ -208,7 +212,7 @@ const GradeHpPage = () => {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={7} align="center" sx={{ py: 5 }}>
+                                        <TableCell colSpan={8} align="center" sx={{ py: 5 }}>
                                             <Typography variant="body2" color="text.secondary">Data tidak tersedia</Typography>
                                         </TableCell>
                                     </TableRow>
@@ -230,7 +234,7 @@ const GradeHpPage = () => {
                 </CardContent>
             </Card>
 
-            {/* MODAL DETAIL - FIXED ERROR NULL */}
+            {/* MODAL DETAIL */}
             <Dialog 
                 open={openDetailModal} 
                 onClose={() => setOpenDetailModal(false)} 
@@ -243,17 +247,30 @@ const GradeHpPage = () => {
                         <Avatar sx={{ bgcolor: 'primary.main', width: 50, height: 50 }}>
                             <PhoneIcon />
                         </Avatar>
-                        <Box>
+                        <Box sx={{ flex: 1 }}>
                             <Typography variant="h6" fontWeight="800">Detail Taksiran</Typography>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" color="text.secondary" mb={1}>
                                 {selectedDetail?.harga_hp?.type_hp?.nama_type || "Memuat..."}
                             </Typography>
+                            <Stack direction="row" spacing={1} flexWrap="wrap">
+                                <Chip 
+                                    label={`Harga Pasar: ${formatRupiah(selectedDetail?.harga_hp?.harga_pasar || 0)}`}
+                                    size="small"
+                                    color="secondary"
+                                    sx={{ fontWeight: 'bold', fontSize: '0.7rem' }}
+                                />
+                                <Chip 
+                                    label={`Harga Barang: ${formatRupiah(selectedDetail?.harga_hp?.harga_barang || 0)}`}
+                                    size="small"
+                                    color="primary"
+                                    sx={{ fontWeight: 'bold', fontSize: '0.7rem' }}
+                                />
+                            </Stack>
                         </Box>
                     </Stack>
                 </DialogTitle>
 
                 <DialogContent dividers sx={{ border: 'none', mt: 2 }}>
-                    {/* Guarding: Pastikan selectedDetail ada sebelum mapping */}
                     {!selectedDetail ? (
                         <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
                     ) : (

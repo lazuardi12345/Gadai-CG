@@ -33,7 +33,6 @@ const OutletDiv = styled((props) => <div {...props} />)(({ theme }) => ({
   padding: theme.spacing(3)
 }));
 
-// ==============================|| MAIN LAYOUT ||============================== //
 
 const MainLayout = () => {
   const theme = useTheme();
@@ -50,7 +49,6 @@ const MainLayout = () => {
 
   return (
     <Box sx={{ display: 'flex', width: '100%' }}>
-      {/* Header dengan warna putih */}
       <AppBar 
         position="fixed" 
         sx={{ 
@@ -66,10 +64,8 @@ const MainLayout = () => {
         </Toolbar>
       </AppBar>
       
-      {/* Sidebar dengan z-index lebih rendah dari AppBar */}
       <Sidebar drawerOpen={drawerOpen} drawerToggle={handleDrawerToggle} />
-      
-      {/* Main content area */}
+
       <Main
         open={drawerOpen}
         style={{
@@ -79,15 +75,14 @@ const MainLayout = () => {
           })
         }}
       >
-        {/* Spacer untuk offset dari AppBar */}
         <Toolbar />
         
         <OutletDiv>
           <Outlet />
           <Box sx={{ mt: 5 }}>
             Distributed by{' '}
-            <a href='https://cashgampang.com/' target='_blank' rel='noopener noreferrer'>
-              Cash Gampang
+            <a href='https://sentragadaiindonesia.com/' target='_blank' rel='noopener noreferrer'>
+              SENTRA GADAI INDONESIA
             </a>
           </Box>
         </OutletDiv>

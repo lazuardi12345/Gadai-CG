@@ -101,35 +101,61 @@ const PerpanjanganTempoPage = () => {
         <TableContainer>
           <Table size="small">
             <TableHead sx={{ bgcolor: "#f8f9fa" }}>
-              <TableRow>
-                {["No", "No Gadai", "Nasabah", "Jatuh Tempo Baru", "Total Tagihan", "Status", "Aksi"].map(h => (
-                  <TableCell key={h} align="center" sx={{ fontWeight: 'bold' }}>{h}</TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item, index) => (
-                <TableRow key={item.id} hover>
-                  <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
-                  <TableCell align="center"><strong>{item.detail_gadai?.no_gadai}</strong></TableCell>
-                  <TableCell>{item.detail_gadai?.nasabah?.nama_lengkap}</TableCell>
-                  <TableCell align="center" sx={{ color: 'primary.main', fontWeight: 'bold' }}>{item.jatuh_tempo_baru}</TableCell>
-                  <TableCell align="right">Rp {Number(item.nominal_admin).toLocaleString("id-ID")}</TableCell>
-                  <TableCell align="center">
-                    <Chip label={item.status_bayar.toUpperCase()} color={item.status_bayar === 'lunas' ? 'success' : 'warning'} size="small" />
-                  </TableCell>
-                  <TableCell align="center">
-                    <Stack direction="row" spacing={1} justifyContent="center">
-                      {item.status_bayar === "pending" ? (
-                        <Button variant="contained" size="small" color="success" onClick={() => { setSelectedItem(item); setOpenBayar(true); }}>Bayar</Button>
-                      ) : (
-                        <Button variant="outlined" size="small" startIcon={<PrintIcon />} onClick={() => navigate(`/print-struk-perpanjangan/${item.detail_gadai_id}`)}>Struk</Button>
-                      )}
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
+  <TableRow>
+    {[
+      "No", 
+      "No Gadai", 
+      "Nasabah", 
+      "Tgl Perpanjang", 
+      "Jatuh Tempo Baru", 
+      "Total Tagihan", 
+      "Status", 
+      "Aksi"
+    ].map(h => (
+      <TableCell key={h} align="center" sx={{ fontWeight: 'bold' }}>{h}</TableCell>
+    ))}
+  </TableRow>
+</TableHead>
+           <TableBody>
+  {filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item, index) => (
+    <TableRow key={item.id} hover>
+      <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
+      <TableCell align="center"><strong>{item.detail_gadai?.no_gadai}</strong></TableCell>
+      <TableCell>{item.detail_gadai?.nasabah?.nama_lengkap}</TableCell>
+      
+      {/* TANGGAL PERPANJANGAN DI SINI */}
+      <TableCell align="center">
+        {item.tanggal_perpanjangan ? new Date(item.tanggal_perpanjangan).toLocaleDateString("id-ID", {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric'
+        }) : '-'}
+      </TableCell>
+
+      <TableCell align="center" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+        {item.jatuh_tempo_baru}
+      </TableCell>
+      
+      <TableCell align="right">Rp {Number(item.nominal_admin).toLocaleString("id-ID")}</TableCell>
+      <TableCell align="center">
+        <Chip 
+          label={item.status_bayar.toUpperCase()} 
+          color={item.status_bayar === 'lunas' ? 'success' : 'warning'} 
+          size="small" 
+        />
+      </TableCell>
+      <TableCell align="center">
+        <Stack direction="row" spacing={1} justifyContent="center">
+          {item.status_bayar === "pending" ? (
+            <Button variant="contained" size="small" color="success" onClick={() => { setSelectedItem(item); setOpenBayar(true); }}>Bayar</Button>
+          ) : (
+            <Button variant="outlined" size="small" startIcon={<PrintIcon />} onClick={() => navigate(`/print-struk-perpanjangan/${item.detail_gadai_id}`)}>Struk</Button>
+          )}
+        </Stack>
+      </TableCell>
+    </TableRow>
+  ))}
+</TableBody>
           </Table>
         </TableContainer>
         <TablePagination component="div" count={filteredData.length} rowsPerPage={rowsPerPage} page={page} onPageChange={(e, p) => setPage(p)} />

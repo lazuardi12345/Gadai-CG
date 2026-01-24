@@ -17,7 +17,7 @@ const AuthLogin = ({ hideGoogle = false }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = React.useState(false);
-  const { login } = useContext(AuthContext); // Ambil login dari Context
+  const { login } = useContext(AuthContext); 
 
   const handleClickShowPassword = () => setShowPassword(!showPassword);
   const handleMouseDownPassword = (event) => event.preventDefault();
@@ -29,32 +29,26 @@ const handleLogin = async (values, { setSubmitting, setErrors }) => {
       password: values.password
     });
 
-    const { user, token } = response.data.data;
+    const { user, access_token } = response.data.data;
+    login(user, access_token);
+    const roleRoutes = {
+      petugas: '/full-submit',
+      checker: '/brangkas-dashboard',
+      admin: '/brangkas-dashboard',
+      hm: '/dashboard/default'
+    };
 
-    // Panggil login dari Context → langsung update state tanpa reload
-    login(user, token);
-
-    // Redirect berdasarkan role
-if (user.role === 'petugas') {
-      navigate('/full-submit', { replace: true });
-    } else if (user.role === 'checker') {
-
-      navigate('/brangkas-dashboard', { replace: true }); 
-    } else if (user.role === 'admin') {
-      navigate('/brangkas-dashboard', { replace: true });
-    } else if (user.role === 'hm') {
-      navigate('/dashboard/default', { replace: true });
-    } else {
-      navigate('/dashboard/default', { replace: true }); 
-    }
-
+    const targetPath = roleRoutes[user.role.toLowerCase()] || '/dashboard/default';
+    navigate(targetPath, { replace: true });
 
   } catch (err) {
-    console.error(err);
+    console.error("Login Error:", err);
+    const message = err.response?.data?.message || 'Terjadi kesalahan pada server.';
+    
     if (err.response?.status === 401) {
       setErrors({ submit: 'Email atau password salah!' });
     } else {
-      setErrors({ submit: 'Terjadi kesalahan, coba lagi.' });
+      setErrors({ submit: message });
     }
   } finally {
     setSubmitting(false);

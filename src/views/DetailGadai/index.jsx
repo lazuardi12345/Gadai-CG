@@ -95,21 +95,37 @@ const DetailGadaiPage = () => {
   };
 
   const handleValidasiSelesai = async () => {
-    if (!selectedItem) return;
-    setProcessLoading(true);
-    try {
-      const res = await axiosInstance.patch(`${getApiUrl("detail-gadai")}/${selectedItem.id}/validasi-selesai`);
-      if (res.data.success) {
-        setOpenValidasi(false);
-        fetchData();
-        alert("Validasi berhasil diselesaikan.");
-      }
-    } catch (err) {
-      alert(err.response?.data?.message || "Gagal validasi status");
-    } finally {
-      setProcessLoading(false);
+  if (!selectedItem) return;
+  setProcessLoading(true);
+
+  try {
+    const res = await axiosInstance.patch(`${getApiUrl("detail-gadai")}/${selectedItem.id}/validasi-selesai`);
+    
+    if (res.data.success) {
+      setOpenValidasi(false);
+      fetchData();
+      Swal.fire({
+        icon: 'success',
+        title: 'Validasi Berhasil!',
+        html: `Status transaksi sudah menjadi <b style="color: #2e7d32;">LUNAS</b>.<br/>.`,
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: true,
+        background: '#ffffff',
+        iconColor: '#0288d1',
+      });
     }
-  };
+  } catch (err) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Validasi Gagal',
+      text: err.response?.data?.message || "Terjadi kesalahan saat validasi status",
+      confirmButtonColor: '#d33',
+    });
+  } finally {
+    setProcessLoading(false);
+  }
+};
 
   const handleDeleteGadai = async () => {
     setProcessLoading(true);
@@ -129,7 +145,12 @@ const DetailGadaiPage = () => {
 
 const handleSubmitLunas = async () => {
   if (!nominalBayar || !metodeBayar) {
-    alert("Harap isi nominal dan pilih metode pembayaran.");
+    Swal.fire('Peringatan', 'Harap isi nominal dan pilih metode pembayaran.', 'warning');
+    return;
+  }
+
+  if (Number(nominalBayar) <= 0) {
+    Swal.fire('Peringatan', 'Nominal bayar harus lebih dari 0', 'warning');
     return;
   }
 
@@ -146,33 +167,40 @@ const handleSubmitLunas = async () => {
 
     const res = await axiosInstance.post(
       `${getApiUrl("detail-gadai")}/${selectedItem.id}/pelunasan?_method=PATCH`,
-      formData
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
     );
 
+    console.log('Response dari backend:', res.data); 
+
     if (res.data.success) {
-      const { perhitungan, kembalian, nominal_dibayar } = res.data.data;
-      
-      // 1. Tutup Dialog & Reset Form
+      const responseData = res.data.data;
+      const perhitungan = responseData.detail_gadai?.perhitungan || {};
+      const kembalian = responseData.kembalian || 0;
+      const nominal_dibayar = responseData.nominal_dibayar || 0;
       setOpenLunas(false);
       setFileBukti(null);
       setNominalBayar("");
-      if (typeof fetchData === "function") fetchData();
-
-      // 2. Tampilkan Pop-up Sukses dengan Detail
+      setMetodeBayar("cash");
+      await fetchData();
       await Swal.fire({
         title: 'Pelunasan Berhasil!',
         icon: 'success',
         html: `
           <div style="text-align: left; background: #f9f9f9; padding: 15px; border-radius: 10px; font-family: sans-serif;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <span>Pokok:</span> <b>Rp ${Number(perhitungan.pokok).toLocaleString("id-ID")}</b>
+              <span>Pokok:</span> <b>Rp ${Number(perhitungan.pokok || 0).toLocaleString("id-ID")}</b>
             </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <span>Denda & Jasa:</span> <b>Rp ${Number(perhitungan.denda).toLocaleString("id-ID")}</b>
+              <span>Denda & Jasa:</span> <b>Rp ${Number(perhitungan.denda || 0).toLocaleString("id-ID")}</b>
             </div>
             <hr style="border: 0.5px solid #ddd">
             <div style="display: flex; justify-content: space-between; font-size: 1.1em; color: #2e7d32;">
-              <span>Total Tagihan:</span> <b>Rp ${Number(perhitungan.total_bayar).toLocaleString("id-ID")}</b>
+              <span>Total Tagihan:</span> <b>Rp ${Number(perhitungan.total_bayar || 0).toLocaleString("id-ID")}</b>
             </div>
             <div style="display: flex; justify-content: space-between; margin-top: 5px;">
               <span>Uang Diterima:</span> <b>Rp ${Number(nominal_dibayar).toLocaleString("id-ID")}</b>
@@ -189,25 +217,58 @@ const handleSubmitLunas = async () => {
         allowOutsideClick: false
       });
 
-      // 3. Arahkan ke Halaman Struk
       navigate(`/print-struk-pelunasan/${selectedItem.id}`);
     }
   } catch (err) {
-    if (err.response?.status === 422) {
+    console.error('Error pelunasan:', err);
+    console.error('Error response:', err.response?.data);
+
+    if (err.response?.status === 400) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Gadai Sudah Lunas',
+        text: err.response?.data?.message || 'Data gadai ini sudah dilunasi sebelumnya.',
+        confirmButtonColor: '#f59e0b',
+      }).then(() => {
+        setOpenLunas(false);
+        fetchData();
+      });
+    } else if (err.response?.status === 422) {
       const errorData = err.response.data;
+      
       if (errorData.perhitungan) {
-        Swal.fire('Nominal Kurang', `Total harus dibayar: Rp ${Number(errorData.perhitungan.total_bayar).toLocaleString("id-ID")}`, 'warning');
-      } else {
-        const msg = Object.values(errorData.errors || {}).flat().join("<br>");
-        Swal.fire('Gagal Validasi', msg, 'error');
+        Swal.fire({
+          icon: 'warning',
+          title: 'Nominal Kurang',
+          html: `
+            <p>Total yang harus dibayar:</p>
+            <h3 style="color: #d32f2f; margin: 10px 0;">Rp ${Number(errorData.perhitungan.total_bayar).toLocaleString("id-ID")}</h3>
+            <p style="font-size: 0.9em; color: #666;">Silakan masukkan nominal yang sesuai atau lebih</p>
+          `,
+          confirmButtonColor: '#f59e0b',
+        });
+      } else if (errorData.errors) {
+        const msg = Object.values(errorData.errors).flat().join("<br>");
+        Swal.fire({
+          icon: 'error',
+          title: 'Gagal Validasi',
+          html: msg,
+          confirmButtonColor: '#d33',
+        });
       }
     } else {
-      Swal.fire('Terjadi Kesalahan', err.response?.data?.message || 'Gagal memproses pelunasan', 'error');
+      Swal.fire({
+        icon: 'error',
+        title: 'Terjadi Kesalahan',
+        text: err.response?.data?.message || 'Gagal memproses pelunasan. Silakan coba lagi.',
+        confirmButtonColor: '#d33',
+      });
     }
   } finally {
     setProcessLoading(false);
   }
 };
+
 
   useEffect(() => { fetchData(); }, [userRole]);
 
@@ -432,16 +493,11 @@ const handleSubmitLunas = async () => {
       setNominalBayar("");
       setFileBukti(null);
       
-      // 🔥 Hitung LANGSUNG di frontend (TANPA request ke backend)
       const pokok = Number(item.uang_pinjaman || 0);
-      
-      // Ambil jatuh tempo terbaru
       const perpanjanganTerbaru = item.perpanjangan_tempos?.length
         ? item.perpanjangan_tempos[item.perpanjangan_tempos.length - 1]
         : null;
       const jatuhTempoTerbaru = perpanjanganTerbaru?.jatuh_tempo_baru || item.jatuh_tempo;
-      
-      // Hitung hari keterlambatan
       const today = new Date();
       const jatuhTempoDate = new Date(jatuhTempoTerbaru);
       let selisihHari = Math.ceil((today - jatuhTempoDate) / (1000 * 60 * 60 * 24));
@@ -452,12 +508,8 @@ const handleSubmitLunas = async () => {
       } else {
         selisihHari -= toleransi;
       }
-      
-      // Tentukan jenis skema (HP = 0.3%, Non-HP = 0.1%)
       const typeNama = (item.type?.nama_type || '').toLowerCase();
       const jenisSkema = ['handphone', 'elektronik'].includes(typeNama) ? 'hp' : 'non-hp';
-      
-      // Hitung denda dan penalty
       let denda = 0, penalty = 0;
       if (selisihHari > 0) {
         const persenDendaPerHari = jenisSkema === 'hp' ? 0.003 : 0.001;
@@ -466,8 +518,6 @@ const handleSubmitLunas = async () => {
           penalty = 180000;
         }
       }
-      
-      // Total bayar dengan pembulatan
       const totalBayarSebelum = pokok + denda + penalty;
       const totalBayar = Math.ceil(totalBayarSebelum / 1000) * 1000;
       
@@ -642,12 +692,33 @@ const handleSubmitLunas = async () => {
             </Grid>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#f8f9fa' }}>
-          <Button onClick={() => setOpenValidasi(false)} color="inherit">Batal</Button>
-          <Button variant="contained" color="info" onClick={handleValidasiSelesai} disabled={processLoading} sx={{ px: 4 }}>
-            {processLoading ? "Memproses..." : "Ya, Selesaikan"}
-          </Button>
-        </DialogActions>
+        <DialogActions sx={{ p: 3, bgcolor: '#f1f3f4', borderTop: '1px solid #e0e0e0' }}>
+  <Button 
+    onClick={() => setOpenValidasi(false)} 
+    color="inherit" 
+    disabled={processLoading}
+    sx={{ textTransform: 'none', fontWeight: 'bold' }}
+  >
+    Batal
+  </Button>
+  
+  <Button 
+    variant="contained" 
+    color="info" 
+    onClick={handleValidasiSelesai} 
+    disabled={processLoading} 
+    startIcon={processLoading ? <CircularProgress size={20} color="inherit" /> : <CheckCircleIcon />}
+    sx={{ 
+      px: 4, 
+      borderRadius: '8px', 
+      textTransform: 'none', 
+      fontWeight: 'bold',
+      boxShadow: '0 4px 6px rgba(2, 136, 209, 0.2)' 
+    }}
+  >
+    {processLoading ? "Memvalidasi..." : "Ya, Nyatakan Lunas"}
+  </Button>
+</DialogActions>
       </Dialog>
 
       {/* --- DIALOG PREVIEW FOTO --- */}

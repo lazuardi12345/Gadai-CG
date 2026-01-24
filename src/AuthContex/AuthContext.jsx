@@ -9,41 +9,42 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true); // menandai proses load auth
-
-  // === 🔔 Tambahan untuk notifikasi ===
+  const [loading, setLoading] = useState(true);
   const [hasNewNotification, setHasNewNotification] = useState(false);
 
-  // Load data dari localStorage saat pertama kali mount
   useEffect(() => {
     const storedToken = localStorage.getItem('auth_token');
     const storedUser = localStorage.getItem('auth_user');
 
     if (storedToken && storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      setToken(storedToken);
-      setIsAuthenticated(true);
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        setToken(storedToken);
+        setIsAuthenticated(true);
 
-      // Set default header axios
-      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+        axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+      } catch (error) {
+        localStorage.clear();
+      }
     }
 
     setLoading(false); 
   }, []);
 
-  // Fungsi login → update state & localStorage
-  const login = (userData, authToken) => {
+  const login = (userData, accessToken) => {
+
+    if (!userData || !accessToken) return;
+
     setUser(userData);
-    setToken(authToken);
+    setToken(accessToken);
     setIsAuthenticated(true);
 
     localStorage.setItem('auth_user', JSON.stringify(userData));
-    localStorage.setItem('auth_token', authToken);
+    localStorage.setItem('auth_token', accessToken);
 
-    axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
+    axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
   };
-
 
   const logout = () => {
     setUser(null);
@@ -55,14 +56,14 @@ export const AuthProvider = ({ children }) => {
 
     delete axiosInstance.defaults.headers.common['Authorization'];
 
-
     setHasNewNotification(false);
   };
 
-
   const hasRole = (roles) => {
     if (!user || !user.role) return false;
-    return roles.includes(user.role);
+
+    const rolesToChecked = Array.isArray(roles) ? roles : [roles];
+    return rolesToChecked.includes(user.role.toLowerCase());
   };
 
   return (

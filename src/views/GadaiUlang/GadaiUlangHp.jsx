@@ -53,9 +53,9 @@ const GadaiUlangHpPage = () => {
     warna: "", 
     ram: "", 
     rom: "",
-    kunci_password: "", // <--- DITAMBAHKAN
-    kunci_pin: "",      // <--- DITAMBAHKAN
-    kunci_pola: "",     // <--- DITAMBAHKAN
+    kunci_password: "", 
+    kunci_pin: "",      
+    kunci_pola: "",     
     kerusakan: [], 
     kelengkapan: [], 
     dokumen_pendukung: {}
@@ -93,19 +93,19 @@ const GadaiUlangHpPage = () => {
     fetchMaster();
   }, [baseUrl]);
 
-  const handleCheckNasabah = async () => {
+const handleCheckNasabah = async () => {
     if (!nikInput) return alert("Masukkan NIK");
     setLoading(true);
     try {
       const res = await axiosInstance.post(`${baseUrl}/gadai/ulang/check-nasabah`, { nik: nikInput });
       if (res.data.success) {
         setNasabah(res.data.data.nasabah);
-        setTotalGadai(res.data.data.total_gadai);
+        setTotalGadai(res.data.data.total_gadai); 
         setStep(1);
       }
     } catch (err) { alert(err.response?.data?.message || "NIK tidak ditemukan"); }
     finally { setLoading(false); }
-  };
+};
 
   useEffect(() => {
     if (barang.merk_hp_id) {
@@ -137,13 +137,10 @@ const calculation = useMemo(() => {
       .reduce((acc, curr) => acc + parseFloat(curr.persen || 0), 0);
     
     const multiplier = Math.max(0, (100 - totalPersen) / 100);
-
-    // --- LOGIKA PEMBULATAN RIBUAN KE BAWAH ---
     const rawPinjaman = baseP * multiplier;
     const rawTaksiran = baseT * multiplier;
 
     return {
-      // 198.750 -> Math.floor(198.750 / 1000) * 1000 = 198.000
       taksiran: Math.floor(rawTaksiran / 1000) * 1000,
       pinjaman: Math.floor(rawPinjaman / 1000) * 1000,
       pengurang: totalPersen
@@ -195,122 +192,281 @@ const calculation = useMemo(() => {
         )}
 
         {step === 1 && (
-          <Grid container spacing={2}>
-            <Grid item xs={12}><Alert severity="success">Nasabah: {nasabah?.nama_lengkap}</Alert></Grid>
-            
-            <Grid item xs={12} sm={4}>
-              <FormControl fullWidth required>
-                <InputLabel>Kategori Gadai</InputLabel>
-                <Select value={detail.type_id} label="Kategori Gadai" onChange={e => setDetail({...detail, type_id: e.target.value})}>
-                  {allCategories.map(cat => <MenuItem key={cat.id} value={cat.id}>{cat.nama_type}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField fullWidth type="date" label="Tgl Gadai" value={detail.tanggal_gadai} InputLabelProps={{shrink:true}} onChange={e => setDetail({...detail, tanggal_gadai: e.target.value})} />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <FormControl fullWidth><InputLabel>Tenor</InputLabel>
-                <Select value={detail.jatuh_tempo} label="Tenor" onChange={e => setDetail({...detail, jatuh_tempo: e.target.value})}>
-                  {[15, 30].map(d => {
-                    const dt = new Date(detail.tanggal_gadai); dt.setDate(dt.getDate() + d);
-                    return <MenuItem key={d} value={dt.toISOString().split('T')[0]}>{d} Hari</MenuItem>
-                  })}
-                </Select>
-              </FormControl>
-            </Grid>
+  <Grid container spacing={2}>
+    <Grid item xs={12}>
+      <Paper 
+        elevation={0} 
+        sx={{ 
+          p: 2, 
+          bgcolor: '#f1f8e9', 
+          border: '1px solid #c5e1a5', 
+          borderRadius: 2,
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          justifyContent: 'space-between', 
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          gap: 2
+        }}
+      >
+        <Box>
+          <Typography variant="caption" sx={{ textTransform: 'uppercase', color: '#558b2f', fontWeight: 'bold' }}>
+            Data Nasabah (Repeat Order)
+          </Typography>
+          <Typography variant="h5" fontWeight="900" sx={{ color: '#33691e' }}>
+            {nasabah?.nama_lengkap}
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
+            NIK: {nasabah?.nik} | Alamat: {nasabah?.alamat || '-'}
+          </Typography>
+        </Box>
 
-            <Grid item xs={12}><Divider>Spesifikasi & Keamanan</Divider></Grid>
+        <Box 
+          sx={{ 
+            textAlign: { xs: 'left', sm: 'right' },
+            p: 1.5, 
+            bgcolor: '#ffffff', 
+            borderRadius: 2, 
+            border: '2px dashed #8bc34a',
+            minWidth: '150px'
+          }}
+        >
+          <Typography variant="caption" fontWeight="bold" color="textSecondary">
+            TOTAL GADAI SEBELUMNYA
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'flex-start', sm: 'flex-end' }, gap: 1 }}>
+            <Typography variant="h4" fontWeight="900" color="primary">
+              {totalGadai}
+            </Typography>
+            <Typography variant="subtitle1" fontWeight="bold">KALI</Typography>
+          </Box>
+          {totalGadai >= 5 && (
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                bgcolor: '#ffd600', 
+                color: '#000', 
+                px: 1, 
+                py: 0.5, 
+                borderRadius: 1, 
+                fontWeight: '900',
+                display: 'inline-block',
+                mt: 0.5
+              }}
+            >
+              ⭐ NASABAH LOYAL
+            </Typography>
+          )}
+        </Box>
+      </Paper>
+    </Grid>
 
-            <Grid item xs={12} sm={4}>
-              <FormControl fullWidth><InputLabel>Merk</InputLabel>
-                <Select value={barang.merk_hp_id} label="Merk" onChange={e => setBarang({...barang, merk_hp_id: e.target.value, type_hp_id: ""})}>
-                  {merkHp.map(m => <MenuItem key={m.id} value={m.id}>{m.nama_merk}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={8}>
-              <Autocomplete options={typeHpByMerk} getOptionLabel={(o) => o.nama_type || ""} onChange={(_, v) => setBarang({...barang, type_hp_id: v?.id || ""})} renderInput={(p) => <TextField {...p} label="Tipe HP" />} />
-            </Grid>
+    {/* FORM TRANSAKSI */}
+    <Grid item xs={12} sm={4}>
+      <FormControl fullWidth required>
+        <InputLabel>Kategori Gadai</InputLabel>
+        <Select 
+          value={detail.type_id} 
+          label="Kategori Gadai" 
+          onChange={e => setDetail({...detail, type_id: e.target.value})}
+        >
+          {allCategories.map(cat => (
+            <MenuItem key={cat.id} value={cat.id}>{cat.nama_type}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    </Grid>
+    <Grid item xs={12} sm={4}>
+      <TextField 
+        fullWidth 
+        type="date" 
+        label="Tgl Gadai" 
+        value={detail.tanggal_gadai} 
+        InputLabelProps={{shrink:true}} 
+        onChange={e => setDetail({...detail, tanggal_gadai: e.target.value})} 
+      />
+    </Grid>
+    <Grid item xs={12} sm={4}>
+      <FormControl fullWidth>
+        <InputLabel>Tenor</InputLabel>
+        <Select 
+          value={detail.jatuh_tempo} 
+          label="Tenor" 
+          onChange={e => setDetail({...detail, jatuh_tempo: e.target.value})}
+        >
+          {[15, 30].map(d => {
+            const dt = new Date(detail.tanggal_gadai); 
+            dt.setDate(dt.getDate() + d);
+            return (
+              <MenuItem key={d} value={dt.toISOString().split('T')[0]}>
+                {d} Hari (Jatuh Tempo: {dt.toLocaleDateString('id-ID')})
+              </MenuItem>
+            )
+          })}
+        </Select>
+      </FormControl>
+    </Grid>
 
-            {/* Spek Fisik */}
-            <Grid item xs={6} sm={3}><TextField fullWidth label="IMEI" size="small" value={barang.imei} onChange={e => setBarang({...barang, imei: e.target.value})} /></Grid>
-            <Grid item xs={6} sm={3}><TextField fullWidth label="Warna" size="small" value={barang.warna} onChange={e => setBarang({...barang, warna: e.target.value})} /></Grid>
-            <Grid item xs={6} sm={3}><TextField fullWidth label="RAM" size="small" value={barang.ram} onChange={e => setBarang({...barang, ram: e.target.value})} /></Grid>
-            <Grid item xs={6} sm={3}><TextField fullWidth label="ROM" size="small" value={barang.rom} onChange={e => setBarang({...barang, rom: e.target.value})} /></Grid>
-            
-            {/* INPUT KEAMANAN BARU */}
-            <Grid item xs={12} sm={4}>
-              <TextField fullWidth label="Password Layar" placeholder="Contoh: admin123" size="small" sx={{ bgcolor: '#fffde7' }} value={barang.kunci_password} onChange={e => setBarang({...barang, kunci_password: e.target.value})} />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField fullWidth label="PIN (Angka)" placeholder="Contoh: 1234" size="small" sx={{ bgcolor: '#fffde7' }} value={barang.kunci_pin} onChange={e => setBarang({...barang, kunci_pin: e.target.value})} />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField fullWidth label="Pola (Pattern)" placeholder="Contoh: L terbalik" size="small" sx={{ bgcolor: '#fffde7' }} value={barang.kunci_pola} onChange={e => setBarang({...barang, kunci_pola: e.target.value})} />
-            </Grid>
+    <Grid item xs={12}><Divider sx={{ fontWeight: 'bold' }}>SPESIFIKASI & KEAMANAN</Divider></Grid>
 
-            <Grid item xs={12}><Divider>Kondisi & Grade</Divider></Grid>
-            <Grid item xs={12}>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
-                {['a_dus', 'a_tanpa_dus', 'b_dus', 'b_tanpa_dus', 'c_dus', 'c_tanpa_dus'].map(g => (
-                  <Button key={g} variant={barang.grade_type === g ? "contained" : "outlined"} size="small" onClick={() => setBarang({...barang, grade_type: g})}>
-                    {g.replace(/_/g, ' ').toUpperCase()}
-                  </Button>
-                ))}
-              </Stack>
-            </Grid>
+    <Grid item xs={12} sm={4}>
+      <FormControl fullWidth>
+        <InputLabel>Merk</InputLabel>
+        <Select 
+          value={barang.merk_hp_id} 
+          label="Merk" 
+          onChange={e => setBarang({...barang, merk_hp_id: e.target.value, type_hp_id: ""})}
+        >
+          {merkHp.map(m => <MenuItem key={m.id} value={m.id}>{m.nama_merk}</MenuItem>)}
+        </Select>
+      </FormControl>
+    </Grid>
+    <Grid item xs={12} sm={8}>
+      <Autocomplete 
+        options={typeHpByMerk} 
+        getOptionLabel={(o) => o.nama_type || ""} 
+        onChange={(_, v) => setBarang({...barang, type_hp_id: v?.id || ""})} 
+        renderInput={(p) => <TextField {...p} label="Tipe HP" placeholder="Ketik tipe HP..." />} 
+      />
+    </Grid>
 
-            <Grid item xs={12} sm={6}>
-              <Paper sx={{ p: 1.5, bgcolor: '#f8f9fa' }}>
-                <Typography variant="subtitle2">Kelengkapan :</Typography>
-                <FormGroup row>
-                  {kelengkapanList.map(k => (
-                    <FormControlLabel key={k.id} control={<Checkbox size="small" checked={barang.kelengkapan.includes(k.id)} onChange={e => {
-                      const ids = e.target.checked ? [...barang.kelengkapan, k.id] : barang.kelengkapan.filter(x => x !== k.id);
-                      setBarang({...barang, kelengkapan: ids});
-                    }} />} label={<Typography variant="caption">{k.nama_kelengkapan}</Typography>} />
-                  ))}
-                </FormGroup>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Paper sx={{ p: 1.5, bgcolor: '#fff5f5' }}>
-                <Typography variant="subtitle2" color="error">Kerusakan (Potongan %) :</Typography>
-                <FormGroup row>
-                  {kerusakanList.map(k => (
-                    <FormControlLabel key={k.id} control={<Checkbox size="small" color="error" checked={barang.kerusakan.includes(k.id)} onChange={e => {
-                      const ids = e.target.checked ? [...barang.kerusakan, k.id] : barang.kerusakan.filter(x => x !== k.id);
-                      setBarang({...barang, kerusakan: ids});
-                    }} />} label={<Typography variant="caption">{k.nama_kerusakan} ({k.persen}%)</Typography>} />
-                  ))}
-                </FormGroup>
-              </Paper>
-            </Grid>
+    {/* Spek Fisik */}
+    <Grid item xs={6} sm={3}><TextField fullWidth label="IMEI" size="small" value={barang.imei} onChange={e => setBarang({...barang, imei: e.target.value})} /></Grid>
+    <Grid item xs={6} sm={3}><TextField fullWidth label="Warna" size="small" value={barang.warna} onChange={e => setBarang({...barang, warna: e.target.value})} /></Grid>
+    <Grid item xs={6} sm={3}><TextField fullWidth label="RAM" size="small" value={barang.ram} onChange={e => setBarang({...barang, ram: e.target.value})} /></Grid>
+    <Grid item xs={6} sm={3}><TextField fullWidth label="ROM" size="small" value={barang.rom} onChange={e => setBarang({...barang, rom: e.target.value})} /></Grid>
+    
+    {/* INPUT KEAMANAN BARU */}
+    <Grid item xs={12} sm={4}>
+      <TextField 
+        fullWidth 
+        label="Password Layar" 
+        placeholder="Contoh: admin123" 
+        size="small" 
+        sx={{ bgcolor: '#fffde7' }} 
+        value={barang.kunci_password} 
+        onChange={e => setBarang({...barang, kunci_password: e.target.value})} 
+      />
+    </Grid>
+    <Grid item xs={12} sm={4}>
+      <TextField 
+        fullWidth 
+        label="PIN (Angka)" 
+        placeholder="Contoh: 1234" 
+        size="small" 
+        sx={{ bgcolor: '#fffde7' }} 
+        value={barang.kunci_pin} 
+        onChange={e => setBarang({...barang, kunci_pin: e.target.value})} 
+      />
+    </Grid>
+    <Grid item xs={12} sm={4}>
+      <TextField 
+        fullWidth 
+        label="Pola (Pattern)" 
+        placeholder="Contoh: L terbalik" 
+        size="small" 
+        sx={{ bgcolor: '#fffde7' }} 
+        value={barang.kunci_pola} 
+        onChange={e => setBarang({...barang, kunci_pola: e.target.value})} 
+      />
+    </Grid>
 
-            <Grid item xs={12}><Divider>Upload Foto SOP</Divider></Grid>
-            <Grid item xs={12} sm={4} sx={{ mb: 2 }}>
-                <FormControl fullWidth size="small">
-                    <InputLabel>Jenis HP (SOP Foto)</InputLabel>
-                    <Select value={barang.nama_barang} label="Jenis HP (SOP Foto)" onChange={e => setBarang({...barang, nama_barang: e.target.value})}>
-                        {Object.keys(DOKUMEN_SOP_HP).map(k => <MenuItem key={k} value={k}>{k}</MenuItem>)}
-                    </Select>
-                </FormControl>
-            </Grid>
-            <Grid container item spacing={1}>
-                {DOKUMEN_SOP_HP[barang.nama_barang]?.map(d => (
-                <Grid item xs={6} sm={3} key={d}>
-                    <Button variant="outlined" component="label" fullWidth size="small" sx={{fontSize: '10px', py: 1}}>
-                    {barang.dokumen_pendukung[d] ? "✅ " + d.toUpperCase() : "UPLOAD " + d.toUpperCase()}
-                    <input type="file" hidden onChange={e => setBarang({...barang, dokumen_pendukung: {...barang.dokumen_pendukung, [d]: e.target.files[0]}})} />
-                    </Button>
-                </Grid>
-                ))}
-            </Grid>
+    <Grid item xs={12}><Divider sx={{ fontWeight: 'bold' }}>KONDISI & GRADE</Divider></Grid>
+    <Grid item xs={12}>
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        {['a_dus', 'a_tanpa_dus', 'b_dus', 'b_tanpa_dus', 'c_dus', 'c_tanpa_dus'].map(g => (
+          <Button 
+            key={g} 
+            variant={barang.grade_type === g ? "contained" : "outlined"} 
+            size="small" 
+            sx={{ mb: 1 }}
+            onClick={() => setBarang({...barang, grade_type: g})}
+          >
+            {g.replace(/_/g, ' ').toUpperCase()}
+          </Button>
+        ))}
+      </Stack>
+    </Grid>
 
-            <Grid item xs={12} mt={2}><Button fullWidth variant="contained" size="large" onClick={() => setStep(2)} disabled={!barang.type_hp_id || !barang.grade_type}>Review Kalkulasi</Button></Grid>
-          </Grid>
-        )}
+    <Grid item xs={12} sm={6}>
+      <Paper sx={{ p: 1.5, bgcolor: '#f8f9fa', height: '100%' }}>
+        <Typography variant="subtitle2" fontWeight="bold">Kelengkapan :</Typography>
+        <FormGroup row>
+          {kelengkapanList.map(k => (
+            <FormControlLabel 
+              key={k.id} 
+              control={<Checkbox size="small" checked={barang.kelengkapan.includes(k.id)} onChange={e => {
+                const ids = e.target.checked ? [...barang.kelengkapan, k.id] : barang.kelengkapan.filter(x => x !== k.id);
+                setBarang({...barang, kelengkapan: ids});
+              }} />} 
+              label={<Typography variant="caption">{k.nama_kelengkapan}</Typography>} 
+            />
+          ))}
+        </FormGroup>
+      </Paper>
+    </Grid>
+    <Grid item xs={12} sm={6}>
+      <Paper sx={{ p: 1.5, bgcolor: '#fff5f5', height: '100%', border: '1px solid #ffcdd2' }}>
+        <Typography variant="subtitle2" color="error" fontWeight="bold">Kerusakan (Potongan %) :</Typography>
+        <FormGroup row>
+          {kerusakanList.map(k => (
+            <FormControlLabel 
+              key={k.id} 
+              control={<Checkbox size="small" color="error" checked={barang.kerusakan.includes(k.id)} onChange={e => {
+                const ids = e.target.checked ? [...barang.kerusakan, k.id] : barang.kerusakan.filter(x => x !== k.id);
+                setBarang({...barang, kerusakan: ids});
+              }} />} 
+              label={<Typography variant="caption">{k.nama_kerusakan} ({k.persen}%)</Typography>} 
+            />
+          ))}
+        </FormGroup>
+      </Paper>
+    </Grid>
+
+    <Grid item xs={12}><Divider sx={{ fontWeight: 'bold' }}>UPLOAD FOTO SOP</Divider></Grid>
+    <Grid item xs={12} sm={4} sx={{ mb: 2 }}>
+        <FormControl fullWidth size="small">
+            <InputLabel>Jenis HP (SOP Foto)</InputLabel>
+            <Select 
+              value={barang.nama_barang} 
+              label="Jenis HP (SOP Foto)" 
+              onChange={e => setBarang({...barang, nama_barang: e.target.value})}
+            >
+                {Object.keys(DOKUMEN_SOP_HP).map(k => <MenuItem key={k} value={k}>{k}</MenuItem>)}
+            </Select>
+        </FormControl>
+    </Grid>
+    <Grid container item spacing={1}>
+        {DOKUMEN_SOP_HP[barang.nama_barang]?.map(d => (
+        <Grid item xs={6} sm={3} key={d}>
+            <Button 
+              variant={barang.dokumen_pendukung[d] ? "contained" : "outlined"} 
+              color={barang.dokumen_pendukung[d] ? "success" : "primary"}
+              component="label" 
+              fullWidth 
+              size="small" 
+              sx={{fontSize: '10px', py: 1}}
+            >
+              {barang.dokumen_pendukung[d] ? "✅ " + d.toUpperCase() : "UPLOAD " + d.toUpperCase()}
+              <input type="file" hidden onChange={e => setBarang({...barang, dokumen_pendukung: {...barang.dokumen_pendukung, [d]: e.target.files[0]}})} />
+            </Button>
+        </Grid>
+        ))}
+    </Grid>
+
+    <Grid item xs={12} mt={3}>
+      <Button 
+        fullWidth 
+        variant="contained" 
+        size="large" 
+        sx={{ py: 1.5, fontWeight: 'bold' }}
+        onClick={() => setStep(2)} 
+        disabled={!barang.type_hp_id || !barang.grade_type}
+      >
+        Lanjut ke Review Kalkulasi
+      </Button>
+    </Grid>
+  </Grid>
+)}
 
         {step === 2 && (
           <Stack spacing={3}>

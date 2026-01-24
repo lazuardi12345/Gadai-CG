@@ -34,7 +34,7 @@ const HargaHpPage = () => {
     const [openModal, setOpenModal] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [submitting, setSubmitting] = useState(false);
-    const [formData, setFormData] = useState({ type_hp_id: "", harga_barang: "", pasar_trend: "turun" });
+    const [formData, setFormData] = useState({ type_hp_id: "", harga_barang: "", harga_pasar: "" });
     const [previewData, setPreviewData] = useState(null);
     const [loadingPreview, setLoadingPreview] = useState(false);
 
@@ -75,12 +75,12 @@ const HargaHpPage = () => {
     }, [filteredData, page, rowsPerPage]);
 
     const handlePreview = async () => {
-        if (!formData.harga_barang) return;
+        if (!formData.harga_barang || !formData.harga_pasar) return;
         setLoadingPreview(true);
         try {
             const res = await axiosInstance.post(`${base}/grade-hp/preview`, {
                 harga_barang: parseInt(formData.harga_barang),
-                pasar_trend: formData.pasar_trend
+                harga_pasar: parseInt(formData.harga_pasar)
             });
             setPreviewData(res.data.hasil_kalkulasi);
         } catch (error) { 
@@ -95,10 +95,14 @@ const HargaHpPage = () => {
         setPreviewData(null);
         if (item?.id_harga) {
             setEditingId(item.id_harga);
-            setFormData({ type_hp_id: item.id, harga_barang: item.harga_barang, pasar_trend: "turun" });
+            setFormData({ 
+                type_hp_id: item.id, 
+                harga_barang: item.harga_barang || "", 
+                harga_pasar: item.harga_pasar || "" 
+            });
         } else {
             setEditingId(null);
-            setFormData({ type_hp_id: item ? item.id : "", harga_barang: "", pasar_trend: "turun" });
+            setFormData({ type_hp_id: item ? item.id : "", harga_barang: "", harga_pasar: "" });
         }
         setOpenModal(true);
     };
@@ -108,7 +112,7 @@ const HargaHpPage = () => {
         try {
             const payload = {
                 harga_barang: parseInt(formData.harga_barang),
-                pasar_trend: formData.pasar_trend,
+                harga_pasar: parseInt(formData.harga_pasar),
                 auto_generate_grade: true,
                 recalculate_grade: true 
             };
@@ -188,6 +192,7 @@ const HargaHpPage = () => {
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Tipe Unit & Status Update</TableCell>
                                             <TableCell align="right" sx={{ fontWeight: 'bold' }}>Harga Pasar</TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>Harga Barang</TableCell>
                                             <TableCell align="center" sx={{ fontWeight: 'bold' }}>Aksi</TableCell>
                                         </TableRow>
                                     </TableHead>
@@ -195,43 +200,45 @@ const HargaHpPage = () => {
                                         {paginatedData.map((item) => (
                                             <TableRow key={item.id} hover>
                                                 <TableCell>
-    <Stack direction="row" alignItems="center" spacing={1.5}>
-        <Typography variant="body2" fontWeight={700}>
-            {item.nama_type}
-        </Typography>
-        
-        {/* Render Chip hanya jika ada id_harga dan tanggal valid */}
-        {item.id_harga && item.updated_at && (
-            <Chip 
-                size="small"
-                icon={<TimeIcon style={{ fontSize: '0.75rem' }} />}
-                label={new Date(item.updated_at).toLocaleString('id-ID', { 
-                    day: '2-digit', 
-                    month: 'short', 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                })}
-                sx={{ 
-                    fontSize: '0.65rem', 
-                    height: 20, 
-                    bgcolor: '#f0f4f8', 
-                    color: 'text.secondary',
-                    fontWeight: 600,
-                    border: '1px solid #e0e6ed'
-                }}
-            />
-        )}
-    </Stack>
-    
-    {item.updated_at && (new Date() - new Date(item.updated_at)) < 86400000 && (
-        <Typography 
-            variant="caption" 
-            sx={{ color: 'success.main', fontSize: '0.6rem', display: 'block', mt: 0.2, fontWeight: 700 }}
-        >
-            • Baru Diperbarui
-        </Typography>
-    )}
-</TableCell>
+                                                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                                                        <Typography variant="body2" fontWeight={700}>
+                                                            {item.nama_type}
+                                                        </Typography>
+                                                        
+                                                        {item.id_harga && item.updated_at_harga && (
+                                                            <Chip 
+                                                                size="small"
+                                                                icon={<TimeIcon style={{ fontSize: '0.75rem' }} />}
+                                                                label={new Date(item.updated_at_harga).toLocaleString('id-ID', { 
+                                                                    day: '2-digit', 
+                                                                    month: 'short', 
+                                                                    hour: '2-digit', 
+                                                                    minute: '2-digit' 
+                                                                })}
+                                                                sx={{ 
+                                                                    fontSize: '0.65rem', 
+                                                                    height: 20, 
+                                                                    bgcolor: '#f0f4f8', 
+                                                                    color: 'text.secondary',
+                                                                    fontWeight: 600,
+                                                                    border: '1px solid #e0e6ed'
+                                                                }}
+                                                            />
+                                                        )}
+                                                    </Stack>
+                                                    
+                                                    {item.updated_at_harga && (new Date() - new Date(item.updated_at_harga)) < 86400000 && (
+                                                        <Typography 
+                                                            variant="caption" 
+                                                            sx={{ color: 'success.main', fontSize: '0.6rem', display: 'block', mt: 0.2, fontWeight: 700 }}
+                                                        >
+                                                            • Baru Diperbarui
+                                                        </Typography>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    {item.id_harga ? <Typography variant="body2" fontWeight="900" color="secondary.main">{formatRupiah(item.harga_pasar)}</Typography> : <Typography variant="caption" color="error">Data Kosong</Typography>}
+                                                </TableCell>
                                                 <TableCell align="right">
                                                     {item.id_harga ? <Typography variant="body2" fontWeight="900" color="primary.main">{formatRupiah(item.harga_barang)}</Typography> : <Typography variant="caption" color="error">Data Kosong</Typography>}
                                                 </TableCell>
@@ -275,12 +282,16 @@ const HargaHpPage = () => {
                             </Grid>
                         )}
 
-                        <Grid item xs={12}>
-                            <TextField fullWidth label="Harga Pasar Saat Ini" type="number" value={formData.harga_barang} onChange={(e) => setFormData({ ...formData, harga_barang: e.target.value })} InputProps={{ sx: { borderRadius: 2, fontWeight: 'bold' } }} />
+                        <Grid item xs={12} sm={6}>
+                            <TextField fullWidth label="Harga Pasar" type="number" value={formData.harga_pasar} onChange={(e) => setFormData({ ...formData, harga_pasar: e.target.value })} InputProps={{ sx: { borderRadius: 2, fontWeight: 'bold' } }} />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                            <TextField fullWidth label="Harga Barang" type="number" value={formData.harga_barang} onChange={(e) => setFormData({ ...formData, harga_barang: e.target.value })} InputProps={{ sx: { borderRadius: 2, fontWeight: 'bold' } }} />
                         </Grid>
 
                         <Grid item xs={12}>
-                            <Button fullWidth variant="contained" color="inherit" startIcon={<CalculateIcon />} onClick={handlePreview} disabled={!formData.harga_barang || loadingPreview} sx={{ py: 1.2, borderRadius: 2, bgcolor: '#334155', color: 'white', '&:hover': { bgcolor: '#1e293b' } }}>
+                            <Button fullWidth variant="contained" color="inherit" startIcon={<CalculateIcon />} onClick={handlePreview} disabled={!formData.harga_barang || !formData.harga_pasar || loadingPreview} sx={{ py: 1.2, borderRadius: 2, bgcolor: '#334155', color: 'white', '&:hover': { bgcolor: '#1e293b' } }}>
                                 {loadingPreview ? "Menghitung..." : "Simulasi Taksiran Grade"}
                             </Button>
                         </Grid>
@@ -312,7 +323,7 @@ const HargaHpPage = () => {
                 </DialogContent>
                 <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
                     <Button onClick={() => setOpenModal(false)} sx={{ fontWeight: 'bold' }}>Batal</Button>
-                    <Button variant="contained" onClick={handleSubmit} disabled={submitting || (!editingId && !formData.type_hp_id) || !formData.harga_barang} sx={{ px: 4, borderRadius: 2 }}>
+                    <Button variant="contained" onClick={handleSubmit} disabled={submitting || (!editingId && !formData.type_hp_id) || !formData.harga_barang || !formData.harga_pasar} sx={{ px: 4, borderRadius: 2 }}>
                         {submitting ? "Proses..." : "Simpan"}
                     </Button>
                 </DialogActions>
