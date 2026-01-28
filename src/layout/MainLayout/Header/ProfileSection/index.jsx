@@ -1,5 +1,9 @@
 import React, { useContext, useState, useRef } from 'react';
-import { Button, Popper, Fade, Paper, ClickAwayListener, List, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
+import { 
+  Button, Popper, Fade, Paper, ClickAwayListener, 
+  List, ListItemButton, ListItemIcon, ListItemText, 
+  Typography, Divider, Box, Avatar 
+} from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import AccountCircleTwoToneIcon from '@mui/icons-material/AccountCircleTwoTone';
 import MeetingRoomTwoToneIcon from '@mui/icons-material/MeetingRoomTwoTone';
@@ -20,17 +24,12 @@ const ProfileSection = () => {
 
   const handleLogout = async () => {
     try {
-      // Opsional: logout ke server
-      const token = localStorage.getItem('auth_token');
-      await axiosInstance.post(
-        '/logout',
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      // Panggil endpoint logout BE
+      await axiosInstance.post('/logout');
     } catch (err) {
-      console.error('Logout failed:', err.response?.data || err);
+      console.error('Logout error:', err);
     } finally {
-      // Pakai logout dari AuthContext supaya bersih
+      // Clear state & localstorage lewat context
       logout();
       navigate('/login', { replace: true });
     }
@@ -40,33 +39,75 @@ const ProfileSection = () => {
     <>
       <Button
         ref={anchorRef}
-        aria-controls={open ? 'menu-list-grow' : undefined}
-        aria-haspopup="true"
         onClick={handleToggle}
         color="inherit"
+        sx={{ borderRadius: '8px', textTransform: 'none', gap: 1 }}
       >
-        <AccountCircleTwoToneIcon />
+        <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main', fontSize: '1rem' }}>
+          {user?.name?.charAt(0).toUpperCase() || 'U'}
+        </Avatar>
+        <Box sx={{ display: { xs: 'none', md: 'block' }, textAlign: 'left' }}>
+          <Typography variant="body2" fontWeight="bold" lineHeight={1}>
+            {user?.name}
+          </Typography>
+          <Typography variant="caption" color="inherit" sx={{ opacity: 0.8 }}>
+            {user?.role_name} {/* <--- PAKAI ROLE_NAME DARI JSON BARU */}
+          </Typography>
+        </Box>
       </Button>
 
-      <Popper open={open} anchorEl={anchorRef.current} transition disablePortal>
+      <Popper 
+        open={open} 
+        anchorEl={anchorRef.current} 
+        transition 
+        disablePortal 
+        placement="bottom-end"
+        style={{ zIndex: 1300 }}
+      >
         {({ TransitionProps }) => (
           <Fade {...TransitionProps}>
-            <Paper>
+            <Paper elevation={8} sx={{ mt: 1.5, minWidth: 200, borderRadius: 2 }}>
               <ClickAwayListener onClickAway={handleClose}>
-                <List>
-                  <ListItemButton disabled>
-                    <ListItemIcon>
-                      <AccountCircleTwoToneIcon />
-                    </ListItemIcon>
-                    <ListItemText primary={user?.name || 'User'} secondary={user?.role || '-'} />
-                  </ListItemButton>
-                  <ListItemButton onClick={handleLogout}>
-                    <ListItemIcon>
-                      <MeetingRoomTwoToneIcon />
-                    </ListItemIcon>
-                    <ListItemText primary="Logout" />
-                  </ListItemButton>
-                </List>
+                <Box>
+                  <Box sx={{ p: 2 }}>
+                    <Typography variant="subtitle1" fontWeight="bold">
+                      {user?.name}
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      {user?.email}
+                    </Typography>
+                    {/* Badge Role */}
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        display: 'inline-block', 
+                        mt: 1, 
+                        px: 1, 
+                        py: 0.2, 
+                        bgcolor: 'info.light', 
+                        color: 'info.contrastText', 
+                        borderRadius: 1,
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      {user?.role_name}
+                    </Typography>
+                  </Box>
+                  
+                  <Divider />
+
+                  <List sx={{ p: 0 }}>
+                    <ListItemButton onClick={handleLogout} sx={{ py: 1.5, color: 'error.main' }}>
+                      <ListItemIcon sx={{ color: 'error.main', minWidth: 35 }}>
+                        <MeetingRoomTwoToneIcon fontSize="small" />
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary="Logout" 
+                        primaryTypographyProps={{ variant: 'body2', fontWeight: 'bold' }} 
+                      />
+                    </ListItemButton>
+                  </List>
+                </Box>
               </ClickAwayListener>
             </Paper>
           </Fade>

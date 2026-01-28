@@ -35,7 +35,9 @@ const handleLogin = async (values, { setSubmitting, setErrors }) => {
       petugas: '/full-submit',
       checker: '/brangkas-dashboard',
       admin: '/brangkas-dashboard',
-      hm: '/dashboard/default'
+      hm: '/dashboard/default',
+      kasir: '/brangkas-dashboard',
+      gudang: '/laporan-gudang'
     };
 
     const targetPath = roleRoutes[user.role.toLowerCase()] || '/dashboard/default';

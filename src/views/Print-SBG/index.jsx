@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
-import { CircularProgress, Button, Box, Typography } from "@mui/material";
+import { CircularProgress, Button, Box, Typography, } from "@mui/material";
 import {
     PDFDownloadLink,
     Document,
@@ -273,11 +273,16 @@ const SuratBuktiGadaiPDF = ({ data }) => {
 
                             )}
 
-                            <Image 
-                                    src={data.metadata.qr_code} 
-                                    style={{ position: "absolute", top: 42, left: 440, width: 65, height: 65 }} 
-                                />
-
+                          <Image 
+    src={data.metadata.qr_gudang} 
+    style={{ 
+        position: "absolute", 
+        top: 42, 
+        left: 440, 
+        width: 65, 
+        height: 65 
+    }} 
+/>
                             <Image 
                                 src={TtdManagerImg} 
                                 style={{ position: "absolute", top: 205, left: 295, width: 70, height: 55, zIndex: 1 }} 

@@ -1,6 +1,9 @@
 import PropTypes from 'prop-types';
-import React from 'react';
+import React, { useContext } from 'react'; 
 import { Link } from 'react-router-dom';
+
+import { Badge } from '@mui/material'; 
+import { BadgeContext } from 'contexts/BadgeContext'; 
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
@@ -21,8 +24,19 @@ const NavItem = ({ item, level }) => {
   const theme = useTheme();
   const customization = useSelector((state) => state.customization);
   const dispatch = useDispatch();
+  
+  // Ambil data badge dari context
+  const { badges, resetBadge } = useContext(BadgeContext);
+  const badgeValue = item.badgeKey ? (badges[item.badgeKey] || 0) : 0;
+
   const Icon = item.icon;
-  const itemIcon = item.icon ? <Icon color="inherit" /> : <ArrowForwardIcon color="inherit" fontSize={level > 0 ? 'inherit' : 'default'} />;
+  const itemIcon = item.icon ? (
+    <Badge badgeContent={badgeValue} color="error" sx={{ '& .MuiBadge-badge': { right: -2, top: 2 } }}>
+      <Icon color="inherit" />
+    </Badge>
+  ) : (
+    <ArrowForwardIcon color="inherit" fontSize={level > 0 ? 'inherit' : 'default'} />
+  );
 
   let itemTarget = '';
   if (item.target) {
@@ -44,7 +58,11 @@ const NavItem = ({ item, level }) => {
       }}
       selected={customization.isOpen === item.id}
       component={Link}
-      onClick={() => dispatch({ type: actionTypes.MENU_OPEN, isOpen: item.id })}
+      onClick={() => {
+        dispatch({ type: actionTypes.MENU_OPEN, isOpen: item.id });
+        // Reset badge saat menu diklik
+        if (item.badgeKey) resetBadge(item.badgeKey);
+      }}
       to={item.url}
       target={itemTarget}
       {...listItemProps}

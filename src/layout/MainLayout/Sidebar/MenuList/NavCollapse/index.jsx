@@ -1,12 +1,13 @@
 import PropTypes from 'prop-types';
-import React from 'react';
+import React, { useContext } from 'react'; // Tambah useContext
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
-import { Typography, ListItemIcon, ListItemText, Collapse, List, ListItemButton } from '@mui/material';
+import { Typography, ListItemIcon, ListItemText, Collapse, List, ListItemButton, Badge } from '@mui/material'; // Tambah Badge
 
 // project import
 import NavItem from '../NavItem';
+import { BadgeContext } from 'contexts/BadgeContext'; // Tambah BadgeContext
 
 // assets
 import ExpandLess from '@mui/icons-material/ExpandLess';
@@ -19,11 +20,19 @@ const NavCollapse = ({ menu, level }) => {
   const theme = useTheme();
   const [open, setOpen] = React.useState(false);
   const [selected, setSelected] = React.useState(null);
+  
+  // Ambil data badge untuk menghitung total notif di dalam collapse ini
+  const { badges } = useContext(BadgeContext);
 
   const handleClick = () => {
     setOpen(!open);
     setSelected(!selected ? menu.id : null);
   };
+
+  // Hitung total badge dari semua children di dalam collapse ini
+  const totalChildBadges = menu.children?.reduce((acc, child) => {
+    return acc + (child.badgeKey ? (badges[child.badgeKey] || 0) : 0);
+  }, 0);
 
   const menus = menu.children.map((item) => {
     switch (item.type) {
@@ -41,7 +50,14 @@ const NavCollapse = ({ menu, level }) => {
   });
 
   const Icon = menu.icon;
-  const menuIcon = menu.icon ? <Icon /> : <ArrowForwardIcon fontSize={level > 0 ? 'inherit' : 'default'} />;
+  const menuIcon = menu.icon ? (
+    // Tampilkan total angka merah jika ada notif di dalam menu collapse
+    <Badge badgeContent={totalChildBadges} color="error" sx={{ '& .MuiBadge-badge': { right: -2, top: 2 } }}>
+      <Icon />
+    </Badge>
+  ) : (
+    <ArrowForwardIcon fontSize={level > 0 ? 'inherit' : 'default'} />
+  );
 
   return (
     <>

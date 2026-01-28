@@ -63,11 +63,11 @@ const BrankasDashboard = () => {
   });
 
   const colors = {
-    fisik: '#1e40af',      // Biru Gelap (Sesuai gambar kamu)
-    rekening: '#0e7490',   // Cyan/Biru Toska (Untuk Rekening)
-    modal: '#065f46',      // Hijau Tua (Sesuai gambar kamu)
-    diterima: '#16a34a',   // Hijau Terang (Sesuai gambar kamu)
-    pending: '#ea580c',    // Orange (Sesuai gambar kamu)
+    fisik: '#1e40af',      
+    rekening: '#0e7490',  
+    modal: '#065f46',      
+    diterima: '#16a34a',   
+    pending: '#ea580c',   
   };
 
   const formatRupiah = (value) => {
@@ -78,11 +78,18 @@ const BrankasDashboard = () => {
     }).format(value || 0);
   };
 
+
   const fetchData = useCallback(async () => {
     if (!userRole) return;
     setLoading(true);
-    const base = userRole === "admin" ? "/admin" : "/checker";
-    
+
+    // 2. Logic role-based path
+    const base = userRole === "admin" 
+        ? "/admin" 
+        : userRole === "checker" 
+            ? "/checker" 
+            : "/kasir";
+
     try {
       const [resStats, resChart] = await Promise.all([
         axiosInstance.get(`${base}/brankas`), 
@@ -112,7 +119,11 @@ const BrankasDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [userRole]);
+  }, [userRole]); // Penutup useCallback yang benar
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
     fetchData();

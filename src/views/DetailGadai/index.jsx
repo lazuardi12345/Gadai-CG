@@ -347,7 +347,7 @@ const handleSubmitLunas = async () => {
           <Box className="overlay" sx={{ 
             position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
             bgcolor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            opacity: 0, transition: '0.3s'
+            opacity: 0, transition: '0.3s' 
           }}>
             <VisibilityIcon sx={{ color: 'white' }} />
           </Box>
@@ -578,159 +578,180 @@ const handleSubmitLunas = async () => {
         <TablePagination rowsPerPageOptions={[10, 25, 50]} component="div" count={filteredData.length} rowsPerPage={rowsPerPage} page={page} onPageChange={(_, p) => setPage(p)} onRowsPerPageChange={(e) => setRowsPerPage(parseInt(e.target.value, 10))} />
       </CardContent>
 
-      {/* --- DIALOG CEK SELESAI (DENGAN DOKUMEN PENDUKUNG) --- */}
-      <Dialog open={openValidasi} onClose={() => setOpenValidasi(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'info.main', color: 'white', py: 2 }}>
-          <Avatar sx={{ bgcolor: 'white', color: 'info.main', width: 32, height: 32 }}><InventoryIcon fontSize="small" /></Avatar>
-          <Box>
-            <Typography variant="subtitle1" fontWeight="bold" lineHeight={1.2}>Validasi Unit & Dokumen</Typography>
-            <Typography variant="caption" sx={{ opacity: 0.8 }}>Pastikan fisik & foto dokumen sesuai</Typography>
-          </Box>
-        </DialogTitle>
-        
-        <DialogContent dividers sx={{ bgcolor: '#fbfbfb' }}>
-          {processLoading && !selectedItem ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress size={30} /></Box>
-          ) : (
-            <Grid container spacing={3} sx={{ mt: 1 }}>
-              {/* KOLOM KIRI: Data Teknis */}
-              <Grid item xs={12} md={6}>
-                <Stack spacing={2}>
-                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'white' }}>
-                    <Typography variant="caption" color="textSecondary">Nomor Gadai / Nasabah</Typography>
-                    <Typography variant="body2" fontWeight="bold">{selectedItem?.no_gadai}</Typography>
-                    <Typography variant="body1" fontWeight="bold" color="primary">{selectedItem?.nasabah?.nama_lengkap}</Typography>
-                  </Paper>
+<Dialog open={openValidasi} onClose={() => setOpenValidasi(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+  <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'info.main', color: 'white', py: 2 }}>
+    <Avatar sx={{ bgcolor: 'white', color: 'info.main', width: 32, height: 32 }}><InventoryIcon fontSize="small" /></Avatar>
+    <Box>
+      <Typography variant="subtitle1" fontWeight="bold" lineHeight={1.2}>Validasi Unit & Dokumen</Typography>
+      <Typography variant="caption" sx={{ opacity: 0.8 }}>Konfirmasi akhir sebelum pelunasan</Typography>
+    </Box>
+  </DialogTitle>
 
-                  {/* DATA SPESIFIK UNIT */}
-                  {selectedItem?.hp && (
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                      <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}><SmartphoneOutlinedIcon fontSize="small" color="primary"/> Detail HP</Typography>
-                      <Grid container spacing={1}>
-                        <Grid item xs={6}><Typography variant="caption">Merk/Type</Typography><Typography variant="body2">{selectedItem.hp.merk?.nama_merk} {selectedItem.hp.type_hp?.nama_type}</Typography></Grid>
-                        <Grid item xs={6}><Typography variant="caption">IMEI</Typography><Typography variant="body2">{selectedItem.hp.imei}</Typography></Grid>
-                        <Grid item xs={12}>
-                          <Typography variant="caption">Kerusakan:</Typography>
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {selectedItem.hp.kerusakan_list?.map((k, i) => <Chip key={i} label={k.nama_kerusakan} size="small" color="error" variant="outlined" sx={{ fontSize: '0.6rem' }} />)}
-                          </Box>
-                        </Grid>
-                      </Grid>
-                    </Paper>
-                  )}
+  <DialogContent dividers sx={{ bgcolor: '#fbfbfb' }}>
+    {processLoading && !selectedItem ? (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress size={30} /></Box>
+    ) : (
+      <Grid container spacing={3} sx={{ mt: 1 }}>
+        <Grid item xs={12} md={6}>
+          <Stack spacing={2}>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'white' }}>
+              <Typography variant="caption" color="textSecondary">Nomor Gadai / Nasabah</Typography>
+              <Typography variant="body2" fontWeight="bold">{selectedItem?.no_gadai}</Typography>
+              <Typography variant="body1" fontWeight="bold" color="primary">{selectedItem?.nasabah?.nama_lengkap}</Typography>
+              <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>Telp: {selectedItem?.nasabah?.no_hp}</Typography>
+            </Paper>
 
-                  {selectedItem?.perhiasan && (
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                      <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}><DiamondOutlinedIcon fontSize="small" color="warning"/> Detail Perhiasan</Typography>
-                      <Typography variant="body2">{selectedItem.perhiasan.nama_barang}</Typography>
-                      <Typography variant="body2" fontWeight="bold">{selectedItem.perhiasan.berat_bersih} gr | {selectedItem.perhiasan.kadar_emas}%</Typography>
-                    </Paper>
-                  )}
+            {selectedItem?.hp && (
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <SmartphoneOutlinedIcon fontSize="small" color="primary" /> Detail Handphone
+                </Typography>
+                <Grid container spacing={1.5}>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="textSecondary">Merk / Type</Typography>
+                    <Typography variant="body2" fontWeight="bold">{selectedItem.hp.merk?.nama_merk} {selectedItem.hp.type_hp?.nama_type}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="textSecondary">IMEI / Warna</Typography>
+                    <Typography variant="body2" fontWeight="bold">{selectedItem.hp.imei} / {selectedItem.hp.warna}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="textSecondary">RAM / ROM</Typography>
+                    <Typography variant="body2">{selectedItem.hp.ram}GB / {selectedItem.hp.rom}GB</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="textSecondary">Password/PIN</Typography>
+                    <Typography variant="body2" sx={{ color: 'error.main', fontWeight: 'bold' }}>{selectedItem.hp.kunci_password || '-'}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="textSecondary">Grade</Typography>
+                    <Typography variant="body2" sx={{ textTransform: 'uppercase' }}>{selectedItem.hp.grade_type?.replace('_', ' ')}</Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="caption" color="textSecondary">Kelengkapan:</Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                      {selectedItem.hp.kelengkapan_list?.map((k, i) => (
+                        <Chip key={i} label={k.nama_kelengkapan} size="small" color="primary" variant="outlined" sx={{ fontSize: '0.65rem' }} />
+                      ))}
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Paper>
+            )}
 
-                  {selectedItem?.retro && (
-                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                      <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}><DiamondOutlinedIcon fontSize="small" color="secondary"/> Detail Retro</Typography>
-                      <Typography variant="body2">{selectedItem.retro.nama_barang}</Typography>
-                      <Typography variant="body2" fontWeight="bold">{selectedItem.retro.karat} K | {selectedItem.retro.berat} gr</Typography>
-                    </Paper>
-                  )}
-                </Stack>
-              </Grid>
 
-              {selectedItem?.logam_mulia && (
+{(selectedItem?.logam_mulia || selectedItem?.perhiasan || selectedItem?.retro) && (
   <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
     <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-      <DiamondOutlinedIcon fontSize="small" color="warning"/> Detail Logam Mulia
+      <DiamondOutlinedIcon fontSize="small" color="warning"/> Detail Barang (Emas)
     </Typography>
-    <Typography variant="body2">
-      {selectedItem.logam_mulia.nama_barang}
-    </Typography>
-    <Typography variant="body2" fontWeight="bold">
-      {selectedItem.logam_mulia.berat} gr | {selectedItem.logam_mulia.karat} K
-    </Typography>
+    
+    {(() => {
+      const emas = selectedItem.logam_mulia || selectedItem.perhiasan || selectedItem.retro;
+      return (
+        <Grid container spacing={1.5}>
+          <Grid item xs={12}>
+            <Typography variant="caption" color="textSecondary">Nama Barang</Typography>
+            <Typography variant="body2" fontWeight="bold">{emas.nama_barang}</Typography>
+          </Grid>
+          <Grid item xs={6}>
+            <Typography variant="caption" color="textSecondary">Karatase</Typography>
+            <Typography variant="body2">{emas.karat || emas.kadar_emas} K</Typography>
+          </Grid>
+          <Grid item xs={6}>
+            <Typography variant="caption" color="textSecondary">Berat Kotor/Bersih</Typography>
+            <Typography variant="body2">{emas.berat || emas.berat_bersih} gr</Typography>
+          </Grid>
+          <Grid item xs={6}>
+            <Typography variant="caption" color="textSecondary">Kode Cap</Typography>
+            <Typography variant="body2">{emas.kode_cap || '-'}</Typography>
+          </Grid>
+          <Grid item xs={6}>
+            <Typography variant="caption" color="textSecondary">Potongan Batu</Typography>
+            <Typography variant="body2">{emas.potongan_batu || '0'}</Typography>
+          </Grid>
+        </Grid>
+      );
+    })()}
   </Paper>
 )}
 
-              {/* KOLOM KANAN: Galeri Dokumen Pendukung */}
-              <Grid item xs={12} md={6}>
-                <Box sx={{ p: 2, border: '1px dashed #ccc', borderRadius: 2, bgcolor: '#fff' }}>
-                  <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}><PhotoLibraryIcon fontSize="small" /> Dokumen Pendukung</Typography>
-                  
-                  <Grid container spacing={1.5}>
-                    {/* FOTO HP */}
-                    {selectedItem?.dokumen_pendukung_hp && (
-                      <>
-                        <ImageThumbnail url={selectedItem.dokumen_pendukung_hp.body} label="Body" />
-                        <ImageThumbnail url={selectedItem.dokumen_pendukung_hp.imei} label="IMEI" />
-                        <ImageThumbnail url={selectedItem.dokumen_pendukung_hp.about} label="About" />
-                        <ImageThumbnail url={selectedItem.dokumen_pendukung_hp.akun} label="Akun" />
-                        <ImageThumbnail url={selectedItem.dokumen_pendukung_hp.cam_depan} label="Cam Depan" />
-                        <ImageThumbnail url={selectedItem.dokumen_pendukung_hp.cam_belakang} label="Cam Belakang" />
-                        <ImageThumbnail url={selectedItem.dokumen_pendukung_hp.battery} label="Battery" />
-                        <ImageThumbnail url={selectedItem.dokumen_pendukung_hp.utools} label="uTools" />
-                      </>
-                    )}
+            {selectedItem?.perhitungan && (
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#e3f2fd', border: '1px solid #90caf9' }}>
+                <Typography variant="subtitle2" fontWeight="bold" color="primary" sx={{ mb: 1 }}>Rincian Pelunasan</Typography>
+                <Stack spacing={0.5}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="caption">Uang Pinjaman</Typography>
+                    <Typography variant="caption" fontWeight="bold">Rp {Number(selectedItem.perhitungan.pokok).toLocaleString()}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', color: 'error.main' }}>
+                    <Typography variant="caption">Total Denda (Terlambat {selectedItem.perhitungan.hari_terlambat} hari)</Typography>
+                    <Typography variant="caption" fontWeight="bold">Rp {(Number(selectedItem.perhitungan.denda) + Number(selectedItem.perhitungan.penalty)).toLocaleString()}</Typography>
+                  </Box>
+                  <Divider sx={{ my: 0.5 }} />
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body1" fontWeight="bold">Total Bayar</Typography>
+                    <Typography variant="body1" fontWeight="bold" color="primary">Rp {Number(selectedItem.perhitungan.total_bayar).toLocaleString()}</Typography>
+                  </Box>
+                  <Typography variant="caption" align="right" sx={{ fontStyle: 'italic', opacity: 0.7 }}>
+                    Jatuh Tempo: {selectedItem.perhitungan.jatuh_tempo}
+                  </Typography>
+                </Stack>
+              </Paper>
+            )}
+          </Stack>
+        </Grid>
 
-                    {/* FOTO EMAS/RETRO */}
-                    {selectedItem?.dokumen_pendukung_emas && (
-                      <>
-                        <ImageThumbnail url={selectedItem.dokumen_pendukung_emas.emas_timbangan_url} label="Timbangan" />
-                        <ImageThumbnail url={selectedItem.dokumen_pendukung_emas.gosokan_timer_url} label="Gosokan Timer" />
-                        <ImageThumbnail url={selectedItem.dokumen_pendukung_emas.gosokan_ktp_url} label="Gosokan KTP" />
-                        <ImageThumbnail url={selectedItem.dokumen_pendukung_emas.batu_url} label="Batu" />
-                        <ImageThumbnail url={selectedItem.dokumen_pendukung_emas.cap_merek_url} label="Cap Merek" />
-                        <ImageThumbnail url={selectedItem.dokumen_pendukung_emas.karatase_url} label="Karatase" />
-                      </>
-                    )}
+<Grid item xs={12} md={6}>
+  <Box sx={{ p: 2, border: '1px dashed #ccc', borderRadius: 2, bgcolor: '#fff', height: '100%' }}>
+    <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+      <PhotoLibraryIcon fontSize="small" /> Dokumen Pendukung
+    </Typography>
+    
+    <Grid container spacing={1.5}>
+      {/* 1. JIKA HP */}
+      {selectedItem?.dokumen_pendukung_hp && Object.entries(selectedItem.dokumen_pendukung_hp).map(([key, value]) => (
+        value && typeof value === 'string' && value.startsWith('http') && (
+          <ImageThumbnail key={key} url={value} label={key.toUpperCase()} />
+        )
+      ))}
 
-                    {(!selectedItem?.dokumen_pendukung_hp && !selectedItem?.dokumen_pendukung_emas) && (
-                      <Grid item xs={12}><Typography variant="caption" color="textSecondary">Tidak ada foto dokumen pendukung.</Typography></Grid>
-                    )}
-                  </Grid>
-                </Box>
-              </Grid>
-            </Grid>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 3, bgcolor: '#f1f3f4', borderTop: '1px solid #e0e0e0' }}>
-  <Button 
-    onClick={() => setOpenValidasi(false)} 
-    color="inherit" 
-    disabled={processLoading}
-    sx={{ textTransform: 'none', fontWeight: 'bold' }}
-  >
-    Batal
-  </Button>
-  
-  <Button 
-    variant="contained" 
-    color="info" 
-    onClick={handleValidasiSelesai} 
-    disabled={processLoading} 
-    startIcon={processLoading ? <CircularProgress size={20} color="inherit" /> : <CheckCircleIcon />}
-    sx={{ 
-      px: 4, 
-      borderRadius: '8px', 
-      textTransform: 'none', 
-      fontWeight: 'bold',
-      boxShadow: '0 4px 6px rgba(2, 136, 209, 0.2)' 
-    }}
-  >
-    {processLoading ? "Memvalidasi..." : "Ya, Nyatakan Lunas"}
-  </Button>
-</DialogActions>
-      </Dialog>
+      {selectedItem?.dokumen_pendukung_emas && Object.entries(selectedItem.dokumen_pendukung_emas).map(([key, value]) => (
+        key.endsWith('_url') && value && (
+          <ImageThumbnail 
+            key={key} 
+            url={value} 
+            label={key.replace('_url', '').replace('_', ' ').toUpperCase()} 
+          />
+        )
+      ))}
 
-      {/* --- DIALOG PREVIEW FOTO --- */}
-      <Dialog open={Boolean(previewImage)} onClose={() => setPreviewImage(null)} maxWidth="md">
-        <DialogTitle sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {previewImage?.label}
-          <IconButton onClick={() => setPreviewImage(null)} size="small"><CancelIcon /></IconButton>
-        </DialogTitle>
-        <DialogContent sx={{ p: 0, bgcolor: 'black', display: 'flex', justifyContent: 'center' }}>
-          <img src={previewImage?.url} alt="Preview" style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }} />
-        </DialogContent>
-      </Dialog>
+      {/* Fallback jika kosong */}
+      {(!selectedItem?.dokumen_pendukung_hp && !selectedItem?.dokumen_pendukung_emas) && (
+        <Grid item xs={12}>
+          <Typography variant="caption" color="textSecondary">Tidak ada foto dokumen pendukung.</Typography>
+        </Grid>
+      )}
+    </Grid>
+  </Box>
+</Grid>
+      </Grid>
+    )}
+  </DialogContent>
+
+  <DialogActions sx={{ p: 3, bgcolor: '#f1f3f4', borderTop: '1px solid #e0e0e0' }}>
+    <Button onClick={() => setOpenValidasi(false)} color="inherit" disabled={processLoading}>
+      Batal
+    </Button>
+    <Button 
+      variant="contained" color="info" onClick={handleValidasiSelesai} disabled={processLoading}
+      startIcon={processLoading ? <CircularProgress size={20} color="inherit" /> : <CheckCircleIcon />}
+      sx={{ px: 4, borderRadius: '8px', textTransform: 'none', fontWeight: 'bold' }}
+    >
+      {processLoading ? "Memvalidasi..." : "Ya, Nyatakan Lunas"}
+    </Button>
+  </DialogActions>
+</Dialog>
 
       {/* --- DIALOG DELETE --- */}
       <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>

@@ -3,149 +3,166 @@ import { io } from 'socket.io-client';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthContext } from '../../AuthContex/AuthContext'; 
+import { BadgeContext } from 'contexts/BadgeContext';
 
-const RAW_URL = import.meta.env.VITE_NOTIFICATION_SERVICE_URL;
-const API_URL = RAW_URL ? RAW_URL.replace(/\/$/, "") : ""; 
-const SOCKET_URL = API_URL;
+const API_URL = import.meta.env.VITE_NOTIFICATION_SERVICE_URL?.replace(/\/$/, "") || ""; 
 
 const NotificationListener = () => {
     const socketRef = useRef(null);
-    const [isSubscribed, setIsSubscribed] = useState(false);
+    const [isSubscribed, setIsSubscribed] = useState(false); 
     const { user, token } = useContext(AuthContext);
-    
-    // Mencegah notifikasi ganda (Double Trigger)
+    const { incrementBadge } = useContext(BadgeContext); 
     const processedNotifications = useRef(new Set());
 
     useEffect(() => {
-        if (!token) return;
+        if (!token || !user) return;
         
         if (socketRef.current?.connected) return;
 
-        // Inisialisasi Socket
-        socketRef.current = io(SOCKET_URL, {
-            auth: { token },
-            transports: ['websocket'],
+        const socket = io(API_URL, {
+            auth: { 
+                token: token,
+                applicationType: 'pawn-apps' 
+            },
+            transports: ['websocket', 'polling'],
             reconnection: true,
-            reconnectionAttempts: 5,
         });
 
-        const socket = socketRef.current;
+        socketRef.current = socket;
 
-        socket.on('connect', () => console.log('✅ Socket Connected'));
+        socket.on('connect', () => {
+            const payload = { 
+                userId: String(user.id || user.sub), 
+                applicationType: 'pawn-apps'
+            };
 
-        socket.on('notification', (data) => {
-            console.log('🔔 New Notification:', data);
+            socket.emit('register', payload, (response) => {
+                if (response?.success) {
+                    toast.success('Notifikasi real-time aktif!');
+                }
+            });
+        });
 
-            // Generate ID unik untuk Toast agar tidak overlap
-            const notifId = `${data.type}_${data.no_gadai}_${Date.now()}`;
+        socket.on('notification', (data) => handleIncomingNotification(data));
+        socket.on('trigger', (data) => handleIncomingNotification(data));
 
-            if (processedNotifications.current.has(notifId)) return;
-            processedNotifications.current.add(notifId);
-            setTimeout(() => processedNotifications.current.delete(notifId), 5000);
-
-            // Router Notifikasi berdasarkan Type
-            switch (data.type) {
-                case 'NEW_PAWN':
-                    handleNotify('success', 'GADAI BARU', data, 'notif-in.mp3', 'REFRESH_GADAI_BARU', notifId);
-                    break;
-
-                case 'REPEAT_ORDER':
-                    // Status: PROSES (Repeat Order)
-                    handleNotify('warning', '🔥 REPEAT ORDER', data, 'notif-in.mp3', 'REFRESH_REPEAT_ORDER', notifId);
-                    break;
-
-                case 'UNIT_VALIDATED':
-                    // Status: SELESAI
-                    handleNotify('info', 'UNIT SELESAI DIVALIDASI', data, 'notif-in.mp3', 'REFRESH_GADAI_SELESAI', notifId);
-                    break;
-
-                case 'PAYMENT_SUCCESS':
-                    // Status: LUNAS
-                    handleNotify('success', 'PELUNASAN BERHASIL', data, 'notif-success.mp3', 'REFRESH_GADAI_LUNAS', notifId);
-                    break;
-
-                default:
-                    handleNotify('default', data.title || 'NOTIFIKASI', data, 'notif-in.mp3', 'REFRESH_GENERAL', notifId);
+        socket.onAny((eventName, ...args) => {
+            if (!['connect', 'disconnect', 'connect_error', 'error', 'ping', 'pong'].includes(eventName)) {
+                if (args[0] && typeof args[0] === 'object') {
+                    handleIncomingNotification(args[0]);
+                }
             }
         });
 
-        socket.on('connect_error', (err) => console.error('❌ Socket Error:', err.message));
-
         return () => {
-            if (socket) {
-                socket.off('notification');
-                socket.disconnect();
+            if (socketRef.current) {
+                socketRef.current.offAny();
+                socketRef.current.removeAllListeners();
+                socketRef.current.disconnect();
             }
             socketRef.current = null;
         };
-    }, [token]);
+    }, [token, user]);
 
-    /**
-     * Reusable Logic untuk menampilkan Toast, Suara, dan Event Dispatcher
-     */
-    const handleNotify = (variant, title, data, soundFile, eventName, toastId) => {
-        const toastOptions = {
-            position: "top-right",
-            autoClose: variant === 'warning' ? 12000 : 6000, // Repeat order tampil lebih lama
-            theme: variant === 'default' ? 'light' : 'colored',
-            toastId: toastId,
-            closeOnClick: true,
-            pauseOnHover: true,
-        };
+    const handleIncomingNotification = (rawData) => {
+        try {
+            const payload = rawData.body || rawData.data || rawData;
+            const meta = payload.metadata || {};
+            
+            const notifType = (
+                rawData.type || 
+                rawData.notificationType || 
+                payload.type || 
+                payload.notificationType || 
+                meta.type ||
+                'GENERAL'
+            ).toUpperCase();
 
-        const toastContent = (
-            <div style={{ minWidth: '250px' }}>
-                <strong style={{ fontSize: '14px', letterSpacing: '0.5px' }}>{title}</strong>
-                <p style={{ fontSize: '12px', margin: '5px 0' }}>{data.message}</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', opacity: 0.9 }}>
-                    <small>No. Gadai: <strong>{data.no_gadai || '-'}</strong></small>
-                    {data.nama_nasabah && (
-                        <small>Nasabah: <strong>{data.nama_nasabah}</strong></small>
-                    )}
-                    {data.nominal_masuk && (
-                        <small>Uang Masuk: Rp {Number(data.nominal_masuk).toLocaleString('id-ID')}</small>
-                    )}
-                </div>
+            const data = {
+                no_gadai: payload.no_gadai || payload.noGadai || meta.noGadai || '-',
+                message: payload.message || meta.additional_message || payload.title || 'Update transaksi',
+                title: payload.title || 'Notifikasi',
+            };
+
+            const notifId = `${notifType}_${data.no_gadai}_${Date.now()}`;
+            if (processedNotifications.current.has(notifId)) return;
+            
+            processedNotifications.current.add(notifId);
+            setTimeout(() => processedNotifications.current.delete(notifId), 5000);
+
+            incrementBadge('NOTIF_LIST');
+            showNotification(notifType, data, notifId);
+        } catch (error) {
+            
+        }
+    };
+
+ const showNotification = (type, data, toastId) => {
+        const toastOptions = { position: "top-right", autoClose: 6000, toastId };
+        let variant = 'info';
+        let eventName = 'REFRESH_GENERAL';
+
+        switch (type) {
+            case 'NEW_PAWN':
+            case 'TRIGGER':
+                variant = 'success';
+                eventName = 'REFRESH_GADAI_BARU';
+                incrementBadge('NEW_PAWN');
+                break;
+            case 'UNIT_VALIDATED':
+                variant = 'success';
+                eventName = 'REFRESH_VALIDASI_UNIT';
+                break;
+            case 'REPEAT_ORDER':
+                variant = 'warning';
+                eventName = 'REFRESH_REPEAT_ORDER';
+                incrementBadge('REPEAT_ORDER');
+                break;
+            case 'PAYMENT_SUCCESS':
+                variant = 'success';
+                eventName = 'REFRESH_GADAI_LUNAS';
+                break;
+            case 'ITEM_AUCTIONED': 
+                variant = 'warning'; 
+                eventName = 'REFRESH_AUCTION_LIST';
+                incrementBadge('AUCTION_NOTIF');
+                break;
+            case 'DUE_DATE_REMINDER': 
+                variant = 'info'; 
+                eventName = 'REFRESH_DUE_DATE_REMINDERS';
+                incrementBadge('DUE_DATE_NOTIF');
+                break;
+            default:
+                variant = 'info';
+                break;
+        }
+
+        const content = (
+            <div style={{ cursor: 'pointer' }} onClick={() => data.url && window.open(data.url, '_blank')}>
+                <strong>{data.title}</strong>
+                <p style={{ fontSize: '12px', margin: '4px 0' }}>{data.message}</p>
+                <small style={{ opacity: 0.8 }}>No: {data.no_gadai}</small>
             </div>
         );
 
-        // Eksekusi Toast sesuai variant
-        if (variant === 'success') toast.success(toastContent, toastOptions);
-        else if (variant === 'warning') toast.warning(toastContent, toastOptions);
-        else if (variant === 'info') toast.info(toastContent, toastOptions);
-        else toast(toastContent, toastOptions);
+        if (variant === 'success') toast.success(content, toastOptions);
+        else if (variant === 'warning') toast.warning(content, toastOptions);
+        else toast.info(content, toastOptions);
 
-        // Bunyikan Audio
-        playAudio(`/sounds/${soundFile}`);
+        try {
+            new Audio(`/sounds/notif-in.mp3`).play().catch(() => {});
+        } catch (e) {}
 
-        // Dispatch Event agar UI lain (Table/Dashboard) auto-refresh
         window.dispatchEvent(new CustomEvent(eventName, { detail: data }));
     };
 
-    const playAudio = (url) => {
-        const audio = new Audio(url);
-        audio.volume = 0.6;
-        audio.play().catch(() => console.warn("🔊 Autoplay blocked by browser policy."));
-    };
-
-    /**
-     * Web Push Notification (Desktop)
-     */
     const handleSubscribe = async () => {
-        if (!token || !user) {
-            toast.error("Sesi berakhir, silakan login kembali.");
-            return;
-        }
-
+        if (!token || !user) return;
         try {
-            const registration = await navigator.serviceWorker.register('/sw.js');
             const permission = await Notification.requestPermission();
-            
-            if (permission !== 'granted') {
-                toast.error('Izin notifikasi ditolak.');
-                return;
-            }
-            
+            if (permission !== 'granted') return;
+
+            const registration = await navigator.serviceWorker.register('/sw.js');
             const keyRes = await fetch(`${API_URL}/web-push/vapid-public-key`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -156,7 +173,7 @@ const NotificationListener = () => {
                 applicationServerKey: urlBase64ToUint8Array(publicKey)
             });
 
-            const res = await fetch(`${API_URL}/web-push/subscribe`, {
+            await fetch(`${API_URL}/web-push/subscribe`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -165,19 +182,14 @@ const NotificationListener = () => {
                 body: JSON.stringify({
                     endpoint: subscription.endpoint,
                     keys: subscription.toJSON().keys,
-                    userId: user.id,
-                    userRole: user.role,
-                    applicationType: 'pawn-apps'
+                    userId: String(user.id || user.sub), 
+                    userRole: user.role?.toLowerCase(),
+                    applicationType: 'pawn-apps' 
                 })
             });
-
-            if (res.ok) {
-                setIsSubscribed(true);
-                toast.success("Notifikasi desktop aktif!");
-            }
-        } catch (error) {
-            console.error("Web Push Error:", error);
-        }
+            setIsSubscribed(true);
+            toast.success("Notifikasi desktop aktif!");
+        } catch (error) {}
     };
 
     const urlBase64ToUint8Array = (base64String) => {
@@ -204,11 +216,10 @@ const NotificationListener = () => {
                             borderRadius: '50px',
                             cursor: 'pointer',
                             fontWeight: 'bold',
-                            boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-                            fontSize: '14px'
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.3)'
                         }}
                     >
-                        🔔 Aktifkan Notifikasi Desktop
+                        Aktifkan Notifikasi Desktop
                     </button>
                 )}
             </div>

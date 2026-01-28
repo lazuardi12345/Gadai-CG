@@ -5,13 +5,14 @@ import { useSelector } from 'react-redux';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 
-// project import
 import theme from 'themes';
 import Routes from 'routes/index';
 import NavigationScroll from './NavigationScroll';
 import { AuthContext } from 'AuthContex/AuthContext';
 
-// IMPORT INI (Pastikan kamu sudah buat filenya)
+// 1. IMPORT BadgeProvider yang baru saja kita buat
+import { BadgeProvider } from 'contexts/BadgeContext'; 
+
 import NotificationListener from '../views/Notifications/NotificationListener'; 
 
 const App = () => {
@@ -27,18 +28,19 @@ const App = () => {
   }
 
   return (
-    <NavigationScroll>
-      <StyledEngineProvider injectFirst>
-        <ThemeProvider theme={theme(customization)}>
-          <CssBaseline />
-          
-          {/* PASANG DI SINI */}
-          <NotificationListener />
-          
-          <Routes />
-        </ThemeProvider>
-      </StyledEngineProvider>
-    </NavigationScroll>
+    <StyledEngineProvider injectFirst>
+      <ThemeProvider theme={theme(customization)}>
+        <CssBaseline />
+        {/* 2. BUNGKUS SEMUA DENGAN BadgeProvider */}
+        <BadgeProvider> 
+          <NavigationScroll>
+            {/* 3. NotificationListener diletakkan di dalam Provider */}
+            <NotificationListener />
+            <Routes />
+          </NavigationScroll>
+        </BadgeProvider>
+      </ThemeProvider>
+    </StyledEngineProvider>
   );
 };
 

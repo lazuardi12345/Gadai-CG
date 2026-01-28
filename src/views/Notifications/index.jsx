@@ -34,12 +34,9 @@ const NotificationsPage = () => {
             const res = await axiosInstance.get(notificationEndpoint);
             if (res.data.success) {
                 const newData = res.data.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-                // ==== Deteksi notifikasi baru untuk bunyi ====
                 const currentIds = newData.map(n => n.id);
                 const hasNew = currentIds.some(id => !lastNotifIds.current.includes(id));
                 if (hasNew && lastNotifIds.current.length > 0) {
-                    // putar suara hanya jika bukan fetch pertama
                     try {
                         const audio = notifSound.current;
                         audio.currentTime = 0;

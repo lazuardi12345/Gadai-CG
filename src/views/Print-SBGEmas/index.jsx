@@ -114,22 +114,31 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                     <Text style={{ position: "absolute", top: 110, left: 431, fontSize: 8, fontWeight: "bold" }}>{data.no_gadai}</Text>
                     <Text style={{ position: "absolute", top: 150, left: 427, fontSize: 6, fontWeight: "bold", width: 100, lineHeight: 1.2 }}>{formatEmasDetails(item, typeDisplay)}</Text>
 
-                    {isApproved && (
+                   {isApproved && (
                         <>
                             {data.metadata?.qr_code && (
                                 <Image 
                                     src={data.metadata.qr_code} 
                                     style={{ position: "absolute", top: 302, left: 330, width: 50, height: 50 }} 
                                 />
+
                             )}
-                            <Image 
-                                    src={data.metadata?.qr_code} 
-                                    style={{ position: "absolute", top: 42, left: 440, width: 65, height: 65 }} 
-                                />
+
+                          <Image 
+    src={data.metadata.qr_gudang} 
+    style={{ 
+        position: "absolute", 
+        top: 42, 
+        left: 440, 
+        width: 65, 
+        height: 65 
+    }} 
+/>
                             <Image 
                                 src={TtdManagerImg} 
                                 style={{ position: "absolute", top: 205, left: 295, width: 70, height: 55, zIndex: 1 }} 
                             />
+
                             <Image 
                                 src={StempelImg} 
                                 style={{ position: "absolute", top: 200, left: 270, width: 60, height: 60, zIndex: 2, opacity: 0.8 }} 

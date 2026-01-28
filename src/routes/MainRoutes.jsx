@@ -104,6 +104,8 @@ const LaporanStrukAwalMingguan = Loadable(lazy(() => import('views/Admin/Laporan
 const RekapPerpanjanganMingguan = Loadable(lazy(() => import('views/Admin/LaporanMingguan/StrukPerpanjangan')));
 const RekapPelunasanMingguan = Loadable(lazy(() => import('views/Admin/LaporanMingguan/strukPelunasan')));
 const RekapStrukPelunasanLelang = Loadable(lazy(() => import('views/Admin/LaporanMingguan/StrukLunasLelang')));
+const LaporanMutasiGudang = Loadable(lazy(() => import('views/gudang/laporanGudang/page')));
+const LaporanGudangCetak = Loadable(lazy(() => import('views/gudang/laporanGudang/laporan')));
 // ==============================|| MAIN ROUTES ||============================== //
 const MainRoutes = {
   path: '/',
@@ -181,6 +183,8 @@ const MainRoutes = {
     { path: '/laporan-struk-perpanjangan', element: <RekapPerpanjanganMingguan/> },
     { path: '/laporan-struk-pelunasan', element: <RekapPelunasanMingguan/> },
     { path: '/laporan-struk-pelunasan-lelang', element: <RekapStrukPelunasanLelang/> },
+    { path: '/laporan-gudang', element: <LaporanMutasiGudang/> },
+    { path: '/laporan-gudang-cetak', element: <LaporanGudangCetak/> },
 
 
 
