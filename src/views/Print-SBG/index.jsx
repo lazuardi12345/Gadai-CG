@@ -139,6 +139,9 @@ const SuratBuktiGadaiPDF = ({ data }) => {
     const nasabah = data?.nasabah || {};
     const hp = data?.hp || {};
     
+    // Mengambil metadata dari BE yang sudah kita buat sebelumnya
+    const { is_ttd_basah, signer_label, qr_code, qr_gudang } = data?.metadata || {};
+    
     const isApproved = 
         data?.is_approved === true || 
         data?.is_approved === 1 || 
@@ -150,6 +153,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                 size={[187 * 2.83465, 263 * 2.83465]}
                 style={{ position: "relative", fontFamily: "Roboto" }}
             >
+                {/* Background Template */}
                 <Image
                     src={templateBg}
                     style={{
@@ -170,6 +174,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         height: "100%",
                     }}
                 >
+                    {/* Header & Data Nasabah */}
                     <SafeText style={{ position: "absolute", top: 68, left: 190, fontSize: 13, fontWeight: "bold" }}>
                         {data.no_gadai}
                     </SafeText>
@@ -189,6 +194,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {nasabah.no_hp}
                     </SafeText>
 
+                    {/* Tanggal & Jatuh Tempo */}
                     <SafeText style={{ position: "absolute", top: 105, left: 303, fontSize: 7, fontWeight: "bold" }}>
                         {data.tanggal_gadai}
                     </SafeText>
@@ -196,6 +202,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {data.jatuh_tempo}
                     </SafeText>
 
+                    {/* Detail Barang (HP) */}
                     <SafeText style={{ position: "absolute", top: 158, left: 90, fontSize: 7 }}>
                         {cleanText(hp.nama_barang)}
                     </SafeText>
@@ -221,6 +228,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {(hp.kerusakan_list || []).map(k => k.nama_kerusakan).join(", ")}
                     </SafeText>
 
+                    {/* Nominal Pinjaman */}
                     <SafeText style={{ position: "absolute", top: 148, left: 320, fontSize: 7, fontWeight: "bold" }}>
                         {formatRupiah(data.taksiran)}
                     </SafeText>
@@ -241,10 +249,10 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {`${terbilang(data.uang_pinjaman)} Rupiah`}
                     </SafeText>
 
+                    {/* Data Sisi Kanan (Copy) */}
                     <SafeText style={{ position: "absolute", top: 110, left: 430, fontSize: 8, fontWeight: "bold" }}>
                         {data.no_gadai}
                     </SafeText>
-
                     <SafeText 
                         style={{ 
                             position: "absolute", 
@@ -259,39 +267,48 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                         {formatHpDetails(hp)} 
                     </SafeText>
 
+                    {/* Nama Nasabah Bawah */}
                     <SafeText style={{ position: "absolute", top: 239, left: 46, fontSize: 7 }}>
                         {nasabah.nama_lengkap}
                     </SafeText>
 
+                    {/* Logika Approval & Tanda Tangan */}
                     {isApproved && (
                         <>
-                            {data.metadata?.qr_code && (
+                            {/* QR Verifikasi SBG */}
+                            {qr_code && (
                                 <Image 
-                                    src={data.metadata.qr_code} 
+                                    src={qr_code} 
                                     style={{ position: "absolute", top: 302, left: 330, width: 50, height: 50 }} 
                                 />
-
                             )}
 
-                          <Image 
-    src={data.metadata.qr_gudang} 
-    style={{ 
-        position: "absolute", 
-        top: 42, 
-        left: 440, 
-        width: 65, 
-        height: 65 
-    }} 
-/>
-                            <Image 
-                                src={TtdManagerImg} 
-                                style={{ position: "absolute", top: 205, left: 295, width: 70, height: 55, zIndex: 1 }} 
-                            />
+                            {/* QR Gudang */}
+                            {qr_gudang && (
+                                <Image 
+                                    src={qr_gudang} 
+                                    style={{ position: "absolute", top: 42, left: 440, width: 65, height: 65 }} 
+                                />
+                            )}
 
+                            {/* Tanda Tangan Manager (Hanya muncul jika BUKAN ttd basah) */}
+                            {!is_ttd_basah && (
+                                <Image 
+                                    src={TtdManagerImg} 
+                                    style={{ position: "absolute", top: 205, left: 295, width: 70, height: 55, zIndex: 1 }} 
+                                />
+                            )}
+
+                            {/* Stempel (Selalu muncul baik ttd basah maupun digital) */}
                             <Image 
                                 src={StempelImg} 
                                 style={{ position: "absolute", top: 200, left: 270, width: 60, height: 60, zIndex: 2, opacity: 0.8 }} 
                             />
+
+                            {/* Label Jabatan (Kepala Toko / Manager Operasional) */}
+                            <SafeText style={{ position: "absolute", top: 240, left: 291, fontSize: 6, fontWeight: "bold", width: 83, textAlign: 'center' }}>
+                                {`${signer_label} `}
+                            </SafeText>
                         </>
                     )}
                 </View>

@@ -27,11 +27,32 @@ const NavItem = ({ item, level }) => {
   
   // Ambil data badge dari context
   const { badges, resetBadge } = useContext(BadgeContext);
-  const badgeValue = item.badgeKey ? (badges[item.badgeKey] || 0) : 0;
+
+  /** * LOGIKA BARU: Menghitung nilai badge
+   * Bisa menangani badgeKey berupa String tunggal atau Array
+   */
+  const getBadgeValue = () => {
+    if (!item.badgeKey) return 0;
+    
+    // Jika badgeKey adalah Array (Contoh: ['NEW_PAWN', 'REPEAT_ORDER'])
+    if (Array.isArray(item.badgeKey)) {
+      return item.badgeKey.reduce((acc, key) => acc + (badges[key] || 0), 0);
+    }
+    
+    // Jika badgeKey hanya String (Contoh: 'NEW_PAWN')
+    return badges[item.badgeKey] || 0;
+  };
+
+  const badgeValue = getBadgeValue();
 
   const Icon = item.icon;
   const itemIcon = item.icon ? (
-    <Badge badgeContent={badgeValue} color="error" sx={{ '& .MuiBadge-badge': { right: -2, top: 2 } }}>
+    <Badge 
+      badgeContent={badgeValue} 
+      color="error" 
+      max={99} // Biar kalau ribuan nggak kepanjangan (munculnya 99+)
+      sx={{ '& .MuiBadge-badge': { right: -2, top: 2 } }}
+    >
       <Icon color="inherit" />
     </Badge>
   ) : (
@@ -47,6 +68,19 @@ const NavItem = ({ item, level }) => {
     listItemProps = { component: 'a', href: item.url };
   }
 
+  const handleMenuClick = () => {
+    dispatch({ type: actionTypes.MENU_OPEN, isOpen: item.id });
+    
+    // LOGIKA BARU: Reset Badge saat diklik (Support Array)
+    if (item.badgeKey) {
+      if (Array.isArray(item.badgeKey)) {
+        item.badgeKey.forEach(key => resetBadge(key));
+      } else {
+        resetBadge(item.badgeKey);
+      }
+    }
+  };
+
   return (
     <ListItemButton
       disabled={item.disabled}
@@ -58,11 +92,7 @@ const NavItem = ({ item, level }) => {
       }}
       selected={customization.isOpen === item.id}
       component={Link}
-      onClick={() => {
-        dispatch({ type: actionTypes.MENU_OPEN, isOpen: item.id });
-        // Reset badge saat menu diklik
-        if (item.badgeKey) resetBadge(item.badgeKey);
-      }}
+      onClick={handleMenuClick}
       to={item.url}
       target={itemTarget}
       {...listItemProps}
@@ -99,7 +129,7 @@ NavItem.propTypes = {
   item: PropTypes.object,
   level: PropTypes.number,
   icon: PropTypes.object,
-  target: PropTypes.object,
+  target: PropTypes.string,
   url: PropTypes.string,
   disabled: PropTypes.bool,
   id: PropTypes.string,

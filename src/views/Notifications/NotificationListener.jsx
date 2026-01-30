@@ -1,195 +1,201 @@
-import React, { useEffect, useRef, useState, useContext } from 'react';
+import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthContext } from '../../AuthContex/AuthContext'; 
 import { BadgeContext } from 'contexts/BadgeContext';
+import { Box, Typography, Button, Paper, Stack } from '@mui/material';
 
 const API_URL = import.meta.env.VITE_NOTIFICATION_SERVICE_URL?.replace(/\/$/, "") || ""; 
+const SNOOZE_KEY = 'pawn_apps_notif_snooze';
 
 const NotificationListener = () => {
     const socketRef = useRef(null);
-    const [isSubscribed, setIsSubscribed] = useState(false); 
+    const [showPrompt, setShowPrompt] = useState(false);
     const { user, token } = useContext(AuthContext);
     const { incrementBadge } = useContext(BadgeContext); 
     const processedNotifications = useRef(new Set());
 
-    useEffect(() => {
-        if (!token || !user) return;
-        
-        if (socketRef.current?.connected) return;
-
-        const socket = io(API_URL, {
-            auth: { 
-                token: token,
-                applicationType: 'pawn-apps' 
-            },
-            transports: ['websocket', 'polling'],
-            reconnection: true,
-        });
-
-        socketRef.current = socket;
-
-        socket.on('connect', () => {
-            const payload = { 
-                userId: String(user.id || user.sub), 
-                applicationType: 'pawn-apps'
-            };
-
-            socket.emit('register', payload, (response) => {
-                if (response?.success) {
-                    toast.success('Notifikasi real-time aktif!');
-                }
+    const showWebPush = useCallback((data) => {
+        if (Notification.permission === 'granted') {
+            navigator.serviceWorker.ready.then((registration) => {
+                registration.showNotification(data.title, {
+                    body: data.message,
+                    icon: '/logo192.png',
+                    badge: '/logo192.png',
+                    vibrate: [200, 100, 200],
+                    data: { url: data.url },
+                    tag: data.no_gadai 
+                });
             });
-        });
-
-        socket.on('notification', (data) => handleIncomingNotification(data));
-        socket.on('trigger', (data) => handleIncomingNotification(data));
-
-        socket.onAny((eventName, ...args) => {
-            if (!['connect', 'disconnect', 'connect_error', 'error', 'ping', 'pong'].includes(eventName)) {
-                if (args[0] && typeof args[0] === 'object') {
-                    handleIncomingNotification(args[0]);
-                }
-            }
-        });
-
-        return () => {
-            if (socketRef.current) {
-                socketRef.current.offAny();
-                socketRef.current.removeAllListeners();
-                socketRef.current.disconnect();
-            }
-            socketRef.current = null;
-        };
-    }, [token, user]);
-
-    const handleIncomingNotification = (rawData) => {
-        try {
-            const payload = rawData.body || rawData.data || rawData;
-            const meta = payload.metadata || {};
-            
-            const notifType = (
-                rawData.type || 
-                rawData.notificationType || 
-                payload.type || 
-                payload.notificationType || 
-                meta.type ||
-                'GENERAL'
-            ).toUpperCase();
-
-            const data = {
-                no_gadai: payload.no_gadai || payload.noGadai || meta.noGadai || '-',
-                message: payload.message || meta.additional_message || payload.title || 'Update transaksi',
-                title: payload.title || 'Notifikasi',
-            };
-
-            const notifId = `${notifType}_${data.no_gadai}_${Date.now()}`;
-            if (processedNotifications.current.has(notifId)) return;
-            
-            processedNotifications.current.add(notifId);
-            setTimeout(() => processedNotifications.current.delete(notifId), 5000);
-
-            incrementBadge('NOTIF_LIST');
-            showNotification(notifType, data, notifId);
-        } catch (error) {
-            
         }
-    };
+    }, []);
 
- const showNotification = (type, data, toastId) => {
-        const toastOptions = { position: "top-right", autoClose: 6000, toastId };
-        let variant = 'info';
+    const triggerToast = useCallback((type, data, toastId) => {
+        const options = { position: "top-right", autoClose: 6000, toastId };
         let eventName = 'REFRESH_GENERAL';
-
-        switch (type) {
-            case 'NEW_PAWN':
-            case 'TRIGGER':
-                variant = 'success';
-                eventName = 'REFRESH_GADAI_BARU';
-                incrementBadge('NEW_PAWN');
-                break;
-            case 'UNIT_VALIDATED':
-                variant = 'success';
-                eventName = 'REFRESH_VALIDASI_UNIT';
-                break;
-            case 'REPEAT_ORDER':
-                variant = 'warning';
-                eventName = 'REFRESH_REPEAT_ORDER';
-                incrementBadge('REPEAT_ORDER');
-                break;
-            case 'PAYMENT_SUCCESS':
-                variant = 'success';
-                eventName = 'REFRESH_GADAI_LUNAS';
-                break;
-            case 'ITEM_AUCTIONED': 
-                variant = 'warning'; 
-                eventName = 'REFRESH_AUCTION_LIST';
-                incrementBadge('AUCTION_NOTIF');
-                break;
-            case 'DUE_DATE_REMINDER': 
-                variant = 'info'; 
-                eventName = 'REFRESH_DUE_DATE_REMINDERS';
-                incrementBadge('DUE_DATE_NOTIF');
-                break;
-            default:
-                variant = 'info';
-                break;
-        }
 
         const content = (
             <div style={{ cursor: 'pointer' }} onClick={() => data.url && window.open(data.url, '_blank')}>
                 <strong>{data.title}</strong>
                 <p style={{ fontSize: '12px', margin: '4px 0' }}>{data.message}</p>
-                <small style={{ opacity: 0.8 }}>No: {data.no_gadai}</small>
+                <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <small style={{ opacity: 0.8, fontWeight: 'bold' }}>No: {data.no_gadai}</small>
+                </Box>
             </div>
         );
 
-        if (variant === 'success') toast.success(content, toastOptions);
-        else if (variant === 'warning') toast.warning(content, toastOptions);
-        else toast.info(content, toastOptions);
+        switch (type) {
+            case 'NEW_PAWN':
+                incrementBadge('NEW_PAWN');
+                eventName = 'REFRESH_GADAI_BARU';
+                toast.success(content, options);
+                break;
 
-        try {
-            new Audio(`/sounds/notif-in.mp3`).play().catch(() => {});
-        } catch (e) {}
+            case 'UNIT_VALIDATED': 
+                incrementBadge('APPROVAL_HM'); 
+                eventName = 'REFRESH_VALIDASI_UNIT';
+                toast.success(content, { ...options, icon: "✅" });
+                break;
 
+            case 'PAYMENT_SUCCESS':
+                eventName = 'REFRESH_GADAI_LUNAS';
+                toast.success(content, { ...options, theme: "colored" });
+                break;
+
+            case 'ITEM_AUCTIONED': 
+                const statusLelang = data.status_lelang; 
+
+                if (statusLelang === 'terlelang') {
+                    incrementBadge('AUCTION_NOTIF');
+                    eventName = 'REFRESH_AUCTION_TERLELANG';
+                    toast.warning(content, { ...options, icon: "🔨" });
+                } else if (statusLelang === 'lunas') {
+                    eventName = 'REFRESH_AUCTION_LUNAS';
+                    toast.success(content, { ...options, icon: "💰" });
+                } else {
+                    incrementBadge('AUCTION_NOTIF');
+                    eventName = 'REFRESH_AUCTION_LIST';
+                    toast.error(content, options);
+                }
+                break;
+
+            case 'REPEAT_ORDER':
+                incrementBadge('REPEAT_ORDER');
+                eventName = 'REFRESH_REPEAT_ORDER';
+                toast.warning(content, options);
+                break;
+
+            case 'DUE_DATE_REMINDER':
+                incrementBadge('NOTIF_LIST');
+                eventName = 'REFRESH_DUE_DATE';
+                toast.info(content, options);
+                break;
+
+            default:
+                toast.info(content, options);
+        }
+
+        new Audio(`/sounds/notif-in.mp3`).play().catch(() => {});
         window.dispatchEvent(new CustomEvent(eventName, { detail: data }));
-    };
+    }, [incrementBadge]);
+
+    const handleIncoming = useCallback((rawData) => {
+        console.log("📥 Notif Masuk:", rawData);
+        
+        const payload = rawData.body || rawData.data || rawData;
+        const meta = payload.metadata || {};
+        
+        const type = (rawData.type || payload.notificationType || payload.type || meta.type || 'GENERAL').toUpperCase();
+        
+        const data = {
+            no_gadai: payload.noGadai || meta.noGadai || payload.no_gadai || '-',
+            title: payload.title || meta.title || 'Informasi Gadai',
+            message: payload.message || meta.additional_message || payload.body || 'Ada pembaruan data.',
+            url: payload.url || meta.directUrl || '/',
+            status_lelang: payload.status_lelang || meta.status_lelang || 'siap' 
+        };
+
+        const notifId = `${type}_${data.no_gadai}_${Date.now()}`;
+        if (processedNotifications.current.has(notifId)) return;
+        processedNotifications.current.add(notifId);
+        setTimeout(() => processedNotifications.current.delete(notifId), 5000);
+
+        showWebPush(data);     
+        incrementBadge('NOTIF_LIST'); 
+        triggerToast(type, data, notifId); 
+    }, [incrementBadge, triggerToast, showWebPush]);
+
+    useEffect(() => {
+        if (!token || !user) return;
+        if (socketRef.current?.connected) return;
+
+        const socket = io(API_URL, {
+            auth: { token, applicationType: 'pawn-apps' },
+            transports: ['websocket', 'polling'],
+        });
+
+        socketRef.current = socket;
+
+        socket.on('connect', () => {
+            socket.emit('register', { userId: String(user.id || user.sub), applicationType: 'pawn-apps' });
+        });
+
+        socket.on('notification', handleIncoming);
+        socket.on('trigger', handleIncoming);
+
+        socket.onAny((event, ...args) => {
+            if (!['connect', 'disconnect', 'error', 'ping'].includes(event) && args[0]) {
+                handleIncoming(args[0]);
+            }
+        });
+
+        return () => {
+            if (socketRef.current) socketRef.current.disconnect();
+            socketRef.current = null;
+        };
+    }, [token, user, handleIncoming]);
+
+    const checkSubscriptionStatus = useCallback(async () => {
+        if (!("Notification" in window)) return;
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.getSubscription();
+            if (Notification.permission === 'default' || !subscription) {
+                setShowPrompt(true);
+            }
+        } catch (e) {}
+    }, []);
+
+    useEffect(() => { checkSubscriptionStatus(); }, [checkSubscriptionStatus]);
 
     const handleSubscribe = async () => {
-        if (!token || !user) return;
         try {
             const permission = await Notification.requestPermission();
-            if (permission !== 'granted') return;
-
+            if (permission !== 'granted') return setShowPrompt(false);
+            
             const registration = await navigator.serviceWorker.register('/sw.js');
-            const keyRes = await fetch(`${API_URL}/web-push/vapid-public-key`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const keyRes = await fetch(`${API_URL}/web-push/vapid-public-key`, { headers: { 'Authorization': `Bearer ${token}` } });
             const { publicKey } = await keyRes.json();
-
+            
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: urlBase64ToUint8Array(publicKey)
             });
-
+            
             await fetch(`${API_URL}/web-push/subscribe`, {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({
                     endpoint: subscription.endpoint,
                     keys: subscription.toJSON().keys,
-                    userId: String(user.id || user.sub), 
-                    userRole: user.role?.toLowerCase(),
-                    applicationType: 'pawn-apps' 
+                    userId: String(user.id || user.sub),
+                    applicationType: 'pawn-apps'
                 })
             });
-            setIsSubscribed(true);
-            toast.success("Notifikasi desktop aktif!");
-        } catch (error) {}
+            setShowPrompt(false);
+            toast.success("Notifikasi Desktop Aktif!");
+        } catch (err) { console.error("WebPush Error:", err); }
     };
 
     const urlBase64ToUint8Array = (base64String) => {
@@ -204,25 +210,16 @@ const NotificationListener = () => {
     return (
         <>
             <ToastContainer limit={3} newestOnTop />
-            <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 1000 }}>
-                {!isSubscribed && (
-                    <button 
-                        onClick={handleSubscribe}
-                        style={{
-                            padding: '12px 24px',
-                            backgroundColor: '#28a745',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '50px',
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            boxShadow: '0 4px 15px rgba(0,0,0,0.3)'
-                        }}
-                    >
-                        Aktifkan Notifikasi Desktop
-                    </button>
-                )}
-            </div>
+            {showPrompt && (
+                <Paper elevation={10} sx={{ position: 'fixed', bottom: 25, right: 25, zIndex: 9999, p: 2.5, maxWidth: 340, borderRadius: 4, borderLeft: '6px solid #2e7d32' }}>
+                    <Typography variant="subtitle1" fontWeight="bold">Aktifkan Notifikasi Desktop? 🔔</Typography>
+                    <Typography variant="body2" sx={{ my: 1, color: 'text.secondary' }}>Agar update alur lelang (Siap, Terlelang, Lunas) tetap terpantau.</Typography>
+                    <Stack direction="row" spacing={1.5} mt={1.5}>
+                        <Button fullWidth variant="contained" color="success" size="small" onClick={handleSubscribe} sx={{ borderRadius: 2 }}>Aktifkan</Button>
+                        <Button fullWidth variant="outlined" color="inherit" size="small" onClick={() => setShowPrompt(false)} sx={{ borderRadius: 2 }}>Nanti</Button>
+                    </Stack>
+                </Paper>
+            )}
         </>
     );
 };

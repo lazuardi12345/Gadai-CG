@@ -30,6 +30,18 @@ Font.register({
 const DESIGN_WIDTH_PT = 187 * 2.83465;
 const DESIGN_HEIGHT_PT = 263 * 2.83465;
 
+const cleanText = (text) => {
+    if (!text) return "-";
+    return String(text).trim();
+};
+
+const SafeText = ({ children, style }) => {
+    const content = children !== null && children !== undefined && children !== "" 
+        ? cleanText(children) 
+        : "-";
+    return <Text style={style}>{content}</Text>;
+};
+
 const toText = (value) => {
     if (!value) return "-";
     if (Array.isArray(value)) return value.map(v => typeof v === "object" ? (v.nama_kelengkapan || v.nama) : v).join(", ");
@@ -59,7 +71,6 @@ const terbilang = (angka) => {
     return "Angka terlalu besar";
 };
 
-// Gabungkan detail emas untuk potongan kecil di sebelah kanan
 const formatEmasDetails = (item, typeName) => {
     if (!item) return "-";
     const kelengkapan = toText(item.kelengkapan_emas || item.kelengkapan);
@@ -77,6 +88,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
     const nasabah = data?.nasabah || {};
     const item = data?.perhiasan || data?.logam_mulia || data?.retro || {};
     const typeDisplay = data?.type?.nama_type || "-";
+    const { is_ttd_basah, signer_label, qr_code, qr_gudang } = data?.metadata || {};
     
     const isApproved = 
         data?.is_approved === true || 
@@ -89,6 +101,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                 <Image src={templateBg} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }} />
                 
                 <View style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}>
+                    {/* Data Header & Nasabah */}
                     <Text style={{ position: "absolute", top: 69, left: 183, fontSize: 12, fontWeight: "bold" }}>{data.no_gadai}</Text>
                     <Text style={{ position: "absolute", top: 92, left: 85, fontSize: 7 }}>{data.no_nasabah}</Text>
                     <Text style={{ position: "absolute", top: 102, left: 85, fontSize: 7 }}>{nasabah.nik}</Text>
@@ -99,6 +112,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                     <Text style={{ position: "absolute", top: 109, left: 300, fontSize: 7, fontWeight: "bold" }}>{data.tanggal_gadai}</Text>
                     <Text style={{ position: "absolute", top: 130, left: 300, fontSize: 7, fontWeight: "bold" }}>{data.jatuh_tempo}</Text>
 
+                    {/* Detail Barang Emas */}
                     <Text style={{ position: "absolute", top: 161, left: 85, fontSize: 7 }}>{toText(item.nama_barang)}</Text>
                     <Text style={{ position: "absolute", top: 174, left: 85, fontSize: 7 }}>{toText(typeDisplay)}</Text>
                     <Text style={{ position: "absolute", top: 185, left: 85, fontSize: 7 }}>{toText(item.kelengkapan_emas || item.kelengkapan)}</Text>
@@ -106,6 +120,7 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                     <Text style={{ position: "absolute", top: 160, left: 185, fontSize: 7 }}>{toText(item.kode_cap)}</Text>
                     <Text style={{ position: "absolute", top: 185, left: 185, fontSize: 7 }}>{toText(item.potongan_batu)}</Text>
 
+                    {/* Nominal */}
                     <Text style={{ position: "absolute", top: 147, left: 321, fontSize: 7, fontWeight: "bold" }}>{formatRupiah(data.taksiran)}</Text>
                     <Text style={{ position: "absolute", top: 158, left: 321, fontSize: 7, fontWeight: "bold" }}>{formatRupiah(data.uang_pinjaman)}</Text>
                     <Text style={{ position: "absolute", top: 171, left: 321, fontSize: 7, fontWeight: "bold", width: 60, lineHeight: 1.2 }}>{terbilang(data.uang_pinjaman)} Rupiah</Text>
@@ -114,35 +129,48 @@ const SuratBuktiGadaiPDF = ({ data }) => {
                     <Text style={{ position: "absolute", top: 110, left: 431, fontSize: 8, fontWeight: "bold" }}>{data.no_gadai}</Text>
                     <Text style={{ position: "absolute", top: 150, left: 427, fontSize: 6, fontWeight: "bold", width: 100, lineHeight: 1.2 }}>{formatEmasDetails(item, typeDisplay)}</Text>
 
-                   {isApproved && (
+                    {/* Logika Approval & Tanda Tangan */}
+                    {isApproved && (
                         <>
-                            {data.metadata?.qr_code && (
+                            {qr_code && (
                                 <Image 
-                                    src={data.metadata.qr_code} 
+                                    src={qr_code} 
                                     style={{ position: "absolute", top: 302, left: 330, width: 50, height: 50 }} 
                                 />
-
                             )}
 
-                          <Image 
-    src={data.metadata.qr_gudang} 
-    style={{ 
-        position: "absolute", 
-        top: 42, 
-        left: 440, 
-        width: 65, 
-        height: 65 
-    }} 
-/>
-                            <Image 
-                                src={TtdManagerImg} 
-                                style={{ position: "absolute", top: 205, left: 295, width: 70, height: 55, zIndex: 1 }} 
-                            />
+                            {qr_gudang && (
+                                <Image 
+                                    src={qr_gudang} 
+                                    style={{ position: "absolute", top: 42, left: 440, width: 65, height: 65 }} 
+                                />
+                            )}
+
+                            {!is_ttd_basah && (
+                                <Image 
+                                    src={TtdManagerImg} 
+                                    style={{ position: "absolute", top: 205, left: 295, width: 70, height: 55, zIndex: 1 }} 
+                                />
+                            )}
 
                             <Image 
                                 src={StempelImg} 
                                 style={{ position: "absolute", top: 200, left: 270, width: 60, height: 60, zIndex: 2, opacity: 0.8 }} 
                             />
+
+                            <SafeText 
+                                style={{ 
+                                    position: "absolute", 
+                                    top: is_ttd_basah ? 240 : 230, 
+                                    left: 291, 
+                                    fontSize: 6, 
+                                    fontWeight: "bold", 
+                                    width: 83, 
+                                    textAlign: 'center' 
+                                }}
+                            >
+                                {`${signer_label}`}
+                            </SafeText>
                         </>
                     )}
                 </View>
@@ -209,7 +237,6 @@ const PrintSuratGadaiEmasPage = () => {
     if (loading) return <CircularProgress sx={{ display: "block", mx: "auto", mt: 10 }} />;
     if (!dataGadai) return <Typography align="center">Data tidak ditemukan</Typography>;
 
-    
     const approvalStatus = dataGadai?.approval_status || 'draft';
     const isApproved = approvalStatus === 'approved';
     const isPending = approvalStatus === 'pending';
@@ -252,7 +279,7 @@ const PrintSuratGadaiEmasPage = () => {
                             variant="contained" fullWidth onClick={handlePrintPDF}
                             sx={{ py: 1.5, bgcolor: isApproved ? '#2e7d32' : '#4a5568' }}
                         >
-                            {isApproved ? "CETAK SBG RESMI (TTD DIGITAL)" : "CETAK DRAFT (TTD MANUAL)"}
+                            {isApproved ? "CETAK SBG RESMI" : "CETAK DRAFT (TTD MANUAL)"}
                         </Button>
                     </Box>
                 </Box>

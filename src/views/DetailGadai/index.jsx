@@ -107,7 +107,7 @@ const DetailGadaiPage = () => {
       Swal.fire({
         icon: 'success',
         title: 'Validasi Berhasil!',
-        html: `Status transaksi sudah menjadi <b style="color: #2e7d32;">LUNAS</b>.<br/>.`,
+        html: `Status transaksi sudah menjadi <b style="color: #2e7d32;">Selesai</b>.<br/>.`,
         showConfirmButton: false,
         timer: 2500,
         timerProgressBar: true,
@@ -419,10 +419,10 @@ const handleSubmitLunas = async () => {
                    <TableCell align="center">
   <Stack spacing={0.2} alignItems="center">
     <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
-      Gadai: {item.tanggal_gadai}
+      Gadai: {new Date(item.tanggal_gadai).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}
     </Typography>
     <Typography variant="caption" fontWeight="bold" color="error.main" sx={{ fontSize: '0.65rem' }}>
-      JT: {item.jatuh_tempo}
+      JT: {new Date(item.jatuh_tempo).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}
     </Typography>
 
     {/* PERBAIKAN DISINI: Langsung akses item.hari_keterlambatan */}
@@ -490,7 +490,6 @@ const handleSubmitLunas = async () => {
     size="small" 
     onClick={() => { 
       setSelectedItem(item);
-      setNominalBayar("");
       setFileBukti(null);
       
       const pokok = Number(item.uang_pinjaman || 0);
@@ -530,6 +529,7 @@ const handleSubmitLunas = async () => {
       });
       
       setTargetBayar(totalBayar);
+      setNominalBayar(totalBayar.toString()); // OTOMATIS TERISI DENGAN TOTAL TEBUSAN
       setOpenLunas(true);
     }} 
     sx={{ fontSize: '0.65rem', textTransform: 'none' }}
@@ -748,7 +748,7 @@ const handleSubmitLunas = async () => {
       startIcon={processLoading ? <CircularProgress size={20} color="inherit" /> : <CheckCircleIcon />}
       sx={{ px: 4, borderRadius: '8px', textTransform: 'none', fontWeight: 'bold' }}
     >
-      {processLoading ? "Memvalidasi..." : "Ya, Nyatakan Lunas"}
+      {processLoading ? "Memvalidasi..." : "Ya, Pengecekan selesai"}
     </Button>
   </DialogActions>
 </Dialog>
@@ -789,7 +789,10 @@ const handleSubmitLunas = async () => {
         variant="outlined"
         value={nominalBayar}
         onChange={(e) => setNominalBayar(e.target.value)}
-        helperText="Masukkan jumlah uang yang diterima"
+        helperText="Nominal sudah terisi otomatis, ubah jika nasabah bayar lebih"
+        InputProps={{
+          readOnly: false, // Tetap bisa diubah jika nasabah bayar lebih
+        }}
       />
 
       <TextField

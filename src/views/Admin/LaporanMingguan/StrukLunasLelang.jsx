@@ -11,12 +11,9 @@ const RekapPelelanganBulanan = () => {
   const { user } = useContext(AuthContext);
   
   const userRole = (user?.role || localStorage.getItem('role') || "").toLowerCase();
-
-  // Menggunakan filter bulan (YYYY-MM) agar sesuai dengan logic default Backend
   const [bulan, setBulan] = useState(new Date().toISOString().slice(0, 7)); 
 
   const getApiUrl = useCallback(() => {
-    // Menyesuaikan path sesuai role
     const path = `/rekap-bulanan-lelang`;
     return userRole === "admin" ? `/admin${path}` : path;
   }, [userRole]);
@@ -25,7 +22,6 @@ const RekapPelelanganBulanan = () => {
     if (!userRole) return;
     setLoading(true);
     try {
-      // Mengirim params 'bulan' ke endpoint Laravel
       const res = await axiosInstance.get(getApiUrl(), { 
         params: { bulan: bulan } 
       });
@@ -94,8 +90,6 @@ const RekapPelelanganBulanan = () => {
                       {isLunas ? "Struk Penebusan" : "Struk Barang Terlelang"}
                     </div>
                   </div>
-
-                  {/* Bagian Waktu Bahasa Indonesia dari Backend */}
                   <div className="row" style={{ marginTop: '8px', borderBottom: '1.2px solid #000', paddingBottom: '2px' }}>
                     <span style={{ fontSize: '8px' }}>{item.label_waktu}:</span>
                     <span className="bold" style={{ fontSize: '8px' }}>{item.tanggal} | {item.waktu} </span>

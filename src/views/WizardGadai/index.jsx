@@ -44,7 +44,7 @@ const GadaiHpWizardPage = () => {
   const [loading, setLoading] = useState(false);
   const baseUrl = getRoleBaseUrl();
 
- const [nasabah, setNasabah] = useState({ 
+const [nasabah, setNasabah] = useState({ 
     nama_lengkap: "", 
     nik: "", 
     alamat: "", 
@@ -269,8 +269,8 @@ const getPreviewValues = () => {
   };
 
   return (
-    <Card sx={{ p: 2, maxWidth: 900, mx: "auto", mt: 2 }}>
-      <CardHeader title="Wizard Gadai HP" subheader={`Step ${step} dari 3`} />
+    <Card sx={{ p: 2, maxWidth: 900, mx: "auto", mt: 2 }}>++
+      <CardHeader title="Gadai HP" subheader={`Step ${step} dari 3`} />
       <CardContent>
         
         {step === 1 && (
