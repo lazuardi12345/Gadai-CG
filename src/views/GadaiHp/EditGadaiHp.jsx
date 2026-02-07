@@ -1,16 +1,17 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext, useMemo } from "react";
 import {
   Box, Grid, Typography, Stack, Button, CircularProgress, Paper,
-  TextField, Checkbox, Divider, Select, MenuItem, Dialog, DialogContent, IconButton
+  TextField, Checkbox, Divider, Select, MenuItem, Dialog, DialogContent, IconButton, Chip
 } from "@mui/material";
-import { ArrowBack, Close, OpenInNew } from "@mui/icons-material";
+import { ArrowBack, Close, PhotoCamera, Folder, Save, Person, ReceiptLong, CheckBox as CheckBoxIcon, DeleteForever } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { AuthContext } from "AuthContex/AuthContext";
+import imageCompression from 'browser-image-compression';
 
 const DOKUMEN_SOP_HP = {
   Android: ['body', 'imei', 'about', 'akun', 'admin', 'cam_depan', 'cam_belakang', 'rusak'],
-  Samsung: ['body', 'imei', 'about', 'samsung_account', 'admin', 'cam_depan', 'cam_belakang', 'galaxy_store'],
+  SONY: ['body', 'imei', 'about', 'akun', 'admin', 'cam_depan', 'cam_belakang', 'rusak'],
   iPhone: ['body', 'imei', 'about', 'icloud', 'battery', 'utools', 'iunlocker', 'cek_pencurian'],
 };
 
@@ -20,9 +21,10 @@ const baseStorageUrl = (path) =>
 const EditGadaiHpPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
   const { user } = useContext(AuthContext);
+  
   const userRole = (user?.role || "").toLowerCase();
+  const prefix = userRole === "checker" ? "/checker" : "";
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,6 +36,7 @@ const EditGadaiHpPage = () => {
   const [totalPotonganKerusakan, setTotalPotonganKerusakan] = useState(0);
   const [totalKelengkapan, setTotalKelengkapan] = useState(0);
   const [dokumenFiles, setDokumenFiles] = useState({});
+  const [removedFiles, setRemovedFiles] = useState([]); // Track file yang dihapus
   const [openPreview, setOpenPreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
 
@@ -41,315 +44,262 @@ const EditGadaiHpPage = () => {
     if (!userRole) return;
     setLoading(true);
     try {
-      let baseUrl = userRole === "checker" ? "/checker/gadai-hp" : "/gadai-hp";
-      const res = await axiosInstance.get(`${baseUrl}/${id}`);
+      const res = await axiosInstance.get(`${prefix}/gadai-hp/${id}`);
       const raw = res.data.data;
-      
       setData(raw);
-      let initialGradeNominal = 0;
-      if (raw.grade && raw.grade_type) {
-        const key = `grade_${raw.grade_type}`;
-        initialGradeNominal = Number(raw.grade[key]) || Number(raw.grade_nominal) || 0;
-      }
-      setGradeNominal(initialGradeNominal);
+      setGradeNominal(Number(raw.grade_nominal) || 0);
 
-      if (raw.grade) {
-        setGrades([
-          { value: "a_dus", label: "Grade A (Dus)", nominal: raw.grade.grade_a_dus },
-          { value: "a_tanpa_dus", label: "Grade A (Tanpa Dus)", nominal: raw.grade.grade_a_tanpa_dus },
-          { value: "b_dus", label: "Grade B (Dus)", nominal: raw.grade.grade_b_dus },
-          { value: "b_tanpa_dus", label: "Grade B (Tanpa Dus)", nominal: raw.grade.grade_b_tanpa_dus },
-          { value: "c_dus", label: "Grade C (Dus)", nominal: raw.grade.grade_c_dus },
-          { value: "c_tanpa_dus", label: "Grade C (Tanpa Dus)", nominal: raw.grade.grade_c_tanpa_dus },
-        ]);
-      }
+      const gList = raw.grade ? [
+        { value: "a_dus", label: "A DUS", nominal: raw.grade.grade_a_dus },
+        { value: "a_tanpa_dus", label: "A TANPA DUS", nominal: raw.grade.grade_a_tanpa_dus },
+        { value: "b_dus", label: "B DUS", nominal: raw.grade.grade_b_dus },
+        { value: "b_tanpa_dus", label: "B TANPA DUS", nominal: raw.grade.grade_b_tanpa_dus },
+        { value: "c_dus", label: "C DUS", nominal: raw.grade.grade_c_dus },
+        { value: "c_tanpa_dus", label: "C TANPA DUS", nominal: raw.grade.grade_c_tanpa_dus },
+      ] : [{ value: raw.grade_type, label: (raw.grade_type || "").replace(/_/g, ' ').toUpperCase(), nominal: raw.grade_nominal }];
+      setGrades(gList);
 
       const [kerRes, kelRes] = await Promise.all([
-        axiosInstance.get("/kerusakan"),
-        axiosInstance.get("/kelengkapan")
+        axiosInstance.get(`${prefix}/kerusakan`),
+        axiosInstance.get(`${prefix}/kelengkapan`)
       ]);
 
-      const kerMaster = kerRes.data.data.items || [];
-      setKerusakanList(kerMaster.map((m) => {
+      const currentGradeNom = Number(raw.grade_nominal) || 0;
+      setKerusakanList((kerRes.data.data.items || []).map((m) => {
         const exist = raw.kerusakan_list?.find((r) => r.id === m.id);
+        const autoPotongan = (Number(m.persen) / 100) * currentGradeNom;
         return {
           id: m.id,
           nama: m.nama_kerusakan,
-          nominal_override: exist ? (exist.pivot?.nominal_override ?? m.nominal) : m.nominal,
+          nominal_override: exist ? (exist.pivot?.nominal_override ?? autoPotongan) : autoPotongan,
           checked: !!exist,
         };
       }));
 
-      const kelMaster = kelRes.data.data.items || [];
-      setKelengkapanList(kelMaster.map((m) => {
+      setKelengkapanList((kelRes.data.data.items || []).map((m) => {
         const exist = raw.kelengkapan_list?.find((r) => r.id === m.id);
         return {
           id: m.id,
           nama: m.nama_kelengkapan,
-          nominal_override: exist ? (exist.pivot?.nominal_override ?? m.nominal) : m.nominal,
+          nominal_override: exist ? (exist.pivot?.nominal_override ?? 0) : 0,
           checked: !!exist,
         };
       }));
-
-    } catch (err) {
-      console.error(err);
-      alert(err.response?.data?.message || "Gagal memuat data");
-      navigate(-1);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error("Fetch Error:", err); } finally { setLoading(false); }
   };
 
   useEffect(() => { fetchData(); }, [id, userRole]);
 
   useEffect(() => {
     const potongan = kerusakanList.filter(x => x.checked).reduce((s, i) => s + (Number(i.nominal_override) || 0), 0);
-    const plus = kelengkapanList.filter(x => x.checked).reduce((s, i) => s + (Number(i.nominal_override) || 0), 0);
+    const penambah = kelengkapanList.filter(x => x.checked).reduce((s, i) => s + (Number(i.nominal_override) || 0), 0);
     setTotalPotonganKerusakan(potongan);
-    setTotalKelengkapan(plus);
-  }, [kerusakanList, kelengkapanList]);
+    setTotalKelengkapan(penambah);
+  }, [kerusakanList, kelengkapanList, gradeNominal]);
 
-  const finalTaksiran = gradeNominal - totalPotonganKerusakan + totalKelengkapan;
+  const finalTaksiran = useMemo(() => gradeNominal - totalPotonganKerusakan + totalKelengkapan, [gradeNominal, totalPotonganKerusakan, totalKelengkapan]);
+
+
+
+const handleFileChange = async (key, file) => {
+  if (!file) return;
+
+  const options = {
+    maxSizeMB: 0.8,       
+    maxWidthOrHeight: 1920,   
+    useWebWorker: true,
+    initialQuality: 0.8       
+  };
+
+  try {
+
+    const compressedFile = await imageCompression(file, options);
+
+    const uniqueFile = new File([compressedFile], `${key}_${Date.now()}.jpg`, { 
+      type: "image/jpeg" 
+    });
+
+    setDokumenFiles(prev => ({ ...prev, [key]: uniqueFile }));
+    setRemovedFiles(prev => prev.filter(item => item !== key));
+    
+    console.log(`Original: ${(file.size / 1024).toFixed(2)} KB`);
+    console.log(`Compressed: ${(compressedFile.size / 1024).toFixed(2)} KB`);
+
+  } catch (error) {
+    console.error("Gagal kompres foto:", error);
+  }
+};
+
+  const handleRemovePhoto = (key) => {
+    setDokumenFiles(prev => {
+      const copy = { ...prev };
+      delete copy[key];
+      return copy;
+    });
+    setRemovedFiles(prev => [...new Set([...prev, key])]);
+  };
 
   const handleSubmit = async () => {
     if (saving) return;
     setSaving(true);
-    
     try {
-      const baseUrl = userRole === "checker" ? "/checker/gadai-hp" : "/gadai-hp";
       const formData = new FormData();
       formData.append("_method", "PUT");
-      const uangPinjaman = Math.round(Number(finalTaksiran) || 0);
-      const taksiranDatabase = Number(data.detail_gadai?.taksiran) || (uangPinjaman * 1.1);
-      const sendTaksiran = Math.round(taksiranDatabase);
 
-      formData.append("grade_nominal", Number(gradeNominal) || 0);
-      formData.append("taksiran", sendTaksiran); 
-      formData.append("uang_pinjaman", uangPinjaman);
-      
-      formData.append("grade_hp_id", data.grade_hp_id || "");
-      formData.append("grade_type", data.grade_type || "");
+      // 1. DATA TEXT
+      const fields = ["imei", "warna", "ram", "rom", "grade_type", "kunci_password", "kunci_pin", "kunci_pola"];
+      fields.forEach(f => formData.append(f, data[f] || ""));
+      formData.append("grade_nominal", Math.round(gradeNominal));
 
+      // 2. KERUSAKAN & KELENGKAPAN
       kerusakanList.filter(i => i.checked).forEach((i, idx) => {
         formData.append(`kerusakan[${idx}][id]`, i.id);
-        formData.append(`kerusakan[${idx}][nominal_override]`, Number(i.nominal_override) || 0);
+        formData.append(`kerusakan[${idx}][nominal_override]`, Math.round(i.nominal_override));
       });
-
       kelengkapanList.filter(i => i.checked).forEach((i, idx) => {
         formData.append(`kelengkapan[${idx}][id]`, i.id);
-        formData.append(`kelengkapan[${idx}][nominal_override]`, Number(i.nominal_override) || 0);
       });
 
-      Object.entries(dokumenFiles).forEach(([key, file]) => {
-        if (file instanceof File) formData.append(key, file);
+      // 3. FOTO DOKUMEN (Prefix file_)
+Object.entries(dokumenFiles).forEach(([key, file]) => {
+  console.log(`Menambahkan ke FormData: file_${key}`, file); // Cek di console log HP/Laptop
+  if (file instanceof File) formData.append(`file_${key}`, file);
+});
+
+      // 4. SIGNAL HAPUS FILE (Agar Backend bersihkan Minio)
+      removedFiles.forEach(key => formData.append("remove_files[]", key));
+
+      const response = await axiosInstance.post(`${prefix}/gadai-hp/${id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" }
       });
 
-      ["imei", "warna", "kunci_password", "kunci_pin", "kunci_pola", "ram", "rom"].forEach((key) => {
-        formData.append(key, data[key] || "");
-      });
-
-      await axiosInstance.post(`${baseUrl}/${id}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      alert("Berhasil memperbarui data gadai!");
-      navigate(-1);
+      if (response.data.success) {
+        alert("✅ Data & Foto Berhasil Diperbarui!");
+        navigate(-1);
+      }
     } catch (err) {
-      console.error("Error Detail:", err.response?.data);
-      alert(err.response?.data?.message || "Gagal menyimpan perubahan.");
-    } finally {
-      setSaving(false);
-    }
+      alert("Gagal: " + (err.response?.data?.message || "Server Error"));
+    } finally { setSaving(false); }
   };
 
-  const sopKeys = () => {
-    const nama = data.nama_barang;
-    const merk = data.merk?.nama_merk;
-    const typeHp = data.type_hp?.nama_type;
-    return Array.from(new Set([
-      ...(DOKUMEN_SOP_HP[nama] || []),
-      ...(DOKUMEN_SOP_HP[merk] || []),
-      ...(DOKUMEN_SOP_HP[typeHp] || []),
-    ]));
-  };
-
-  if (loading) return (
-    <Stack alignItems="center" justifyContent="center" sx={{ height: "70vh" }}>
-      <CircularProgress />
-    </Stack>
-  );
+  if (loading) return <Box sx={{ textAlign: 'center', mt: 10 }}><CircularProgress /></Box>;
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: "auto", mt: 3, mb: 8, px: 2 }}>
-      <Paper elevation={2} sx={{ position: "sticky", top: 16, zIndex: 20, borderRadius: 3, mb: 3 }}>
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", px: 3, py: 2 }}>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <IconButton onClick={() => navigate(-1)}><ArrowBack /></IconButton>
-            <Box>
-              <Typography variant="h6" fontWeight={700}>Edit Gadai HP</Typography>
-              <Typography variant="body2" color="text.secondary">
-                {data.merk?.nama_merk} • {data.type_hp?.nama_type}
-              </Typography>
-            </Box>
-          </Stack>
-          {data.detail_gadai?.status === 'lunas' && (
-            <Typography variant="overline" sx={{ bgcolor: 'success.main', color: 'white', px: 2, borderRadius: 1 }}>LUNAS</Typography>
-          )}
-        </Box>
+    <Box sx={{ maxWidth: 1200, mx: "auto", mt: 2, mb: 10, px: 2 }}>
+      <Paper elevation={2} sx={{ p: 2, mb: 3, borderRadius: 3, borderLeft: '6px solid #1976d2' }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item><IconButton onClick={() => navigate(-1)}><ArrowBack /></IconButton></Grid>
+          <Grid item xs>
+            <Typography variant="h6" fontWeight={800}>{data.detail_gadai?.no_gadai}</Typography>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Typography variant="caption" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><Person fontSize="inherit" /> {data.detail_gadai?.nasabah?.nama_lengkap}</Typography>
+              <Chip label={data.detail_gadai?.status?.toUpperCase()} size="small" color="success" sx={{ height: 20, fontSize: 10, fontWeight: 700 }} />
+            </Stack>
+          </Grid>
+          <Grid item><Button variant="contained" startIcon={<Save />} onClick={handleSubmit} disabled={saving}>{saving ? "SAVING..." : "SIMPAN"}</Button></Grid>
+        </Grid>
       </Paper>
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={4}>
-          <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
+          <Paper sx={{ p: 3, borderRadius: 3 }}>
+            <Typography fontWeight={700} mb={2} display="flex" alignItems="center" gap={1}><ReceiptLong fontSize="small" /> Detail Unit</Typography>
             <Stack spacing={2}>
-              <Typography fontWeight={700} textAlign="center" variant="h6">Data Barang</Typography>
-              <Divider />
-              <Stack spacing={1}>
-                <Row label="Merk" value={data.merk?.nama_merk} />
-                <Row label="Type" value={data.type_hp?.nama_type} />
-                <TextField label="IMEI" fullWidth size="small" value={data.imei || ""} onChange={(e) => setData({ ...data, imei: e.target.value })} />
-                <TextField label="Warna" fullWidth size="small" value={data.warna || ""} onChange={(e) => setData({ ...data, warna: e.target.value })} />
-                <Stack direction="row" spacing={1}>
-                    <TextField label="RAM" size="small" fullWidth value={data.ram || ""} onChange={(e) => setData({ ...data, ram: e.target.value })} />
-                    <TextField label="ROM" size="small" fullWidth value={data.rom || ""} onChange={(e) => setData({ ...data, rom: e.target.value })} />
-                </Stack>
-                <TextField label="Kunci Password" fullWidth size="small" value={data.kunci_password || ""} onChange={(e) => setData({ ...data, kunci_password: e.target.value })} />
-                <TextField label="Kunci PIN" fullWidth size="small" value={data.kunci_pin || ""} onChange={(e) => setData({ ...data, kunci_pin: e.target.value })} />
-                <TextField label="Kunci Pola" fullWidth size="small" value={data.kunci_pola || ""} onChange={(e) => setData({ ...data, kunci_pola: e.target.value })} />
-
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>Grade HP</Typography>
-                <Select
-                  value={data.grade_type || ""}
-                  fullWidth
-                  size="small"
-                  onChange={(e) => {
-                    const g = grades.find(x => x.value === e.target.value);
-                    if (g) {
-                      setData((p) => ({ ...p, grade_type: e.target.value }));
-                      setGradeNominal(g.nominal);
-                    }
-                  }}
-                >
-                  {grades.map(g => (
-                    <MenuItem key={g.value} value={g.value}>
-                      {g.label} — Rp {g.nominal?.toLocaleString()}
-                    </MenuItem>
-                  ))}
-                </Select>
+              <TextField label="Merk" size="small" fullWidth disabled value={data.merk?.nama_merk || ""} />
+              <TextField label="Type" size="small" fullWidth disabled value={data.type_hp?.nama_type || ""} />
+              <TextField label="IMEI" size="small" fullWidth value={data.imei || ""} onChange={(e) => setData({ ...data, imei: e.target.value })} />
+              <TextField label="Warna" size="small" fullWidth value={data.warna || ""} onChange={(e) => setData({ ...data, warna: e.target.value })} />
+              <Stack direction="row" spacing={1}>
+                <TextField label="RAM" size="small" fullWidth value={data.ram || ""} onChange={(e) => setData({ ...data, ram: e.target.value })} />
+                <TextField label="ROM" size="small" fullWidth value={data.rom || ""} onChange={(e) => setData({ ...data, rom: e.target.value })} />
               </Stack>
+              <Divider sx={{ my: 1 }}><Typography variant="caption" fontWeight={700}>KEAMANAN</Typography></Divider>
+              <Grid container spacing={1}>
+                {['password', 'pin', 'pola'].map(k => (
+                  <Grid item xs={4} key={k}><TextField label={k.toUpperCase()} size="small" fullWidth value={data[`kunci_${k}`] || ""} onChange={(e) => setData({ ...data, [`kunci_${k}`]: e.target.value })} /></Grid>
+                ))}
+              </Grid>
+              <Divider sx={{ my: 1 }}>Grade</Divider>
+              <Select size="small" fullWidth value={data.grade_type || ""} onChange={(e) => { const g = grades.find(x => x.value === e.target.value); setData({ ...data, grade_type: e.target.value }); if (g) setGradeNominal(g.nominal); }}>
+                {grades.map(g => <MenuItem key={g.value} value={g.value}>{g.label} - Rp {Number(g.nominal).toLocaleString()}</MenuItem>)}
+              </Select>
+              <Box sx={{ bgcolor: '#f8f9fa', p: 2, borderRadius: 2, border: '1px dashed #1976d2', textAlign: 'right' }}>
+                <Typography variant="caption" display="block">Pinjaman Bersih</Typography>
+                <Typography variant="h6" fontWeight={800} color="primary">Rp {Math.round(finalTaksiran).toLocaleString()}</Typography>
+              </Box>
             </Stack>
           </Paper>
         </Grid>
 
         <Grid item xs={12} md={8}>
-          <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
-            <Typography fontWeight={800} mb={1}>Kerusakan</Typography>
-            <Grid container spacing={1} mb={2}>
+          <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
+            <Typography fontWeight={800} color="error" mb={2}>Kerusakan</Typography>
+            <Grid container spacing={1}>
               {kerusakanList.map((item, idx) => (
                 <Grid item xs={12} sm={6} key={item.id}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Checkbox checked={item.checked} onChange={(e) => {
-                      const copy = [...kerusakanList];
-                      copy[idx].checked = e.target.checked;
-                      setKerusakanList(copy);
-                    }} />
-                    <Typography sx={{ flexGrow: 1, fontSize: 14 }}>{item.nama}</Typography>
-                    <TextField size="small" type="number" sx={{ width: 110 }} value={item.nominal_override} onChange={(e) => {
-                        const copy = [...kerusakanList];
-                        copy[idx].nominal_override = e.target.value;
-                        setKerusakanList(copy);
-                    }} />
+                  <Stack direction="row" alignItems="center" spacing={1} sx={{ bgcolor: item.checked ? '#fff5f5' : '#fff', p: 1, borderRadius: 2, border: '1px solid #eee' }}>
+                    <Checkbox size="small" checked={item.checked} color="error" onChange={(e) => { const copy = [...kerusakanList]; copy[idx].checked = e.target.checked; setKerusakanList(copy); }} />
+                    <Typography flexGrow={1} variant="caption" fontWeight={600}>{item.nama}</Typography>
+                    <Typography variant="caption" color="error">-{Math.round(item.nominal_override).toLocaleString()}</Typography>
                   </Stack>
                 </Grid>
               ))}
             </Grid>
+          </Paper>
 
-            <Typography fontWeight={800} mt={2} mb={1}>Kelengkapan</Typography>
-            <Grid container spacing={1} mb={2}>
+          <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
+            <Typography fontWeight={800} color="success.main" mb={2} display="flex" alignItems="center" gap={1}><CheckBoxIcon fontSize="small" /> Kelengkapan</Typography>
+            <Grid container spacing={1}>
               {kelengkapanList.map((item, idx) => (
-                <Grid item xs={12} sm={6} key={item.id}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Checkbox checked={item.checked} onChange={(e) => {
-                      const copy = [...kelengkapanList];
-                      copy[idx].checked = e.target.checked;
-                      setKelengkapanList(copy);
-                    }} />
-                    <Typography sx={{ flexGrow: 1, fontSize: 14 }}>{item.nama}</Typography>
-                    <TextField size="small" type="number" sx={{ width: 110 }} value={item.nominal_override} onChange={(e) => {
-                        const copy = [...kelengkapanList];
-                        copy[idx].nominal_override = e.target.value;
-                        setKelengkapanList(copy);
-                    }} />
+                <Grid item xs={12} sm={4} key={item.id}>
+                  <Stack direction="row" alignItems="center" spacing={1} sx={{ bgcolor: item.checked ? '#f1f8e9' : '#fff', p: 1, borderRadius: 2, border: '1px solid #eee' }}>
+                    <Checkbox size="small" checked={item.checked} color="success" onChange={(e) => { const copy = [...kelengkapanList]; copy[idx].checked = e.target.checked; setKelengkapanList(copy); }} />
+                    <Typography flexGrow={1} variant="caption" fontWeight={600}>{item.nama}</Typography>
                   </Stack>
                 </Grid>
               ))}
             </Grid>
+          </Paper>
 
-            <Typography fontWeight={800} mt={2} mb={1}>Dokumen Pendukung</Typography>
+          <Paper sx={{ p: 3, borderRadius: 3 }}>
+            <Typography fontWeight={800} mb={2}>Foto SOP</Typography>
             <Grid container spacing={2}>
-              {sopKeys().map((key) => {
-                const path = data.dokumen_pendukung?.[key];
-                const uploadedFile = dokumenFiles[key];
-                const url = uploadedFile ? URL.createObjectURL(uploadedFile) : (path ? baseStorageUrl(path) : null);
+              {(DOKUMEN_SOP_HP[data.merk?.nama_merk] || DOKUMEN_SOP_HP['Android']).map((key) => {
+                const isRemoved = removedFiles.includes(key);
+                const fileBaru = dokumenFiles[key];
+                const previewUrlLocal = isRemoved ? null : (fileBaru ? URL.createObjectURL(fileBaru) : baseStorageUrl(data.dokumen_pendukung?.[key]));
+
                 return (
-                  <Grid item xs={12} sm={6} md={4} key={key}>
-                    <Paper elevation={3} sx={{ p: 1, borderRadius: 2, textAlign: "center" }}>
-                      <Typography variant="caption" fontWeight={700}>{key.toUpperCase()}</Typography>
-                      <Box sx={{ mt: 1 }}>
-                        {url ? (
-                          <img src={url} alt={key} style={{ width: "100%", borderRadius: 4, height: 100, objectFit: "cover", cursor: "pointer" }} onClick={() => { setPreviewUrl(url); setOpenPreview(true); }} />
-                        ) : (
-                          <Box sx={{ height: 100, border: "1px dashed #ccc", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "gray" }}>No Image</Box>
-                        )}
+                  <Grid item xs={6} sm={4} key={key}>
+                    <Paper variant="outlined" sx={{ p: 1, textAlign: 'center', borderRadius: 2, position: 'relative', bgcolor: isRemoved ? '#fafafa' : '#fff' }}>
+                      {previewUrlLocal && (
+                        <IconButton size="small" onClick={() => handleRemovePhoto(key)} sx={{ position: 'absolute', top: 0, right: 0, color: 'error.main' }}><DeleteForever fontSize="small" /></IconButton>
+                      )}
+                      <Typography variant="caption" fontWeight={700} display="block" mb={1}>{key.toUpperCase()}</Typography>
+                      <Box sx={{ height: 90, bgcolor: '#f0f0f0', mb: 1, borderRadius: 1, overflow: 'hidden', cursor: 'pointer' }} onClick={() => { if (previewUrlLocal) { setPreviewUrl(previewUrlLocal); setOpenPreview(true); } }}>
+                        {previewUrlLocal ? <img src={previewUrlLocal} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={key} /> : <Typography sx={{ fontSize: 10, mt: 4, color: '#999' }}>{isRemoved ? "DIBUANG" : "KOSONG"}</Typography>}
                       </Box>
-                      <Button variant="text" size="small" fullWidth component="label" sx={{ mt: 0.5 }}>
-                        Upload
-                        <input type="file" hidden accept="image/*" onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) setDokumenFiles(p => ({ ...p, [key]: f }));
-                        }} />
-                      </Button>
+                      <Stack direction="row" spacing={0.5}>
+                        <Button fullWidth variant="contained" size="small" component="label" sx={{ minWidth: 0 }}><PhotoCamera fontSize="small" /><input type="file" hidden accept="image/*" capture="environment" onChange={(e) => { handleFileChange(key, e.target.files[0]); e.target.value = null; }} /></Button>
+                        <Button fullWidth variant="outlined" size="small" component="label" sx={{ minWidth: 0 }}><Folder fontSize="small" /><input type="file" hidden accept="image/*" onChange={(e) => { handleFileChange(key, e.target.files[0]); e.target.value = null; }} /></Button>
+                      </Stack>
                     </Paper>
                   </Grid>
-                )
+                );
               })}
             </Grid>
-
-            <Dialog open={openPreview} onClose={() => setOpenPreview(false)} maxWidth="md">
-              <DialogContent sx={{ p: 0, position: "relative" }}>
-                {previewUrl && (
-                  <>
-                    <IconButton onClick={() => window.open(previewUrl, "_blank")} sx={{ position: "absolute", right: 48, top: 8, color: "white", bgcolor: "rgba(0,0,0,0.5)" }}><OpenInNew /></IconButton>
-                    <IconButton onClick={() => setOpenPreview(false)} sx={{ position: "absolute", right: 8, top: 8, color: "white", bgcolor: "rgba(0,0,0,0.5)" }}><Close /></IconButton>
-                    <img src={previewUrl} alt="Preview" style={{ width: "100%", display: "block" }} />
-                  </>
-                )}
-              </DialogContent>
-            </Dialog>
-
-            <Divider sx={{ my: 3 }} />
-            <Stack spacing={0.5}>
-                <Typography variant="body2">Grade Dasar: Rp {gradeNominal.toLocaleString()}</Typography>
-                <Typography variant="body2" color="error">Total Potongan: - Rp {totalPotonganKerusakan.toLocaleString()}</Typography>
-                <Typography variant="body2" color="success.main">Total Tambahan: + Rp {totalKelengkapan.toLocaleString()}</Typography>
-                <Typography fontWeight={800} fontSize={24} color="primary" sx={{ mt: 1 }}>Pinjaman: Rp {finalTaksiran.toLocaleString()}</Typography>
-            </Stack>
-
-            <Button fullWidth variant="contained" size="large" sx={{ mt: 3, py: 1.5, borderRadius: 2 }} disabled={saving} onClick={handleSubmit}>
-              {saving ? "Proses..." : "Update Data Gadai"}
-            </Button>
           </Paper>
         </Grid>
       </Grid>
+
+      <Dialog open={openPreview} onClose={() => setOpenPreview(false)} maxWidth="md" fullWidth>
+        <DialogContent sx={{ p: 0, bgcolor: 'black', textAlign: 'center', position: 'relative' }}>
+          <IconButton onClick={() => setOpenPreview(false)} sx={{ position: 'absolute', right: 10, top: 10, color: 'white' }}><Close /></IconButton>
+          <img src={previewUrl} style={{ maxWidth: '100%', maxHeight: '85vh' }} alt="preview" />
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };
-
-const Row = ({ label, value, bold }) => (
-  <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-    <Typography variant="caption" color="text.secondary">{label}</Typography>
-    <Typography variant="caption" fontWeight={bold ? 700 : 600}>{value || "-"}</Typography>
-  </Box>
-);
 
 export default EditGadaiHpPage;

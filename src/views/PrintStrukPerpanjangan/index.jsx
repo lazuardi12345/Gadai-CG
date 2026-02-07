@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useContext } from "react";
 import { useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
-import { CircularProgress, Button, Box, Paper } from "@mui/material"; // Tambah Paper biar gak error
+import { CircularProgress, Button, Box, Paper } from "@mui/material"; 
 import logo from "assets/images/LogoBaru1.png";
 import { AuthContext } from "AuthContex/AuthContext";
 
@@ -47,13 +47,23 @@ const PrintStrukPerpanjanganPage = () => {
   const typeNama = detail?.type?.nama_type?.toLowerCase() || "-";
   const pokok = Number(detail?.uang_pinjaman || 0);
 
-  const perpanjanganList = detail?.perpanjangan_tempos || [];
-  const perpanjanganTerakhir = perpanjanganList.length > 0 ? perpanjanganList[perpanjanganList.length - 1] : null;
-  const perpanjanganSebelum = perpanjanganList.length > 1 ? perpanjanganList[perpanjanganList.length - 2] : null;
+  // ============================================================
+  // 🔹 LOGIKA BARU: AMBIL LANGSUNG DARI BACKEND (NO RE-CALC!)
+  // ============================================================
+  const rincianBE = detail?.perpanjangan_aktif?.rincian || {};
+  
+  // Ambil angka yang sudah dibulatkan BE (Jasa 38.000, Denda Bulat, dll)
+  const jasaBaru   = Number(rincianBE.jasa || 0);
+  const denda      = Number(rincianBE.denda || 0);
+  const penalty    = Number(rincianBE.penalty || 0);
+  const admin      = Number(rincianBE.admin || 0);
+  const totalBayar = Number(rincianBE.total || 0);
 
-  const jatuhTempoLama = perpanjanganSebelum?.jatuh_tempo_baru || detail.jatuh_tempo;
-  const tanggalPerpanjangan = perpanjanganTerakhir?.tanggal_perpanjangan || new Date().toISOString();
-  const jatuhTempoBaru = perpanjanganTerakhir?.jatuh_tempo_baru || detail?.jatuh_tempo;
+  // Info Tempo & Telat ambil dari metadata BE
+  const totalTelat       = detail?.perhitungan_pelunasan?.hari_terlambat || 0;
+  const periodeBaruHari  = detail?.perhitungan_struk?.selisih_hari || 0;
+  const jatuhTempoBaru   = detail?.perpanjangan_aktif?.jatuh_tempo_baru || detail?.jatuh_tempo;
+  // ============================================================
 
   const today = new Date();
   const formatHariTanggal = (date) => {
@@ -68,44 +78,6 @@ const PrintStrukPerpanjanganPage = () => {
 
   const { tanggalStr, jamStr } = formatHariTanggal(today);
   const formatRupiah = (val) => `Rp. ${Number(val || 0).toLocaleString("id-ID")}`;
-
-  // ============================================================
-  // 🔹 LOGIKA PERHITUNGAN BARU (DISINKRONKAN DENGAN CONTROLLER BE)
-  // ============================================================
-  
-  const isHandphoneElektronik = ["handphone", "hp", "elektronik"].includes(typeNama);
-
-  // 1. Selisih Hari
-  const totalTelat = Math.max(0, Math.ceil((new Date(tanggalPerpanjangan) - new Date(jatuhTempoLama)) / (1000 * 60 * 60 * 24)));
-  const periodeBaruHari = Math.max(0, Math.ceil((new Date(jatuhTempoBaru) - new Date(tanggalPerpanjangan)) / (1000 * 60 * 60 * 24)));
-
-  // 2. Jasa Perpanjangan (Berjenjang: 15 hari vs 30 hari)
-  let jasaBaru = 0;
-  if (isHandphoneElektronik) {
-    // HP: 1-15 hari (4.5%), >15 hari (9.5%)
-    jasaBaru = (periodeBaruHari <= 15) ? (pokok * 0.045) : (pokok * 0.095);
-  } else {
-    // Emas/Lainnya: 1-15 hari (1.5%), >15 hari (2.5%)
-    jasaBaru = (periodeBaruHari <= 15) ? (pokok * 0.015) : (pokok * 0.025);
-  }
-
-  // 3. Denda (HP 0.3%, Emas 0.1%)
-  const rateDenda = isHandphoneElektronik ? 0.003 : 0.001;
-  const denda = pokok * rateDenda * totalTelat;
-
-  // 4. Penalty (Telat > 15 hari)
-  const penalty = totalTelat > 15 ? 180000 : 0;
-
-  // 5. Admin (HP = 0, Emas = Max(1% pokok, 10rb))
-  let admin = 0;
-  if (!isHandphoneElektronik) {
-    admin = Math.max(pokok * 0.01, 10000);
-  }
-
-  // 6. Total Akhir & Pembulatan (Sesuai BE: ceil ke 1000 terdekat)
-  const totalBayar = Math.ceil((jasaBaru + denda + penalty + admin) / 1000) * 1000;
-
-  // ============================================================
 
   const cleanText = (val) => {
     if (!val) return "-";
@@ -208,10 +180,10 @@ const PrintStrukPerpanjanganPage = () => {
           {penalty > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>Penalty:</span><span>{formatRupiah(penalty)}</span></div>}
           <div style={{ display: "flex", justifyContent: "space-between" }}><span>Admin:</span><span>{formatRupiah(admin)}</span></div>
           <hr />
-          <div><b>Total Bayar: {formatRupiah(totalBayar)}</b></div>
-          <div style={{ fontSize: "11px", marginTop: "5px" }}>
-            <div>Telat: {totalTelat} hari</div>
-            <div>Jatuh Tempo Baru: {jatuhTempoBaru}</div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}><b>Total Bayar:</b><b>{formatRupiah(totalBayar)}</b></div>
+          <div style={{ fontSize: "11px", marginTop: "10px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}><span>Telat:</span><span>{totalTelat} hari</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}><span>Jatuh Tempo Baru:</span><span>{jatuhTempoBaru}</span></div>
           </div>
         </div>
       </Paper>

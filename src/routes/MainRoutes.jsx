@@ -5,6 +5,7 @@ import MainLayout from 'layout/MainLayout';
 import Loadable from 'component/Loadable';
 import ProtectedRoute from './ProtectedRoute';
 import { GraphicEqRounded } from '@mui/icons-material';
+import LaporanDetailTransaksiKas from 'views/Admin/LaporanMingguan/exportPDFLaporan';
 
 const DashboardDefault = Loadable(lazy(() => import('views/Dashboard/Default')));
 
@@ -106,6 +107,9 @@ const RekapPelunasanMingguan = Loadable(lazy(() => import('views/Admin/LaporanMi
 const RekapStrukPelunasanLelang = Loadable(lazy(() => import('views/Admin/LaporanMingguan/StrukLunasLelang')));
 const LaporanMutasiGudang = Loadable(lazy(() => import('views/gudang/laporanGudang/page')));
 const LaporanGudangCetak = Loadable(lazy(() => import('views/gudang/laporanGudang/laporan')));
+
+const LaporanMingguanDetailAdmin = Loadable(lazy(() => import('views/Admin/LaporanMingguan/LaporanMIngguanDetailAdmin')));
+const LaporanBrankasCetak = Loadable(lazy(() => import('views/Kasir/LaporanKasir')));
 // ==============================|| MAIN ROUTES ||============================== //
 const MainRoutes = {
   path: '/',
@@ -157,6 +161,8 @@ const MainRoutes = {
     { path: '/approval-hm-gadai-edit/:detailGadaiId', element: <EditApprovalHMPage/> },
     { path: '/notifications', element: <NotificationsPage/> },
     { path: '/admin', element: <AdminLaporanPage/> },
+     { path: '/admin-laporan-mingguan', element: <LaporanMingguanDetailAdmin/> },
+     { path: '/cetak-pdf', element: <LaporanDetailTransaksiKas/> },
     { path: '/admin-detail/:detailGadaiId', element: <AdminDetailPage/> },
     { path: '/pelelangan', element: <PelelanganPage/> },
     { path: '/kerusakan', element: <KerusakanPage/> },
@@ -185,6 +191,7 @@ const MainRoutes = {
     { path: '/laporan-struk-pelunasan-lelang', element: <RekapStrukPelunasanLelang/> },
     { path: '/laporan-gudang', element: <LaporanMutasiGudang/> },
     { path: '/laporan-gudang-cetak', element: <LaporanGudangCetak/> },
+     { path: '/laporan-kasir-cetak', element: <LaporanBrankasCetak/> },
 
 
 

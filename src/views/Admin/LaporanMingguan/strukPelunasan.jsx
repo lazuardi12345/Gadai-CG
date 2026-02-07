@@ -14,7 +14,6 @@ const RekapPelunasanMingguan = () => {
   const [tanggalMulai, setTanggalMulai] = useState(new Date().toISOString().split('T')[0]);
   const [tanggalSelesai, setTanggalSelesai] = useState(new Date().toISOString().split('T')[0]);
 
-  // Fungsi penentu URL sesuai request
   const getApiUrl = useCallback(() => {
     const path = '/laporan/rekap-pelunasan-mingguan';
     return userRole === "admin" ? `/admin${path}` : path;
@@ -57,18 +56,18 @@ const RekapPelunasanMingguan = () => {
           <div className="struk-grid">
             {data.map((item, idx) => {
               const kalkulasi = item.kalkulasi_rekap || {};
-              const typeLower = (item.type?.nama_type || "").toLowerCase();
-              
-              let detailBarang = "";
-              let namaBarangFinal = "";
+              const typeLower = (item.nama_type || item.type?.nama_type || "").toLowerCase();
+              const tglLunas = item.waktu_formatted || kalkulasi.tanggal_lunas || "-";
+              const jamLunas = item.jam_formatted ? `Pukul: ${item.jam_formatted}` : "";
 
+              let detailBarang = "";
+              let namaBarangFinal = item.nama_barang || "-";
               if (typeLower.includes("hp") || typeLower.includes("handphone") || typeLower.includes("elektronik")) {
                 const hp = item.hp || {};
-                namaBarangFinal = hp.nama_barang || "-";
-                detailBarang = `MERK/TYPE: ${(hp.merk?.nama_merk || "")} ${(hp.type_hp?.nama_type || "")}\nIMEI     : ${(hp.imei || "-")}`;
+                namaBarangFinal = hp.nama_barang || namaBarangFinal;
+                detailBarang = `MERK/TYPE : ${(hp.merk?.nama_merk || "-")} / ${(hp.type_hp?.nama_type || "-")}\nRAM/ROM   : ${(hp.ram || "-")}/${(hp.rom || "-")}\nIMEI      : ${(hp.imei || "-")}`;
               } else {
-                const emas = item.perhiasan || item.logam_mulia || item.logamMulia || item.retro || {};
-                namaBarangFinal = emas.nama_barang || "-";
+                const emas = item.perhiasan || item.logamMulia || item.logam_mulia || item.retro || {};
                 detailBarang = `Karat: ${(emas.karat || emas.karatase || "-")} / Berat: ${(emas.berat || emas.berat_bersih || "-")} gr`;
               }
 
@@ -80,10 +79,28 @@ const RekapPelunasanMingguan = () => {
                     <div className="bold" style={{ fontSize: '10px' }}>{item.no_gadai}</div>
                   </div>
 
-                  <div className="row" style={{ marginTop: '4px' }}><span>Tgl Lunas:</span><span>{kalkulasi.tanggal_lunas || "-"}</span></div>
-                  <div className="row"><span>Nasabah:</span><span className="bold">{(item.nasabah?.nama_lengkap || "-").substring(0, 18)}</span></div>
+                  <div className="row" style={{ marginTop: '6px' }}>
+                    <span>Tgl Lunas:</span>
+                    <span className="bold">{tglLunas}</span>
+                  </div>
+                  <div className="row">
+                    <span>Waktu:</span>
+                    <span className="bold">{jamLunas}</span>
+                  </div>
+                  <div className="row">
+  <span>Petugas:</span>
+  <span className="bold">
+    {(
+      item.nama_petugas || 
+      item.petugas || 
+      item.user?.name || 
+      item.detail_gadai?.nasabah?.user?.name || 
+      "-"
+    ).substring(0, 18)}
+  </span>
+</div>
                   
-                  <div className="center bold" style={{ margin: '4px 0', borderTop: '1.2px solid #000', borderBottom: '1.2px solid #000', padding: '2px 0', fontSize: '11px' }}>
+                  <div className="center bold" style={{ margin: '6px 0', borderTop: '1.2px solid #000', borderBottom: '1.2px solid #000', padding: '2px 0', fontSize: '11px' }}>
                     STRUK PELUNASAN
                   </div>
 
@@ -96,11 +113,12 @@ const RekapPelunasanMingguan = () => {
                   {Number(kalkulasi.penalty) > 0 && <div className="row"><span>Penalty:</span><span>{formatRupiah(kalkulasi.penalty)}</span></div>}
                   <div className="row"><span>Telat:</span><span>{kalkulasi.hari_telat} hari</span></div>
                   <hr />
-                  <div className="row bold" style={{ fontSize: '11px' }}><span>TOTAL:</span><span>{formatRupiah(kalkulasi.total_bayar)}</span></div>
+                  <div className="row bold" style={{ fontSize: '11px' }}><span>TOTAL BAYAR:</span><span>{formatRupiah(kalkulasi.total_bayar)}</span></div>
+                  <div className="row"><span>Metode:</span><span className="bold">{kalkulasi.metode || "CASH"}</span></div>
                   
                   <div className="thanks">
-                    <div style={{ marginTop: '8px' }}>Unit barang telah diserahkan kembali.</div>
-                    <div className="bold">SENTRA GADAI INDONESIA</div>
+                    <div style={{ marginTop: '8px', fontSize: '7.5px' }}>Unit barang telah diserahkan kembali dalam kondisi baik.</div>
+                    <div className="bold" style={{ fontSize: '10px' }}>SENTRA GADAI INDONESIA</div>
                   </div>
                 </div>
               );
@@ -117,10 +135,10 @@ const RekapPelunasanMingguan = () => {
         @media print {
           @page { 
             size: A4 landscape; 
-            margin: 0; /* Menghilangkan URL dan Tanggal di footer/header browser */
+            margin: 0; 
           }
           body { 
-            margin: 10mm 5mm; 
+            margin: 5mm; 
           }
           body * { visibility: hidden; }
           .print-area, .print-area * { visibility: visible; color: #000 !important; }
@@ -138,7 +156,7 @@ const RekapPelunasanMingguan = () => {
             padding: 4mm; 
             font-size: 10px; 
             page-break-inside: avoid; 
-            min-height: 95mm; 
+            min-height: 100mm; 
             display: flex; 
             flex-direction: column; 
             background: #fff !important;
@@ -154,13 +172,16 @@ const RekapPelunasanMingguan = () => {
             margin: 1mm 0; 
             font-family: inherit; 
             line-height: 1.1;
+            background: none;
+            border: none;
+            padding: 0;
           }
           hr { border: none; border-top: 1px dashed #000 !important; margin: 2mm 0 !important; }
           .thanks { 
             margin-top: auto; 
             text-align: center; 
             font-size: 8px; 
-            padding-bottom: 2mm;
+            padding-bottom: 1mm;
           }
         }
       `}</style>

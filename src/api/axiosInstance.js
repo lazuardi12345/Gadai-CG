@@ -2,8 +2,6 @@ import axios from "axios";
 import { toast } from "react-toastify"; 
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
-
-// Variable flag buat kunci supaya gak redirect berkali-kali
 let isRedirecting = false;
 
 const axiosInstance = axios.create({
@@ -28,31 +26,33 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Cek 401 dan pastikan belum dalam proses redirect
-    if (error.response && error.response.status === 401 && !isRedirecting) {
+    const originalRequest = error.config;
+
+    // Jika error 401 dan bukan sedang di halaman login
+    if (error.response && error.response.status === 401 && window.location.pathname !== "/login") {
       
-      // Jika kita sudah di halaman login, jangan redirect lagi!
-      if (window.location.pathname === "/login") {
-        return Promise.reject(error);
+      // OPTIONAL: Tambahkan pengecekan apakah ini request pertama setelah app dibuka
+      // Kadang iOS butuh waktu untuk 'wake up' network-nya.
+      
+      if (!isRedirecting) {
+        isRedirecting = true;
+
+        // Cek apakah beneran ga ada token, atau tokennya expired
+        const token = localStorage.getItem("auth_token");
+        
+        if (token) {
+            toast.error("Sesi telah berakhir. Silakan login kembali.");
+        }
+
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("auth_user");
+
+        setTimeout(() => {
+          window.location.replace("/login");
+          isRedirecting = false; // Reset agar bisa dipakai lagi nanti
+        }, 1500);
       }
-
-      isRedirecting = true; // KUNCI DISINI
-
-      toast.error("Sesi telah berakhir. Silakan login kembali.", {
-        position: "top-center",
-        autoClose: 2000,
-      });
-
-      // Bersihkan data
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("auth_user");
-      
-      // Gunakan replace agar history gak numpuk
-      setTimeout(() => {
-        window.location.replace("/login"); 
-      }, 2000);
     }
-    
     return Promise.reject(error);
   }
 );

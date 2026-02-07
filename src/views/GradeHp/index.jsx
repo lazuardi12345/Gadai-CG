@@ -20,7 +20,6 @@ import {
 import axiosInstance from "api/axiosInstance";
 
 const GradeHpPage = () => {
-    // 1. Auth & API Configuration
     const authData = JSON.parse(localStorage.getItem("auth_user"));
     const role = authData?.role?.toLowerCase() || "";
 
@@ -33,12 +32,13 @@ const GradeHpPage = () => {
     const baseApi = getBaseApi();
     const apiUrl = `${baseApi}/grade-hp`;
 
-    // 2. State Management
+    // State Management
     const [merkList, setMerkList] = useState([]);
     const [selectedMerk, setSelectedMerk] = useState("");
     const [searchMerk, setSearchMerk] = useState("");
     const [searchType, setSearchType] = useState("");
-    const [data, setData] = useState([]);
+    const [data, setData] = useState([]); // Isi data per page
+    const [totalData, setTotalData] = useState(0); // Total data (meta.total)
     const [loading, setLoading] = useState(true);
     const [tableLoading, setTableLoading] = useState(false);
     
@@ -52,7 +52,14 @@ const GradeHpPage = () => {
 
     const scrollRef = useRef(null);
 
-    // 3. Data Fetching
+    const formatRupiah = (v) =>
+        v ? new Intl.NumberFormat("id-ID", { 
+            style: "currency", 
+            currency: "IDR", 
+            minimumFractionDigits: 0 
+        }).format(v) : "Rp 0";
+
+    // 1. Load Daftar Merk
     useEffect(() => {
         const loadMerk = async () => {
             try {
@@ -67,26 +74,36 @@ const GradeHpPage = () => {
         loadMerk();
     }, [baseApi]);
 
+    // 2. Fetch Data (Server Side)
     const fetchData = useCallback(async () => {
         if (!selectedMerk) return;
         setTableLoading(true);
         try {
-            const res = await axiosInstance.get(`${apiUrl}/by-merk/${selectedMerk}`);
-            setData(res.data.data || []);
-            setPage(0); 
+            // Kita kirim page (dimulai dari 1 untuk Laravel) dan per_page
+            const res = await axiosInstance.get(`${apiUrl}/by-merk/${selectedMerk}`, {
+                params: {
+                    page: page + 1, 
+                    per_page: rowsPerPage,
+                    search: searchType // Jika backend support search type via query
+                }
+            });
+
+            // Ambil data dan total dari struktur JSON Laravel lo
+            setData(res.data.data || []); 
+            setTotalData(res.data.meta?.total || 0); 
         } catch (err) {
             console.error("Gagal fetch data grade", err);
         } finally {
             setTableLoading(false);
             setLoading(false);
         }
-    }, [apiUrl, selectedMerk]);
+    }, [apiUrl, selectedMerk, page, rowsPerPage, searchType]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
 
-    // 4. Handlers
+    // 3. Handlers
     const handleChangePage = (event, newPage) => {
         setPage(newPage);
     };
@@ -96,23 +113,10 @@ const GradeHpPage = () => {
         setPage(0);
     };
 
-    const formatRupiah = (v) =>
-        v ? new Intl.NumberFormat("id-ID", { 
-            style: "currency", 
-            currency: "IDR", 
-            minimumFractionDigits: 0 
-        }).format(v) : "Rp 0";
-
-    // 5. Filter & Pagination Logic
+    // Filter untuk list Merk (Client side)
     const filteredMerk = merkList.filter(m => 
         m.nama_merk.toLowerCase().includes(searchMerk.toLowerCase())
     );
-    
-    const filteredData = data.filter(item => 
-        item.harga_hp?.type_hp?.nama_type?.toLowerCase().includes(searchType.toLowerCase())
-    );
-
-    const paginatedData = filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
     if (loading) return <Box display="flex" justifyContent="center" mt={10}><CircularProgress /></Box>;
 
@@ -124,7 +128,7 @@ const GradeHpPage = () => {
                     sx={{ pb: 0 }}
                 />
                 <CardContent>
-                    {/* Search Section */}
+                    {/* Search & Filter */}
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={2} mb={3} mt={1}>
                         <TextField 
                             label="Cari Merk..." 
@@ -140,7 +144,7 @@ const GradeHpPage = () => {
                             value={searchType} 
                             onChange={(e) => {
                                 setSearchType(e.target.value);
-                                setPage(0);
+                                setPage(0); 
                             }} 
                         />
                     </Stack>
@@ -153,7 +157,10 @@ const GradeHpPage = () => {
                                 <Button 
                                     key={m.id} 
                                     variant={selectedMerk === m.id ? "contained" : "outlined"} 
-                                    onClick={() => setSelectedMerk(m.id)} 
+                                    onClick={() => {
+                                        setSelectedMerk(m.id);
+                                        setPage(0);
+                                    }} 
                                     sx={{ borderRadius: 5, flexShrink: 0, textTransform: 'none', px: 3 }}
                                 >
                                     {m.nama_merk}
@@ -164,8 +171,12 @@ const GradeHpPage = () => {
                     </Stack>
 
                     {/* Table Section */}
-                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, border: '1px solid #eee' }}>
-                        <Table>
+                    <TableContainer 
+                        component={Paper} 
+                        variant="outlined" 
+                        sx={{ borderRadius: 2, border: '1px solid #eee', overflowX: "auto" }}
+                    >
+                        <Table sx={{ minWidth: 800 }}>
                             <TableHead sx={{ bgcolor: "#f8f9fa" }}>
                                 <TableRow>
                                     <TableCell align="center" sx={{ fontWeight: 'bold' }}>No</TableCell>
@@ -181,14 +192,12 @@ const GradeHpPage = () => {
                             <TableBody>
                                 {tableLoading ? (
                                     <TableRow><TableCell colSpan={8} align="center" sx={{ py: 3 }}><CircularProgress size={24} /></TableCell></TableRow>
-                                ) : paginatedData.length > 0 ? (
-                                    paginatedData.map((item, index) => (
+                                ) : data.length > 0 ? (
+                                    data.map((item, index) => (
                                         <TableRow key={item.id} hover>
-                                            <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" fontWeight="bold">
-                                                    {item.harga_hp?.type_hp?.nama_type}
-                                                </Typography>
+                                            <TableCell align="center">{(page * rowsPerPage) + index + 1}</TableCell>
+                                            <TableCell sx={{ fontWeight: 'bold' }}>
+                                                {item.harga_hp?.type_hp?.nama_type}
                                             </TableCell>
                                             <TableCell sx={{ color: 'secondary.main', fontWeight: 600 }}>
                                                 {formatRupiah(item.harga_hp?.harga_pasar)}
@@ -223,7 +232,7 @@ const GradeHpPage = () => {
 
                     <TablePagination
                         component="div"
-                        count={filteredData.length}
+                        count={totalData} 
                         page={page}
                         onPageChange={handleChangePage}
                         rowsPerPage={rowsPerPage}

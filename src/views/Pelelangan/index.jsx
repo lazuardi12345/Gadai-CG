@@ -14,25 +14,23 @@ import {
   Search as SearchIcon,
   History as HistoryIcon,
   AccessTime as AccessTimeIcon,
-  Info as InfoIcon,
-  Print as PrintIcon // Tambahkan icon print
+  Print as PrintIcon
 } from "@mui/icons-material";
 import { AuthContext } from "AuthContex/AuthContext";
 import axiosInstance from "api/axiosInstance";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const PelelanganPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useContext(AuthContext);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-  // Roles & Permissions
   const userRole = (user?.role || "").toLowerCase();
   const isAdmin = userRole === "admin";
   const canLelang = userRole === "hm" || userRole === "checker";
 
-  // State Management
   const [tabIndex, setTabIndex] = useState(isAdmin ? 2 : 0);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,7 +39,6 @@ const PelelanganPage = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Modal & Form State
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState("proses"); 
   const [selectedGadai, setSelectedGadai] = useState(null);
@@ -62,7 +59,9 @@ const PelelanganPage = () => {
     try {
       const url = (tabIndex === 2 || isAdmin) ? `${baseUrl}/history` : baseUrl;
       const res = await axiosInstance.get(url);
-      if (res.data.success) setData(res.data.data || []);
+      if (res.data.success) {
+        setData(res.data.data || []);
+      }
     } catch (err) {
       showAlert('error', 'Gagal memuat data pelelangan');
     } finally {
@@ -74,6 +73,13 @@ const PelelanganPage = () => {
     fetchData();
     setPage(0);
   }, [tabIndex, userRole]);
+
+  // ✅ Cek state dari navigate untuk set tab history
+  useEffect(() => {
+    if (location.state?.fromTab !== undefined) {
+      setTabIndex(location.state.fromTab);
+    }
+  }, [location]);
 
   const showAlert = (type, message) => {
     setAlert({ show: true, type, message });
@@ -101,7 +107,7 @@ const PelelanganPage = () => {
     setSelectedGadai(item);
     setModalMode(mode);
     setFormData({
-      nominal: item.total_hutang || item.hutang || "",
+      nominal: item.total_hutang || item.uang_pinjaman || "",
       metode: "cash",
       keterangan: "",
       bukti: null,
@@ -130,20 +136,33 @@ const PelelanganPage = () => {
       const dataPayload = new FormData();
       dataPayload.append("nominal_diterima", formData.nominal);
       dataPayload.append("metode_pembayaran", formData.metode);
-      dataPayload.append(modalMode === "proses" ? "keterangan" : "catatan", formData.keterangan);
+      dataPayload.append("keterangan", formData.keterangan);
       if (formData.bukti) dataPayload.append("bukti_transfer", formData.bukti);
 
-      // Pastikan menggunakan selectedGadai.id (Detail Gadai ID)
       const detailGadaiId = selectedGadai.id;
-      const endpoint = `${baseUrl}/${detailGadaiId}/${modalMode === "proses" ? 'proses' : 'lunasi'}`;
+      const actionPath = modalMode === "proses" ? "proses" : "lunasi";
+      const endpoint = `${baseUrl}/${detailGadaiId}/${actionPath}`;
+      
       const res = await axiosInstance.post(endpoint, dataPayload, { headers: { "Content-Type": "multipart/form-data" } });
 
       if (res.data.success) {
         showAlert('success', res.data.message);
         setOpenModal(false);
-        fetchData();
-        // Redirect ke struk menggunakan ID Detail Gadai
-        if (modalMode === "lunasi") navigate(`/struk-pelunasan-lelang/${detailGadaiId}`);
+        
+        // ✅ Pindah ke tab History dulu
+        if (!isAdmin) {
+          setTabIndex(2);
+        }
+        
+        // ✅ Tunggu render tab selesai, baru fetch & navigate
+        setTimeout(() => {
+          fetchData();
+          setTimeout(() => {
+            navigate(`/struk-pelunasan-lelang/${detailGadaiId}`, {
+              state: { fromTab: 2 }
+            });
+          }, 500);
+        }, 300);
       }
     } catch (err) {
       showAlert('error', err.response?.data?.message || 'Terjadi kesalahan sistem');
@@ -155,13 +174,29 @@ const PelelanganPage = () => {
   const filteredData = useMemo(() => {
     return data.filter(d => {
       const searchStr = searchTerm.toLowerCase();
-      const matchesSearch = d.no_gadai?.toLowerCase().includes(searchStr) || 
-                            d.nama_nasabah?.toLowerCase().includes(searchStr);
+      const matchesSearch = (d.no_gadai?.toLowerCase().includes(searchStr) || 
+                            d.nama_nasabah?.toLowerCase().includes(searchStr));
       if (isAdmin || tabIndex === 2) return matchesSearch;
       const statusMap = tabIndex === 0 ? "belum_terdaftar" : "siap";
       return matchesSearch && d.status_lelang === statusMap;
     });
   }, [data, searchTerm, tabIndex, isAdmin]);
+
+  // ✅ Fungsi untuk menentukan label status
+  const getStatusLabel = (item) => {
+    if (item.status === 'lunas') return 'LUNAS';
+    if (item.status_lelang) return item.status_lelang.toUpperCase();
+    if (item.harga_terjual) return 'TERLELANG';
+    return 'ANTRIAN';
+  };
+
+  // ✅ Fungsi untuk menentukan warna status
+  const getStatusColor = (item) => {
+    if (item.status === 'lunas') return 'success';
+    if (item.status_lelang === 'terlelang' || item.harga_terjual) return 'primary';
+    if (item.status_lelang === 'siap') return 'warning';
+    return 'default';
+  };
 
   return (
     <Box sx={{ p: isMobile ? 1 : 3 }}>
@@ -208,13 +243,13 @@ const PelelanganPage = () => {
               <Table size="medium">
                 <TableHead sx={{ bgcolor: 'grey.50' }}>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Info Nasabah & Keterlambatan</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Hutang / Biaya</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Info Unit & Nasabah</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Modal & Tagihan</TableCell>
                     {(tabIndex === 2 || isAdmin) && (
                       <>
                         <TableCell align="right" sx={{ fontWeight: 'bold' }}>Uang Masuk</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>Keuntungan</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 'bold' }}>Waktu & Metode</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>Profit/Loss</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 'bold' }}>Tanggal</TableCell>
                       </>
                     )}
                     <TableCell align="center" sx={{ fontWeight: 'bold' }}>Status</TableCell>
@@ -222,113 +257,105 @@ const PelelanganPage = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item) => (
-                    <TableRow key={item.id} hover>
-                      <TableCell>
-                        <Typography variant="subtitle2" fontWeight="bold" color="primary">{item.no_gadai}</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.nama_nasabah}</Typography>
-                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-                          <Chip label={item.type} size="small" variant="outlined" sx={{ height: 16, fontSize: '0.6rem' }} />
-                          <Typography 
-                            variant="caption" 
-                            sx={{ 
-                              fontWeight: 'bold', 
-                              color: item.hari_terlambat > 30 ? 'error.main' : 'warning.dark',
-                              bgcolor: item.hari_terlambat > 30 ? '#ffeeee' : '#fff9e6',
-                              px: 0.8, py: 0.1, borderRadius: 1
-                            }}
-                          >
-                            Telat {item.hari_terlambat || 0} Hari
-                          </Typography>
-                        </Stack>
-                      </TableCell>
+                  {filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item) => {
+                    const modal = parseFloat(item.uang_pinjaman || 0);
+                    const nominalMasuk = parseFloat(item.harga_terjual || item.nominal_masuk || 0);
+                    const totalDenda = (parseFloat(item.nominal_denda || item.denda) || 0) + (parseFloat(item.nominal_penalty || item.penalty) || 0);
+                    const profit = nominalMasuk - modal;
 
-                      <TableCell align="right">
-                        <Tooltip arrow title={
-                          <Box sx={{ p: 0.5 }}>
-                            <Typography variant="caption" display="block">Pokok: {formatCurrency(item.uang_pinjaman)}</Typography>
-                            <Typography variant="caption" display="block">Bunga: {formatCurrency(item.bunga)}</Typography>
-                            <Typography variant="caption" display="block">Denda: {formatCurrency(item.denda)}</Typography>
-                            <Typography variant="caption" display="block">Admin: {formatCurrency(item.penalty)}</Typography>
-                          </Box>
-                        }>
-                          <Box sx={{ cursor: 'help' }}>
-                            <Typography variant="body2" fontWeight="800">
-                                {formatCurrency(item.hutang || item.total_hutang)}
+                    return (
+                      <TableRow key={item.id} hover>
+                        <TableCell>
+                          <Typography variant="subtitle2" fontWeight="bold" color="primary">{item.no_gadai}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.nama_nasabah}</Typography>
+                          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                            <Chip label={item.type} size="small" variant="outlined" sx={{ height: 16, fontSize: '0.6rem' }} />
+                            <Typography variant="caption" sx={{ fontWeight: 'bold', color: item.hari_terlambat > 30 ? 'error.main' : 'warning.dark', bgcolor: item.hari_terlambat > 30 ? '#ffeeee' : '#fff9e6', px: 0.8, py: 0.1, borderRadius: 1 }}>
+                              Telat {item.hari_terlambat || 0} Hari
                             </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                Biaya: {formatCurrency((item.bunga||0)+(item.denda||0)+(item.penalty||0))}
-                            </Typography>
-                          </Box>
-                        </Tooltip>
-                      </TableCell>
+                          </Stack>
+                        </TableCell>
 
-                      {(tabIndex === 2 || isAdmin) && (
-                        <>
-                          <TableCell align="right">
-                            <Typography variant="body2" fontWeight="bold" color="primary.main">
-                              {formatCurrency(item.nominal_masuk)}
-                            </Typography>
-                          </TableCell>
-                          
-                          <TableCell align="right">
-                            <Typography 
-                              variant="body2" 
-                              fontWeight="bold" 
-                              color={item.keuntungan >= 0 ? 'success.main' : 'error.main'}
-                            >
-                              {formatCurrency(item.keuntungan)}
-                            </Typography>
-                            <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>
-                                {item.keuntungan >= 0 ? 'PROFIT' : 'LOSS'}
-                            </Typography>
-                          </TableCell>
+                        <TableCell align="right">
+                          <Tooltip arrow placement="left" title={
+                            <Paper elevation={0} sx={{ p: 2, minWidth: 220, bgcolor: "#1a1a1a", borderRadius: 2, border: "1px solid #444" }}>
+                              <Typography variant="subtitle2" sx={{ mb: 1.5, borderBottom: "1px solid #555", pb: 1, fontWeight: '800', color: "#ffffff", textTransform: 'uppercase' }}>
+                                Rincian Tagihan
+                              </Typography>
+                              <Stack spacing={1.2}>
+                                <Box display="flex" justifyContent="space-between">
+                                  <Typography variant="caption" sx={{ color: "#ffffff", opacity: 0.9 }}>Pinjaman Pokok:</Typography>
+                                  <Typography variant="caption" sx={{ color: "#ffffff", fontWeight: 'bold' }}>{formatCurrency(modal)}</Typography>
+                                </Box>
+                                <Box display="flex" justifyContent="space-between">
+                                  <Typography variant="caption" sx={{ color: "#ffffff", opacity: 0.9 }}>Total Denda:</Typography>
+                                  <Typography variant="caption" sx={{ color: "#ffffff", fontWeight: 'bold' }}>{formatCurrency(item.nominal_denda || item.denda)}</Typography>
+                                </Box>
+                                <Box display="flex" justifyContent="space-between">
+                                  <Typography variant="caption" sx={{ color: "#ffffff", opacity: 0.9 }}>Penalty Telat:</Typography>
+                                  <Typography variant="caption" sx={{ color: "#ffffff", fontWeight: 'bold' }}>{formatCurrency(item.nominal_penalty || item.penalty)}</Typography>
+                                </Box>
+                                <Box sx={{ my: 1, borderTop: "1px dashed #666", pt: 1.5 }} display="flex" justifyContent="space-between">
+                                  <Typography variant="body2" sx={{ color: "#ffffff", fontWeight: '800' }}>Total Tagihan:</Typography>
+                                  <Typography variant="body2" sx={{ color: "#ffffff", fontWeight: '900' }}>{formatCurrency(item.total_hutang || item.hutang)}</Typography>
+                                </Box>
+                              </Stack>
+                            </Paper>
+                          }>
+                            <Box sx={{ cursor: 'help', p: 1, borderRadius: 2, transition: '0.3s', '&:hover': { bgcolor: 'action.hover' } }}>
+                              <Typography variant="body2" fontWeight="800">{formatCurrency(modal)}</Typography>
+                              <Typography variant="caption" color="error.main" fontWeight="bold">+{formatCurrency(totalDenda)}</Typography>
+                            </Box>
+                          </Tooltip>
+                        </TableCell>
 
-                          <TableCell align="center">
-                            <Typography variant="caption" display="block" fontWeight="bold">{item.tanggal?.split(' ')[0]}</Typography>
-                            <Chip label={item.metode?.toUpperCase()} size="small" variant="outlined" sx={{ height: 16, fontSize: '0.6rem' }} />
-                          </TableCell>
-                        </>
-                      )}
+                        {(tabIndex === 2 || isAdmin) && (
+                          <>
+                            <TableCell align="right">
+                              <Typography variant="body2" fontWeight="bold" color="success.main">{formatCurrency(nominalMasuk)}</Typography>
+                            </TableCell>
+                            <TableCell align="right">
+                              <Typography variant="body2" fontWeight="bold" color={profit >= 0 ? 'success.main' : 'error.main'}>
+                                {formatCurrency(profit)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Typography variant="caption" display="block" fontWeight="bold">
+                                {item.tanggal_dilelang || item.tanggal ? (item.tanggal_dilelang || item.tanggal).split('T')[0] : '-'}
+                              </Typography>
+                            </TableCell>
+                          </>
+                        )}
 
-                      <TableCell align="center">
-                        <Chip 
-                          size="small" 
-                          label={item.status === 'lunas' ? 'LUNAS' : item.status === 'terlelang' ? 'TERLELANG' : 'SIAP'} 
-                          color={item.status === 'lunas' ? 'success' : item.status === 'terlelang' ? 'primary' : 'default'}
-                        />
-                      </TableCell>
+                        <TableCell align="center">
+                          <Chip 
+                            size="small" 
+                            label={getStatusLabel(item)}
+                            color={getStatusColor(item)}
+                          />
+                        </TableCell>
 
-                      <TableCell align="center">
-                        <Stack direction="row" spacing={0.5} justifyContent="center">
-                          {tabIndex === 0 && canLelang && (
-                            <Button size="small" variant="contained" onClick={() => handleDaftarkanLelang(item)}>Daftarkan</Button>
-                          )}
-                          {tabIndex === 1 && canLelang && (
-                            <>
-                              <Tooltip title="Proses Lelang"><IconButton size="small" color="warning" onClick={() => openActionModal(item, 'proses')}><GavelIcon fontSize="small" /></IconButton></Tooltip>
-                              <Tooltip title="Pelunasan/Tebus"><IconButton size="small" color="success" onClick={() => openActionModal(item, 'lunasi')}><MoneyIcon fontSize="small" /></IconButton></Tooltip>
-                            </>
-                          )}
-                          {/* FITUR BARU: TOMBOL CETAK STRUK DI RIWAYAT */}
-                          {(tabIndex === 2 || isAdmin) && item.status === 'lunas' && (
-                            <Tooltip title="Cetak Struk">
-                                <IconButton 
-                                    size="small" 
-                                    color="secondary" 
-                                    onClick={() => navigate(`/struk-pelunasan-lelang/${item.detail_gadai_id || item.id}`)}
-                                >
-                                    <PrintIcon fontSize="small" />
+                        <TableCell align="center">
+                          <Stack direction="row" spacing={0.5} justifyContent="center">
+                            {tabIndex === 0 && canLelang && <Button size="small" variant="contained" onClick={() => handleDaftarkanLelang(item)}>Daftarkan</Button>}
+                            {tabIndex === 1 && canLelang && (
+                              <>
+                                <Tooltip title="Proses Lelang"><IconButton size="small" color="warning" onClick={() => openActionModal(item, 'proses')}><GavelIcon fontSize="small" /></IconButton></Tooltip>
+                                <Tooltip title="Pelunasan / Tebus"><IconButton size="small" color="success" onClick={() => openActionModal(item, 'lunasi')}><MoneyIcon fontSize="small" /></IconButton></Tooltip>
+                              </>
+                            )}
+                            {(tabIndex === 2 || isAdmin) && (
+                              <Tooltip title="Cetak Struk">
+                                <IconButton size="small" color="secondary" onClick={() => navigate(`/struk-pelunasan-lelang/${item.detail_gadai_id || item.id}`)}>
+                                  <PrintIcon fontSize="small" />
                                 </IconButton>
-                            </Tooltip>
-                          )}
-                          {item.bukti && (
-                            <Tooltip title="Lihat Bukti"><IconButton size="small" color="info" onClick={() => window.open(item.bukti, '_blank')}><VisibilityIcon fontSize="small" /></IconButton></Tooltip>
-                          )}
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                              </Tooltip>
+                            )}
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -341,7 +368,7 @@ const PelelanganPage = () => {
       <Dialog open={openModal} onClose={() => !submitting && setOpenModal(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 3 } }}>
         <DialogTitle sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
           {modalMode === 'proses' ? <GavelIcon color="warning" /> : <MoneyIcon color="success" />}
-          {modalMode === 'proses' ? 'Konfirmasi Terlelang' : 'Konfirmasi Penebusan'}
+          {modalMode === 'proses' ? 'Konfirmasi Barang Terlelang' : 'Konfirmasi Penebusan'}
         </DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
@@ -349,36 +376,36 @@ const PelelanganPage = () => {
               <Typography variant="caption" color="text.secondary" display="block">Total Tagihan:</Typography>
               <Typography variant="h6" fontWeight="bold">{formatCurrency(selectedGadai?.total_hutang || selectedGadai?.hutang)}</Typography>
             </Box>
-            
-            <TextField fullWidth label="Nominal Diterima" type="number" value={formData.nominal} onChange={(e) => setFormData({...formData, nominal: e.target.value})} />
-            
+            <TextField fullWidth label="Nominal Diterima" type="number" value={formData.nominal} onChange={(e) => setFormData({...formData, nominal: e.target.value})} helperText={modalMode === 'proses' ? "Masukkan harga terjual lelang" : "Masukkan nominal pelunasan"} />
             <FormControl fullWidth>
-              <InputLabel>Metode Bayar</InputLabel>
-              <Select value={formData.metode} label="Metode Bayar" onChange={(e) => setFormData({...formData, metode: e.target.value})}>
+              <InputLabel>Metode Pembayaran</InputLabel>
+              <Select value={formData.metode} label="Metode Pembayaran" onChange={(e) => setFormData({...formData, metode: e.target.value})}>
                 <MenuItem value="cash">Tunai / Cash</MenuItem>
                 <MenuItem value="transfer">Transfer Bank</MenuItem>
               </Select>
             </FormControl>
-
             {formData.metode === "transfer" && (
               <Box>
-                <Button variant="outlined" component="label" fullWidth sx={{ borderStyle: 'dashed' }}>
+                <Button variant="outlined" component="label" fullWidth>
                   Upload Bukti Transfer
                   <input type="file" hidden accept="image/*" onChange={handleFileChange} />
                 </Button>
-                {formData.preview && <Box component="img" src={formData.preview} sx={{ width: '100%', mt: 1, borderRadius: 2, border: '1px solid #ddd' }} />}
+                {formData.preview && (
+                  <Box sx={{ mt: 2, textAlign: 'center' }}>
+                    <img src={formData.preview} alt="Preview" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 8 }} />
+                  </Box>
+                )}
               </Box>
             )}
-
             <TextField fullWidth label="Keterangan" multiline rows={2} value={formData.keterangan} onChange={(e) => setFormData({...formData, keterangan: e.target.value})} />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenModal(false)} color="inherit">Batal</Button>
+          <Button onClick={() => setOpenModal(false)} color="inherit" disabled={submitting}>Batal</Button>
           <Button variant="contained" color={modalMode === 'proses' ? "warning" : "success"} onClick={handleSubmit} disabled={submitting}>
-            {submitting ? <CircularProgress size={24} color="inherit" /> : 'Konfirmasi'}
+            {submitting ? <CircularProgress size={24} color="inherit" /> : 'Selesaikan'}
           </Button>
-        </DialogActions>
+        </DialogActions>  
       </Dialog>
     </Box>
   );

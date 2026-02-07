@@ -207,6 +207,28 @@ export default {
       ]
     },
 
+     {
+      id: 'gadai',
+      title: 'Macam Macam Gadai',
+      type: 'group',
+      icon: icons.AccountTreeOutlinedIcon,
+      children: [
+        {
+          id: 'gadai-collapse',
+          title: 'Gadai',
+          type: 'collapse',
+          icon: icons.AccountTreeOutlinedIcon,
+          role: ['checker', 'hm', 'petugas'],
+          children: [
+            { id: 'gadai-hp', title: 'Gadai HP', type: 'item', url: '/gadai-hp', icon: icons.SmartphoneOutlinedIcon, role: ['checker', 'hm', 'petugas'] },
+            { id: 'gadai-logam-mulia', title: 'Gadai Logam Mulia', type: 'item', url: '/gadai-logam-mulia', icon: icons.SecurityOutlinedIcon, role: ['checker', 'hm', 'petugas'] },
+            { id: 'gadai-retro', title: 'Gadai Retro', type: 'item', url: '/gadai-retro', icon: icons.MonetizationOnOutlinedIcon, role: ['checker', 'hm', 'petugas'] },
+            { id: 'gadai-perhiasan', title: 'Gadai Perhiasan', type: 'item', url: '/gadai-perhiasan', icon: icons.DiamondOutlinedIcon, role: ['checker', 'hm', 'petugas'] }
+          ]
+        }
+      ]
+    },
+
     {
       id: 'approval',
       title: 'Pengajuan',
@@ -274,7 +296,8 @@ export default {
       type: 'group',
       icon: icons.AccountTreeOutlinedIcon,
       children: [
-        { id: 'admin-laporan', title: 'Laporan Admin', type: 'item', url: '/admin', icon: icons.AccountTreeOutlinedIcon, role: ['hm', 'admin'] },
+        { id: 'admin-laporan-mingguan', title: 'Laporan Admin Mingguan', type: 'item', url: '/admin-laporan-mingguan', icon: icons.AccountTreeOutlinedIcon, role: ['hm', 'admin'] },
+        { id: 'admin-laporan-mingguan-PDF', title: 'Laporan Admin PDF', type: 'item', url: '/cetak-pdf', icon: icons.AccountTreeOutlinedIcon, role: ['hm', 'admin'] },
         { id: 'Laporan Mingguan Admin', title: 'Laporan mingguan', type: 'item', url: '/laporan-mingguan', icon: icons.AssessmentOutlinedIcon, role: ['admin'] },
         { id: 'Laporan struk awal Admin', title: 'struk awal', type: 'item', url: '/laporan-struk-awal', icon: icons.AssessmentOutlinedIcon, role: ['admin', 'hm'] },
         { id: 'Laporan struk perpanjangan Admin', title: 'struk perpanjangan', type: 'item', url: '/laporan-struk-perpanjangan', icon: icons.AssessmentOutlinedIcon, role: ['admin', 'hm'] },
@@ -327,7 +350,15 @@ export default {
       icon: icons.AccountBalanceWalletIcon,
       children: [
         { id: 'Kas Management Main', title: 'kas management', type: 'item', url: '/kas-management', icon: icons.AccountBalanceWalletIcon, role: ['hm', 'admin'] },
-        { id: 'Kas Management SGI', title: 'kas management SGI', type: 'item', url: '/kas-management-checker', icon: icons.AccountBalanceWalletIcon, role: ['hm', 'kasir'] }
+        { id: 'Kas Management SGI', title: 'kas management SGI', type: 'item', url: '/kas-management-checker', icon: icons.AccountBalanceWalletIcon, role: ['hm', 'kasir'] },
+        {
+          id: 'laporan-kasir',
+          title: 'Laporan Kasir Harian',
+          type: 'item',
+          url: '/laporan-kasir-cetak',
+          icon: icons.AssessmentOutlinedIcon,
+          role: ['kasir', 'hm']
+        }
       ]
     }
   ]

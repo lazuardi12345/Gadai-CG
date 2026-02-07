@@ -31,7 +31,7 @@ Font.register({
 });
 
 const cleanText = (text) => {
-    if (!text) return "-";
+    if (!text) return "-";  
 
     if (Array.isArray(text)) {
         text = text.join(", ");

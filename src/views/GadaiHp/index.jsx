@@ -138,15 +138,21 @@ const GadaiHpPage = () => {
                       >
                         <TableCell>{page * rowsPerPage + index + 1}</TableCell>
 
-                        {/* Truncate dan Tooltip untuk teks panjang */}
+                        {/* FIX: Semua Tooltip teks sekarang dibungkus <span> */}
                         <TableCell sx={{ maxWidth: 120, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          <Tooltip title={item.nama_barang || "-"}>{item.nama_barang || "-"}</Tooltip>
+                          <Tooltip title={item.nama_barang || "-"}>
+                            <span>{item.nama_barang || "-"}</span>
+                          </Tooltip>
                         </TableCell>
 
                         <TableCell>{item.imei || "-"}</TableCell>
+                        
                         <TableCell sx={{ maxWidth: 100, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          <Tooltip title={item.merk?.nama_merk || "-"}>{item.merk?.nama_merk || "-"}</Tooltip>
+                          <Tooltip title={item.merk?.nama_merk || "-"}>
+                            <span>{item.merk?.nama_merk || "-"}</span>
+                          </Tooltip>
                         </TableCell>
+
                         <TableCell>{item.type_hp?.nama_type || "-"}</TableCell>
                         <TableCell>{item.warna || "-"}</TableCell>
                         <TableCell>{item.ram || "-"}</TableCell>
@@ -156,19 +162,19 @@ const GadaiHpPage = () => {
 
                         <TableCell sx={{ maxWidth: 150, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           <Tooltip title={item.kelengkapan_list?.map(k => k.nama_kelengkapan).join(", ") || "-"}>
-                            {item.kelengkapan_list?.map(k => k.nama_kelengkapan).join(", ") || "-"}
+                            <span>{item.kelengkapan_list?.map(k => k.nama_kelengkapan).join(", ") || "-"}</span>
                           </Tooltip>
                         </TableCell>
 
                         <TableCell sx={{ maxWidth: 150, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           <Tooltip title={item.kerusakan_list?.map(k => k.nama_kerusakan).join(", ") || "-"}>
-                            {item.kerusakan_list?.map(k => k.nama_kerusakan).join(", ") || "-"}
+                            <span>{item.kerusakan_list?.map(k => k.nama_kerusakan).join(", ") || "-"}</span>
                           </Tooltip>
                         </TableCell>
 
                         <TableCell sx={{ maxWidth: 120, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           <Tooltip title={item.detail_gadai?.nasabah?.nama_lengkap || "-"}>
-                            {item.detail_gadai?.nasabah?.nama_lengkap || "-"}
+                            <span>{item.detail_gadai?.nasabah?.nama_lengkap || "-"}</span>
                           </Tooltip>
                         </TableCell>
 

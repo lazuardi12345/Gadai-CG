@@ -12,42 +12,38 @@ import KopSuratImg from 'assets/images/Kop SUrat.png';
 import TtdManagerImg from 'assets/images/ttd.png'; 
 import StempelImg from 'assets/images/stemple.png';     
 
-const LaporanGudangCetak = () => {
+const LaporanBrankasCetak = () => {
   const { user } = useContext(AuthContext);
-  const userRole = (user?.role || "").toLowerCase();
-  
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [reportData, setReportData] = useState(null); 
   const [error, setError] = useState(null);
   const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
 
-  const apiBase = userRole === 'hm' ? '/hm/gudang' : '/gudang';
-
   const fetchLaporan = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axiosInstance.get(`${apiBase}/riwayat`, { params: { tanggal } });
+      const res = await axiosInstance.get(`/kasir/laporan/brankas`, { params: { tanggal } });
       if (res.data.success) {
         setReportData(res.data);
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Gagal mengambil data laporan gudang.");
+      setError(err.response?.data?.message || "Gagal mengambil data laporan brankas.");
     } finally {
       setLoading(false);
     }
-  }, [tanggal, apiBase]);
+  }, [tanggal]);
 
   useEffect(() => { fetchLaporan(); }, [fetchLaporan]);
 
   const handleAjukan = async () => {
-    if (!window.confirm("Ajukan Laporan Mutasi Gudang ini ke Manager?")) return;
+    if (!window.confirm("Ajukan Laporan Brankas ini ke Manager?")) return;
     setSubmitting(true);
     try {
-      const res = await axiosInstance.post(`${apiBase}/laporan/gudang/ajukan`, { report_date: tanggal });
+      const res = await axiosInstance.post(`/kasir/laporan/brankas/ajukan`, { report_date: tanggal });
       if (res.data.success) {
-        alert("Laporan gudang berhasil diajukan!");
+        alert("Laporan brankas berhasil diajukan!");
         fetchLaporan(); 
       }
     } catch (err) {
@@ -55,17 +51,12 @@ const LaporanGudangCetak = () => {
     } finally { setSubmitting(false); }
   };
 
-  const formatTanggalIndo = (dateString) => {
-    if (!dateString) return '-';
-    return new Intl.DateTimeFormat('id-ID', {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-    }).format(new Date(dateString));
-  };
+  const formatIDR = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val || 0);
 
   const renderSignature = () => {
     const meta = reportData?.metadata;
     const isApproved = meta?.is_approved || false;
-    const petugasName = user?.name || 'Petugas Gudang';
+    const petugasName = user?.name || 'Kasir Toko';
     const qrData = meta?.qr_code;
     const docId = meta?.doc_id;
 
@@ -78,7 +69,7 @@ const LaporanGudangCetak = () => {
       <Box sx={{ mt: 'auto', pt: 2 }}>
         <Grid container sx={{ textAlign: 'center', alignItems: 'flex-end', mb: 2 }}>
           <Grid item xs={4}>
-            <Typography sx={{ fontSize: '0.7rem', mb: 6 }}>Dibuat Oleh (Gudang),</Typography>
+            <Typography sx={{ fontSize: '0.7rem', mb: 6 }}>Dibuat Oleh (Kasir),</Typography>
             <Box sx={{ borderTop: '1.5px solid #000', mx: 2, pt: 0.5 }}>
                 <Typography sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>{petugasName}</Typography>
             </Box>
@@ -107,21 +98,15 @@ const LaporanGudangCetak = () => {
                 <Box sx={{ borderTop: '1.5px solid #000', pt: 0.5, position: 'relative', zIndex: 1 }}>
                   <Typography sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>MANAGER SGI</Typography>
                   {!isApproved && (
-                    <Typography sx={{ fontSize: '0.5rem', color: 'red', fontWeight: 'bold', position: 'absolute', top: -15, width: '100%' }}>
-                      (BELUM DI-ACC)
-                    </Typography>
+                    <Typography sx={{ fontSize: '0.5rem', color: 'red', fontWeight: 'bold', position: 'absolute', top: -15, width: '100%' }}>(BELUM DI-ACC)</Typography>
                   )}
                 </Box>
             </Box>
           </Grid>
         </Grid>
-
-        {/* METADATA CETAK DIGITAL */}
-        <Box sx={{ textAlign: 'right', mt: 1, pr: 1, borderTop: '0.5px solid #eee', pt: 0.5 }}>
-            <Typography sx={{ fontSize: '0.5rem', color: '#777', fontStyle: 'italic', lineHeight: 1.2 }}>
-                * Laporan mutasi ini dicetak secara sistem pada {waktuSekarang} WIB
-            </Typography>
-            <Typography sx={{ fontSize: '0.5rem', color: isApproved ? 'green' : '#777', fontWeight: 'bold', lineHeight: 1.2 }}>
+        <Box sx={{ textAlign: 'right', pr: 1 }}>
+            <Typography sx={{ fontSize: '0.5rem', color: '#777', fontStyle: 'italic' }}>* Dicetak secara sistem pada {waktuSekarang} WIB</Typography>
+            <Typography sx={{ fontSize: '0.5rem', color: isApproved ? 'green' : '#777', fontWeight: 'bold' }}>
                 * Validasi Digital: {isApproved ? 'TERVERIFIKASI ASLI' : 'DRAFT / BELUM DIVALIDASI'}
             </Typography>
         </Box>
@@ -131,7 +116,6 @@ const LaporanGudangCetak = () => {
 
   return (
     <Box sx={{ p: { xs: 1, md: 3 }, bgcolor: '#455a64', minHeight: '100vh' }}>
-      {/* Control Panel (Hidden on Print) */}
       <Card sx={{ p: 2, mb: 3 }} className="no-print">
         <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
           <Stack direction="row" spacing={1}>
@@ -142,7 +126,7 @@ const LaporanGudangCetak = () => {
             </Button>
             <Button variant="contained" startIcon={<Print />} onClick={() => window.print()} color="primary">Cetak PDF</Button>
           </Stack>
-          <Chip label="LAPORAN MUTASI GUDANG" color="primary" sx={{ fontWeight: 'bold' }} />
+          <Chip label="LAPORAN MUTASI BRANKAS" color="primary" sx={{ fontWeight: 'bold' }} />
         </Stack>
       </Card>
 
@@ -152,64 +136,63 @@ const LaporanGudangCetak = () => {
         <Box sx={{ textAlign: 'center', py: 10 }}><CircularProgress color="inherit" /></Box>
       ) : (
         <Box className="print-area-wrapper" sx={{ display: 'flex', justifyContent: 'center' }}>
-          <Paper 
-            className="printable-document"
-            sx={{ 
-                width: '210mm', 
-                minHeight: '297mm', 
-                p: '42mm 15mm 15mm 15mm', 
-                position: 'relative', 
-                display: 'flex', 
-                flexDirection: 'column', 
-                bgcolor: '#fff',
-                backgroundImage: `url("${KopSuratImg}")`, 
-                backgroundSize: '100% auto', 
-                backgroundRepeat: 'no-repeat',
-                boxShadow: '0 0 10px rgba(0,0,0,0.3)',
+          <Paper className="printable-document" sx={{ 
+                width: '210mm', minHeight: '297mm', p: '42mm 15mm 15mm 15mm', 
+                position: 'relative', display: 'flex', flexDirection: 'column', bgcolor: '#fff',
+                backgroundImage: `url("${KopSuratImg}")`, backgroundSize: '100% auto', backgroundRepeat: 'no-repeat',
                 boxSizing: 'border-box'
-            }}
-          >
-            <Box sx={{ textAlign: 'center', mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 900, textDecoration: 'underline', fontSize: '1.1rem' }}>
-                LAPORAN MUTASI GUDANG (IN / OUT)
-              </Typography>
-              <Typography sx={{ fontSize: '0.8rem', fontWeight: 600 }}>Tanggal: {formatTanggalIndo(tanggal)}</Typography>
+            }}>
+            
+            <Box sx={{ textAlign: 'center', mb: 3 }}>
+              <Typography variant="h6" sx={{ fontWeight: 900, textDecoration: 'underline', fontSize: '1.1rem' }}>LAPORAN MUTASI BRANKAS HARIAN</Typography>
+              <Typography sx={{ fontSize: '0.8rem', fontWeight: 600 }}>Tanggal: {reportData?.metadata?.tanggal_laporan}</Typography>
             </Box>
+
+            {/* SUMMARY SECTION */}
+            <Grid container spacing={1} sx={{ mb: 2 }}>
+                {[
+                    { label: 'SALDO AWAL', value: reportData?.summary_brankas?.saldo_awal },
+                    { label: 'TOTAL MASUK (DEBET)', value: reportData?.summary_brankas?.total_debet, color: 'green' },
+                    { label: 'TOTAL KELUAR (KREDIT)', value: reportData?.summary_brankas?.total_kredit, color: 'red' },
+                    { label: 'SALDO AKHIR', value: reportData?.summary_brankas?.saldo_akhir, bold: true }
+                ].map((box, i) => (
+                    <Grid item xs={3} key={i}>
+                        <Box sx={{ border: '1px solid #000', p: 1, textAlign: 'center' }}>
+                            <Typography sx={{ fontSize: '0.6rem', fontWeight: 'bold' }}>{box.label}</Typography>
+                            <Typography sx={{ fontSize: '0.8rem', fontWeight: box.bold ? 900 : 500, color: box.color || 'inherit' }}>
+                                {formatIDR(box.value)}
+                            </Typography>
+                        </Box>
+                    </Grid>
+                ))}
+            </Grid>
 
             <TableContainer sx={{ flex: 1 }}>
               <Table size="small" sx={{ '& .MuiTableCell-root': { border: '1px solid #000', py: 0.5, px: 0.8, fontSize: '0.65rem' } }}>
                 <TableHead sx={{ bgcolor: '#f0f0f0' }}>
                   <TableRow>
                     <TableCell align="center" width="30">NO</TableCell>
-                    <TableCell align="center" width="50">WAKTU</TableCell>
-                    <TableCell width="120">NASABAH / NO GADAI</TableCell>
-                    <TableCell>BARANG JAMINAN</TableCell>
-                    <TableCell align="center" width="60">STATUS</TableCell>
-                    <TableCell width="85">PENYERAH</TableCell>
-                    <TableCell width="85">PENERIMA</TableCell>
+                    <TableCell align="center" width="50">JAM</TableCell>
+                    <TableCell>KETERANGAN / DESKRIPSI</TableCell>
+                    <TableCell align="right" width="90">MASUK (D)</TableCell>
+                    <TableCell align="right" width="90">KELUAR (K)</TableCell>
+                    <TableCell align="right" width="100">SALDO</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {reportData?.data?.map((item, idx) => (
+                  {reportData?.data_mutasi?.map((item, idx) => (
                     <TableRow key={idx}>
                       <TableCell align="center">{idx + 1}</TableCell>
-                      <TableCell align="center">{item.waktu}</TableCell>
-                      <TableCell>
-                        <b>{item.nasabah}</b><br/><small>{item.no_gadai}</small>
-                      </TableCell>
-                      <TableCell>{item.barang}</TableCell>
-                      <TableCell align="center">
-                        <Typography sx={{ fontSize: '0.6rem', fontWeight: 'bold', color: item.jenis_pergerakan === 'MASUK' ? 'green' : 'red' }}>
-                          {item.jenis_pergerakan}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ fontSize: '0.6rem' }}>{item.penyerah}</TableCell>
-                      <TableCell sx={{ fontSize: '0.6rem' }}>{item.penerima}</TableCell>
+                      <TableCell align="center">{item.jam}</TableCell>
+                      <TableCell sx={{ fontSize: '0.6rem' }}>{item.keterangan}</TableCell>
+                      <TableCell align="right" sx={{ color: item.masuk > 0 ? 'green' : '#ccc' }}>{item.masuk > 0 ? formatIDR(item.masuk) : '-'}</TableCell>
+                      <TableCell align="right" sx={{ color: item.keluar > 0 ? 'red' : '#ccc' }}>{item.keluar > 0 ? formatIDR(item.keluar) : '-'}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>{formatIDR(item.saldo_akhir)}</TableCell>
                     </TableRow>
                   ))}
-                  {(!reportData?.data || reportData?.data.length === 0) && (
+                  {(!reportData?.data_mutasi || reportData?.data_mutasi.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={7} align="center">Tidak ada aktivitas gudang hari ini.</TableCell>
+                      <TableCell colSpan={6} align="center">Tidak ada mutasi brankas hari ini.</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -221,47 +204,18 @@ const LaporanGudangCetak = () => {
         </Box>
       )}
 
-      {/* STYLE KHUSUS PRINT - MEMBERSIHKAN SIDEBAR & LAYOUT */}
       <style>{`
         @media print {
-          body * {
-            visibility: hidden;
-          }
-          
-          .print-area-wrapper, .print-area-wrapper *, .printable-document, .printable-document * {
-            visibility: visible;
-          }
-
-          .print-area-wrapper {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            display: block !important;
-          }
-
-          .printable-document {
-            box-shadow: none !important;
-            margin: 0 !important;
-            padding: 42mm 15mm 15mm 15mm !important;
-            width: 210mm !important;
-            min-height: 297mm !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-
-          nav, aside, header, .no-print, [role="navigation"], .MuiDrawer-root {
-            display: none !important;
-          }
-
-          @page {
-            size: A4 portrait;
-            margin: 0;
-          }
+          body * { visibility: hidden; }
+          .print-area-wrapper, .print-area-wrapper *, .printable-document, .printable-document * { visibility: visible; }
+          .print-area-wrapper { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
+          .printable-document { box-shadow: none !important; margin: 0 !important; padding: 42mm 15mm 15mm 15mm !important; width: 210mm !important; min-height: 297mm !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          nav, aside, header, .no-print, [role="navigation"], .MuiDrawer-root { display: none !important; }
+          @page { size: A4 portrait; margin: 0; }
         }
       `}</style>
     </Box>
   );
 };
 
-export default LaporanGudangCetak;
+export default LaporanBrankasCetak;

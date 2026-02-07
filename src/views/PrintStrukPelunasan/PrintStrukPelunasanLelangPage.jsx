@@ -194,7 +194,7 @@ KARAT       : ${safe(p.karat)}
           <hr/>
 
           <div class="row"><span>Pokok</span><span>${formatRupiah(detail?.uang_pinjaman)}</span></div>
-          <div class="row"><span>Bunga</span><span>${formatRupiah(kalkulasi?.bunga)}</span></div>
+          <div class="row"><span>Jasa</span><span>${formatRupiah(kalkulasi?.bunga)}</span></div>
           <div class="row"><span>Denda</span><span>${formatRupiah(kalkulasi?.denda)}</span></div>
           <div class="row"><span>Penalty</span><span>${formatRupiah(kalkulasi?.penalty)}</span></div>
           <div class="row"><span>Terlambat</span><span>${safe(kalkulasi?.hari_terlambat)} hari</span></div>

@@ -9,11 +9,12 @@
     "@mui/lab": "^5.0.0-alpha.170",
     "@mui/material": "^5.15.15",
     "@mui/utils": "^5.15.14",
-    "@react-pdf/renderer": "^4.3.1",
+    "@react-pdf/renderer": "^4.3.2",
     "@reduxjs/toolkit": "^2.2.3",
     "@vitejs/plugin-react": "^4.2.1",
     "apexcharts": "^3.49.0",
     "axios": "^1.12.2",
+    "browser-image-compression": "^2.0.2",
     "dayjs": "^1.11.18",
     "formik": "^2.4.6",
     "framer-motion": "^11.1.7",
@@ -36,6 +37,7 @@
     "sweetalert2-react-content": "^5.1.1",
     "vite": "^5.2.10",
     "vite-jsconfig-paths": "^2.0.1",
+    "xlsx": "^0.18.5",
     "yup": "^1.4.0"
   },
   "scripts": {
