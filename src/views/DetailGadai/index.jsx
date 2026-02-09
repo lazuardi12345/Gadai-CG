@@ -7,7 +7,6 @@ import {
   DialogContent, DialogActions, MenuItem, Paper, Alert, Avatar, Grid
 } from "@mui/material";
 import {
-  Edit as EditIcon,
   Print as PrintIcon,
   CheckCircle as CheckCircleIcon,
   Payments as PaymentsIcon,
@@ -16,7 +15,6 @@ import {
   CloudUpload as UploadIcon,
   ReceiptLong as ReceiptIcon,
   Cancel as CancelIcon,
-  Delete as DeleteIcon,
   Smartphone as SmartphoneOutlinedIcon, 
   Diamond as DiamondOutlinedIcon,
   Inventory as InventoryIcon,
@@ -51,7 +49,6 @@ const DetailGadaiPage = () => {
   const [fileBukti, setFileBukti] = useState(null);
   const [targetBayar, setTargetBayar] = useState(0);
   const [processLoading, setProcessLoading] = useState(false);
-  const [openDelete, setOpenDelete] = useState(false);
 
   // State untuk Preview Foto
   const [previewImage, setPreviewImage] = useState(null);
@@ -126,22 +123,6 @@ const DetailGadaiPage = () => {
     setProcessLoading(false);
   }
 };
-
-  const handleDeleteGadai = async () => {
-    setProcessLoading(true);
-    try {
-      const res = await axiosInstance.delete(`${getApiUrl("detail-gadai")}/${selectedItem.id}`);
-      if (res.data.success) {
-        setOpenDelete(false);
-        fetchData();
-        alert("Data berhasil dihapus");
-      }
-    } catch (err) {
-      alert(err.response?.data?.message || "Gagal menghapus data");
-    } finally {
-      setProcessLoading(false);
-    }
-  };
 
 const handleSubmitLunas = async () => {
   if (!nominalBayar || !metodeBayar) {
@@ -393,7 +374,6 @@ const handleSubmitLunas = async () => {
                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>Status Pengajuan</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>Alur Transaksi</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>Cetak Struk / Bukti</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 'bold' }}>Aksi</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -425,7 +405,6 @@ const handleSubmitLunas = async () => {
       JT: {new Date(item.jatuh_tempo).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}
     </Typography>
 
-    {/* PERBAIKAN DISINI: Langsung akses item.hari_keterlambatan */}
     {item.hari_keterlambatan > 0 && (
       <Tooltip title={`Terlambat ${item.hari_keterlambatan} hari`}>
         <Chip 
@@ -529,7 +508,7 @@ const handleSubmitLunas = async () => {
       });
       
       setTargetBayar(totalBayar);
-      setNominalBayar(totalBayar.toString()); // OTOMATIS TERISI DENGAN TOTAL TEBUSAN
+      setNominalBayar(totalBayar.toString());
       setOpenLunas(true);
     }} 
     sx={{ fontSize: '0.65rem', textTransform: 'none' }}
@@ -558,14 +537,6 @@ const handleSubmitLunas = async () => {
                           <Tooltip title="Print Struk Pelunasan">
                             <IconButton size="small" color="success" onClick={() => navigate(`/print-struk-pelunasan/${item.id}`)}><PaymentsIcon fontSize="small" /></IconButton>
                           </Tooltip>
-                        )}
-                      </Stack>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Stack direction="row" spacing={0.5} justifyContent="center">
-                        <IconButton size="small" color="secondary" onClick={() => navigate(`/edit-detail-gadai/${item.id}`)}><EditIcon fontSize="small" /></IconButton>
-                        {userRole === "hm" && (
-                          <IconButton size="small" sx={{ color: 'error.main' }} onClick={() => { setSelectedItem(item); setOpenDelete(true); }}><DeleteIcon fontSize="small" /></IconButton>
                         )}
                       </Stack>
                     </TableCell>
@@ -598,7 +569,6 @@ const handleSubmitLunas = async () => {
               <Typography variant="caption" color="textSecondary">Nomor Gadai / Nasabah</Typography>
               <Typography variant="body2" fontWeight="bold">{selectedItem?.no_gadai}</Typography>
               <Typography variant="body1" fontWeight="bold" color="primary">{selectedItem?.nasabah?.nama_lengkap}</Typography>
-              <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>Telp: {selectedItem?.nasabah?.no_hp}</Typography>
             </Paper>
 
             {selectedItem?.hp && (
@@ -709,7 +679,6 @@ const handleSubmitLunas = async () => {
     </Typography>
     
     <Grid container spacing={1.5}>
-      {/* 1. JIKA HP */}
       {selectedItem?.dokumen_pendukung_hp && Object.entries(selectedItem.dokumen_pendukung_hp).map(([key, value]) => (
         value && typeof value === 'string' && value.startsWith('http') && (
           <ImageThumbnail key={key} url={value} label={key.toUpperCase()} />
@@ -726,7 +695,6 @@ const handleSubmitLunas = async () => {
         )
       ))}
 
-      {/* Fallback jika kosong */}
       {(!selectedItem?.dokumen_pendukung_hp && !selectedItem?.dokumen_pendukung_emas) && (
         <Grid item xs={12}>
           <Typography variant="caption" color="textSecondary">Tidak ada foto dokumen pendukung.</Typography>
@@ -753,20 +721,6 @@ const handleSubmitLunas = async () => {
   </DialogActions>
 </Dialog>
 
-      {/* --- DIALOG DELETE --- */}
-      <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><DeleteIcon color="error" /> Konfirmasi Hapus</DialogTitle>
-        <DialogContent>
-          <Typography>Apakah Anda yakin ingin menghapus data gadai <b>{selectedItem?.no_gadai}</b>?<br />
-          <Typography variant="caption" color="error.main">*Tindakan ini tidak dapat dibatalkan.</Typography></Typography>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenDelete(false)}>Batal</Button>
-          <Button variant="contained" color="error" onClick={handleDeleteGadai} disabled={processLoading}>{processLoading ? "Menghapus..." : "Ya, Hapus Data"}</Button>
-        </DialogActions>
-      </Dialog>
-
-
 <Dialog open={openLunas} onClose={() => setOpenLunas(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 4 } }}>
   <Box sx={{ bgcolor: 'success.main', color: 'white', px: 3, py: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
     <PaymentsIcon />
@@ -774,7 +728,6 @@ const handleSubmitLunas = async () => {
   </Box>
   <DialogContent sx={{ mt: 2 }}>
     <Stack spacing={2.5}>
-      {/* Info Total Tebusan */}
       <Box sx={{ p: 2, bgcolor: '#f0fdf4', borderRadius: 3, textAlign: 'center' }}>
         <Typography variant="caption" color="success.dark" fontWeight="bold">TOTAL TEBUSAN (POKOK+DENDA+PENALTY)</Typography>
         <Typography variant="h4" color="success.main" fontWeight="900">
@@ -791,7 +744,7 @@ const handleSubmitLunas = async () => {
         onChange={(e) => setNominalBayar(e.target.value)}
         helperText="Nominal sudah terisi otomatis, ubah jika nasabah bayar lebih"
         InputProps={{
-          readOnly: false, // Tetap bisa diubah jika nasabah bayar lebih
+          readOnly: false,
         }}
       />
 
@@ -833,6 +786,19 @@ const handleSubmitLunas = async () => {
     </Button>
   </DialogActions>
 </Dialog>
+
+      {/* Dialog Preview Image */}
+      <Dialog open={Boolean(previewImage)} onClose={() => setPreviewImage(null)} maxWidth="md" fullWidth>
+        <DialogTitle>{previewImage?.label}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <img src={previewImage?.url} alt={previewImage?.label} style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }} />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPreviewImage(null)}>Tutup</Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 };

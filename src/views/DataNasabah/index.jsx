@@ -67,6 +67,9 @@ const DataNasabahPage = () => {
   const [openModal, setOpenModal] = useState(false);
   const [modalFotoSrc, setModalFotoSrc] = useState("");
 
+  /* ================= CEK ROLE ================= */
+  const isLimitedRole = role === "petugas" || role === "checker";
+
   /* ================= FETCH DATA ================= */
   const fetchData = async () => {
     setTableLoading(true);
@@ -165,67 +168,92 @@ const DataNasabahPage = () => {
           <Table size="small">
             <TableHead sx={{ backgroundColor: "#f5f5f5" }}>
               <TableRow>
-                {/* Header disesuaikan, Bank tetap ditampilkan jika nanti kolomnya sudah ada */}
-                {["No", "Nama", "NIK", "No HP", "Bank", "No Rek", "Foto", "Aksi"].map((h) => (
-                  <TableCell key={h} align="center">
-                    <b>{h}</b>
-                  </TableCell>
-                ))}
+                {/* HEADER KOLOM SESUAI ROLE */}
+                {isLimitedRole ? (
+                  // Petugas & Checker: hanya No, Nama, NIK
+                  ["No", "Nama", "NIK"].map((h) => (
+                    <TableCell key={h} align="center">
+                      <b>{h}</b>
+                    </TableCell>
+                  ))
+                ) : (
+                  // HM / Admin: semua kolom
+                  ["No", "Nama", "NIK", "No HP", "Bank", "No Rek", "Foto", "Aksi"].map((h) => (
+                    <TableCell key={h} align="center">
+                      <b>{h}</b>
+                    </TableCell>
+                  ))
+                )}
               </TableRow>
             </TableHead>
 
             <TableBody>
               {nasabahData.map((nasabah, index) => (
                 <TableRow key={nasabah.id} hover>
+                  {/* NOMOR */}
                   <TableCell align="center">
                     {(pagination.current_page - 1) * pagination.per_page + index + 1}
                   </TableCell>
+
+                  {/* NAMA */}
                   <TableCell><b>{nasabah.nama_lengkap}</b></TableCell>
+
+                  {/* NIK */}
                   <TableCell>{nasabah.nik}</TableCell>
-                  <TableCell>{nasabah.no_hp}</TableCell>
-                  
-                  {/* Tampilkan Bank (Jika di JSON belum ada, akan tampil "-") */}
-                  <TableCell align="center">
-                    <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#1976d2' }}>
-                      {nasabah.bank ? nasabah.bank.replace(/_/g, ' ') : "-"}
-                    </Typography>
-                  </TableCell>
 
-                  {/* PAKAI NO_REK SESUAI RESPON JSON KAMU */}
-                  <TableCell align="center">{nasabah.no_rek || "-"}</TableCell>
+                  {/* KOLOM TAMBAHAN UNTUK HM/ADMIN */}
+                  {!isLimitedRole && (
+                    <>
+                      {/* NO HP */}
+                      <TableCell>{nasabah.no_hp}</TableCell>
 
-                  <TableCell align="center">
-                    <IconButton
-                      color="primary"
-                      disabled={!nasabah.foto_ktp}
-                      onClick={() => handleOpenModal(nasabah.foto_ktp)}
-                    >
-                      <PhotoIcon />
-                    </IconButton>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Stack direction="row" justifyContent="center">
-                      <IconButton onClick={() => navigate(`/detail-nasabah/${nasabah.id}`)}>
-                        <VisibilityIcon fontSize="small" />
-                      </IconButton>
-                      {(role === "checker" || role === "hm") && (
-                        <IconButton onClick={() => navigate(`/edit-nasabah/${nasabah.id}`)}>
-                          <EditIcon fontSize="small" />
+                      {/* BANK */}
+                      <TableCell align="center">
+                        <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#1976d2' }}>
+                          {nasabah.bank ? nasabah.bank.replace(/_/g, ' ') : "-"}
+                        </Typography>
+                      </TableCell>
+
+                      {/* NO REK */}
+                      <TableCell align="center">{nasabah.no_rek || "-"}</TableCell>
+
+                      {/* FOTO */}
+                      <TableCell align="center">
+                        <IconButton
+                          color="primary"
+                          disabled={!nasabah.foto_ktp}
+                          onClick={() => handleOpenModal(nasabah.foto_ktp)}
+                        >
+                          <PhotoIcon />
                         </IconButton>
-                      )}
-                      {role === "hm" && (
-                        <IconButton color="error" onClick={() => handleDelete(nasabah.id)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      )}
-                    </Stack>
-                  </TableCell>
+                      </TableCell>
+
+                      {/* AKSI */}
+                      <TableCell align="center">
+                        <Stack direction="row" justifyContent="center">
+                          <IconButton onClick={() => navigate(`/detail-nasabah/${nasabah.id}`)}>
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                          {(role === "checker" || role === "hm") && (
+                            <IconButton onClick={() => navigate(`/edit-nasabah/${nasabah.id}`)}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                          {role === "hm" && (
+                            <IconButton color="error" onClick={() => handleDelete(nasabah.id)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    </>
+                  )}
                 </TableRow>
               ))}
 
               {nasabahData.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+                  <TableCell colSpan={isLimitedRole ? 3 : 8} align="center" sx={{ py: 3 }}>
                     Tidak ada data nasabah.
                   </TableCell>
                 </TableRow>

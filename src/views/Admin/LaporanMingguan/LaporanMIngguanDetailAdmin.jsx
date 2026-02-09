@@ -12,20 +12,30 @@ const LaporanMingguanDetailAdmin = () => {
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null); 
   
-  // Ambil role dari localStorage (Pastikan key-nya sesuai dengan yang lu simpan di app lu)
-  const userRole = localStorage.getItem('role') || 'admin'; 
+  // Ambil role dari localStorage
+  const userRole = localStorage.getItem('role') || 'kasir'; 
 
   const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // LOGIC URL SESUAI PERMINTAAN LU
+  // LOGIC URL SESUAI ROLE: admin, HM, kasir
   const getApiUrl = useCallback(() => {
-    const path = 'laporan-mingguan-detail'; 
-    // Jika admin: admin/laporan-mingguan-detail
-    // Jika HM: laporan-mingguan-detail
-    const finalPath = userRole === "admin" ? `admin/${path}` : path;
+    const path = 'laporan-mingguan-detail';
     
-    console.log("DEBUG: Nembak ke URL ->", finalPath); 
+    let finalPath;
+    
+    if (userRole === 'admin') {
+      // Admin: admin/laporan-mingguan-detail
+      finalPath = `admin/${path}`;
+    } else if (userRole === 'HM') {
+      // HM: laporan/brankas
+      finalPath = 'laporan/brankas';
+    } else {
+      // Kasir (default): laporan-mingguan-detail
+      finalPath = path;
+    }
+    
+    console.log("DEBUG: Nembak ke URL ->", finalPath, "| Role:", userRole); 
     return finalPath;
   }, [userRole]);
 
@@ -77,6 +87,13 @@ const LaporanMingguanDetailAdmin = () => {
   const headerStyle = { ...cellStyle, fontWeight: 'bold', bgcolor: '#f1f5f9', textAlign: 'center' };
   const totalRowStyle = { ...cellStyle, fontWeight: 'bold', bgcolor: '#fff7ed', color: '#b91c1c' };
 
+  // Dynamic role chip color
+  const getRoleChipColor = () => {
+    if (userRole === 'admin') return 'primary';
+    if (userRole === 'HM') return 'secondary';
+    return 'default';
+  };
+
   return (
     <Box sx={{ p: 3, bgcolor: '#f8fafc', minHeight: '100vh' }}>
       <Card sx={{ p: 2, mb: 3 }} className="no-print">
@@ -88,7 +105,11 @@ const LaporanMingguanDetailAdmin = () => {
             <Button variant="contained" onClick={fetchLaporan} startIcon={<Refresh />}>Filter</Button>
             <Button variant="contained" color="success" onClick={exportToExcel} startIcon={<FileDownload />}>Export Excel</Button>
           </Stack>
-          <Chip label={`LOGIN SEBAGAI: ${userRole.toUpperCase()}`} color={userRole === 'admin' ? 'primary' : 'secondary'} sx={{ fontWeight: 'bold' }} />
+          <Chip 
+            label={`LOGIN SEBAGAI: ${userRole.toUpperCase()}`} 
+            color={getRoleChipColor()} 
+            sx={{ fontWeight: 'bold' }} 
+          />
         </Stack>
       </Card>
 
@@ -281,9 +302,11 @@ const LaporanMingguanDetailAdmin = () => {
           {/* SIGNATURE SECTION */}
           <Stack direction="row" justifyContent="space-around" sx={{ mt: 10 }}>
             <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="body2" sx={{ mb: 10 }}>Pemeriksa ({userRole === 'admin' ? 'Kepala Cabang' : 'Head Manager'})</Typography>
+                <Typography variant="body2" sx={{ mb: 10 }}>
+                  Pemeriksa ({userRole === 'admin' ? 'Kepala Cabang' : userRole === 'HM' ? 'Head Manager' : 'Supervisor'})
+                </Typography>
                 <Typography sx={{ fontWeight: 'bold', textDecoration: 'underline' }}>
-                    {userRole === 'admin' ? '( ________________ )' : '( HEAD MANAGER )'}
+                    {userRole === 'admin' ? '( KEPALA CABANG )' : userRole === 'HM' ? '( HEAD MANAGER )' : '( SUPERVISOR )'}
                 </Typography>
             </Box>
             <Box sx={{ textAlign: 'center' }}>

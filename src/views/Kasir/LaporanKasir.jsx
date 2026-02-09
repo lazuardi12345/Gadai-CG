@@ -14,17 +14,25 @@ import StempelImg from 'assets/images/stemple.png';
 
 const LaporanBrankasCetak = () => {
   const { user } = useContext(AuthContext);
+  const userRole = (user?.role || "").toLowerCase();
+  
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [reportData, setReportData] = useState(null); 
   const [error, setError] = useState(null);
   const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
 
+  // LOGIKA DINAMIS: HM tidak pakai prefix /kasir sesuai route laravel kamu
+  const getApiUrl = (endpoint) => {
+    return userRole === 'hm' ? `/laporan/brankas${endpoint}` : `/kasir/laporan/brankas${endpoint}`;
+  };
+
   const fetchLaporan = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axiosInstance.get(`/kasir/laporan/brankas`, { params: { tanggal } });
+      // Menggunakan URL dinamis
+      const res = await axiosInstance.get(getApiUrl(''), { params: { tanggal } });
       if (res.data.success) {
         setReportData(res.data);
       }
@@ -33,7 +41,7 @@ const LaporanBrankasCetak = () => {
     } finally {
       setLoading(false);
     }
-  }, [tanggal]);
+  }, [tanggal, userRole]);
 
   useEffect(() => { fetchLaporan(); }, [fetchLaporan]);
 
@@ -41,7 +49,8 @@ const LaporanBrankasCetak = () => {
     if (!window.confirm("Ajukan Laporan Brankas ini ke Manager?")) return;
     setSubmitting(true);
     try {
-      const res = await axiosInstance.post(`/kasir/laporan/brankas/ajukan`, { report_date: tanggal });
+      // Menggunakan URL dinamis untuk ajukan
+      const res = await axiosInstance.post(getApiUrl('/ajukan'), { report_date: tanggal });
       if (res.data.success) {
         alert("Laporan brankas berhasil diajukan!");
         fetchLaporan(); 
@@ -56,7 +65,7 @@ const LaporanBrankasCetak = () => {
   const renderSignature = () => {
     const meta = reportData?.metadata;
     const isApproved = meta?.is_approved || false;
-    const petugasName = user?.name || 'Kasir Toko';
+    const petugasName = meta?.kasir_name || user?.name || 'Kasir Toko'; // Ambil nama kasir dari data laporan jika ada
     const qrData = meta?.qr_code;
     const docId = meta?.doc_id;
 
@@ -121,12 +130,17 @@ const LaporanBrankasCetak = () => {
           <Stack direction="row" spacing={1}>
             <TextField type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} size="small" sx={{ bgcolor: 'white', borderRadius: 1 }} />
             <Button variant="contained" startIcon={<Refresh />} onClick={fetchLaporan} color="secondary">Refresh</Button>
-            <Button variant="contained" startIcon={<Send />} onClick={handleAjukan} disabled={submitting || loading} color="warning" sx={{ fontWeight: 'bold' }}>
-                {submitting ? "..." : "Ajukan ACC"}
-            </Button>
+            
+            {/* Hanya tampilkan tombol Ajukan jika role BUKAN hm */}
+            {userRole !== 'hm' && (
+                <Button variant="contained" startIcon={<Send />} onClick={handleAjukan} disabled={submitting || loading} color="warning" sx={{ fontWeight: 'bold' }}>
+                    {submitting ? "..." : "Ajukan ACC"}
+                </Button>
+            )}
+            
             <Button variant="contained" startIcon={<Print />} onClick={() => window.print()} color="primary">Cetak PDF</Button>
           </Stack>
-          <Chip label="LAPORAN MUTASI BRANKAS" color="primary" sx={{ fontWeight: 'bold' }} />
+          <Chip label={`LAPORAN BRANKAS - ${userRole.toUpperCase()}`} color="primary" sx={{ fontWeight: 'bold' }} />
         </Stack>
       </Card>
 

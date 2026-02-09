@@ -4,10 +4,11 @@ import {
   Chip, Divider, Card, CardActionArea, CardMedia, IconButton, Dialog,
   TextField
 } from "@mui/material";
-import { ArrowBack, Close } from "@mui/icons-material";
+import { ArrowBack, Close, PhotoCamera, Folder } from "@mui/icons-material"; // Tambah icon
 import { useParams, useNavigate } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
 import { AuthContext } from "AuthContex/AuthContext";
+import imageCompression from "browser-image-compression"; // Import library kompresi
 
 const DOKUMEN_SOP_RETRO = [
   { key: "emas_timbangan", label: "Emas + Timbangan" },
@@ -30,6 +31,7 @@ const EditGadaiRetroPage = () => {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [compressing, setCompressing] = useState(false); // State loading kompresi
   const [allKelengkapan, setAllKelengkapan] = useState([]);
   const [nasabah, setNasabah] = useState(null);
   const [selectedImage, setSelectedImage] = useState("");
@@ -56,22 +58,16 @@ const EditGadaiRetroPage = () => {
           axiosInstance.get(urlGadai),
         ]);
 
-        // Simpan semua kelengkapan
         const kelengkapanData = Array.isArray(resKelengkapan.data.data) ? resKelengkapan.data.data : [];
         setAllKelengkapan(kelengkapanData);
 
         const data = resGadai.data.data;
+        setNasabah(data.detail_gadai?.nasabah || null);
 
-        // Simpan nasabah
-        const nasabahData = data.detail_gadai?.nasabah || null;
-        setNasabah(nasabahData);
-
-        // Mapping kelengkapan
         const kelengkapanList = Array.isArray(data.kelengkapan_list)
           ? data.kelengkapan_list.map(k => k.nama_kelengkapan)
           : [];
 
-        // Ambil dokumen_pendukung pertama dari array
         const dokumenObj = data.dokumen_pendukung || {};
         const dokumenPendukung = {};
 
@@ -81,8 +77,6 @@ const EditGadaiRetroPage = () => {
             : null;
         });
 
-
-        // Mapping form dengan aman
         setForm({
           nama_barang: data.nama_barang || "",
           kelengkapan: kelengkapanList,
@@ -104,7 +98,6 @@ const EditGadaiRetroPage = () => {
     fetchData();
   }, [id, role]);
 
-
   const handleInputChange = e => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
@@ -119,63 +112,82 @@ const EditGadaiRetroPage = () => {
     }));
   };
 
-  const handleDokumenChange = (key, file) => {
-    setForm(prev => ({
-      ...prev,
-      dokumen_pendukung: {
-        ...prev.dokumen_pendukung,
-        [key]: file ? { file, url: URL.createObjectURL(file) } : null,
-      },
-    }));
-  };
-
-const handleSubmit = async () => {
-  try {
-    setSaving(true);
-
-    const dataForm = new FormData();
-    dataForm.append("_method", "PUT");
-
-    // Field biasa
-    ["nama_barang", "kode_cap", "karat", "potongan_batu", "berat"]
-      .forEach(key => dataForm.append(key, form[key] ?? ""));
-
-    // Kirim kelengkapan sebagai array ID
-    form.kelengkapan.forEach((nama, i) => {
-      const item = allKelengkapan.find(k => k.nama_kelengkapan === nama);
-      if (item) dataForm.append(`kelengkapan[${i}]`, item.id);
-    });
-
-    // Dokumen Pendukung - kirim hanya file baru
-    Object.entries(form.dokumen_pendukung).forEach(([key, val]) => {
-      if (val?.file instanceof File) {
-        dataForm.append(`dokumen_pendukung[${key}]`, val.file);
-      }
-    });
-
-    const urlSubmit = role === "checker"
-      ? `/checker/gadai-retro/${id}`
-      : `/gadai-retro/${id}`;
-
-    const res = await axiosInstance.post(urlSubmit, dataForm, {
-      headers: { "Content-Type": "multipart/form-data" }
-    });
-
-    if (res.data.success) {
-      alert("Data berhasil diperbarui!");
-      navigate("/gadai-retro");
-    } else {
-      alert(res.data.message || "Gagal memperbarui data.");
+  // Fungsi Kompresi & Handle Kamera/Galeri
+  const handleDokumenChange = async (key, file) => {
+    if (!file) {
+      setForm(prev => ({
+        ...prev,
+        dokumen_pendukung: { ...prev.dokumen_pendukung, [key]: null }
+      }));
+      return;
     }
 
-  } catch (err) {
-    console.error(err.response?.data || err);
-    alert(err.response?.data?.message || "Terjadi kesalahan.");
-  } finally {
-    setSaving(false);
-  }
-};
+    const options = {
+      maxSizeMB: 0.9,
+      maxWidthOrHeight: 1920,
+      useWebWorker: true,
+      initialQuality: 0.8
+    };
 
+    try {
+      setCompressing(true);
+      const compressedFile = await imageCompression(file, options);
+      const uniqueFile = new File([compressedFile], `${key}_${Date.now()}.jpg`, { type: "image/jpeg" });
+      
+      setForm(prev => ({
+        ...prev,
+        dokumen_pendukung: {
+          ...prev.dokumen_pendukung,
+          [key]: { file: uniqueFile, url: URL.createObjectURL(uniqueFile) },
+        },
+      }));
+    } catch (error) {
+      console.error("Gagal memproses gambar:", error);
+      alert("Terjadi kesalahan saat memproses gambar.");
+    } finally {
+      setCompressing(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    try {
+      setSaving(true);
+      const dataForm = new FormData();
+      dataForm.append("_method", "PUT");
+
+      ["nama_barang", "kode_cap", "karat", "potongan_batu", "berat"]
+        .forEach(key => dataForm.append(key, form[key] ?? ""));
+
+      form.kelengkapan.forEach((nama, i) => {
+        const item = allKelengkapan.find(k => k.nama_kelengkapan === nama);
+        if (item) dataForm.append(`kelengkapan[${i}]`, item.id);
+      });
+
+      Object.entries(form.dokumen_pendukung).forEach(([key, val]) => {
+        if (val?.file instanceof File) {
+          dataForm.append(`dokumen_pendukung[${key}]`, val.file);
+        }
+      });
+
+      const urlSubmit = role === "checker" ? `/checker/gadai-retro/${id}` : `/gadai-retro/${id}`;
+
+      const res = await axiosInstance.post(urlSubmit, dataForm, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+
+      if (res.data.success) {
+        alert("Data berhasil diperbarui!");
+        navigate("/gadai-retro");
+      } else {
+        alert(res.data.message || "Gagal memperbarui data.");
+      }
+    } catch (err) {
+      console.error(err.response?.data || err);
+      alert(err.response?.data?.message || "Terjadi kesalahan.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) return <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}><CircularProgress /></Stack>;
 
@@ -191,7 +203,6 @@ const handleSubmit = async () => {
       </Paper>
 
       <Grid container spacing={3}>
-        {/* Left column */}
         <Grid item xs={12} md={4}>
           <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
             <Stack spacing={2}>
@@ -228,29 +239,49 @@ const handleSubmit = async () => {
           </Paper>
         </Grid>
 
-        {/* Right column */}
         <Grid item xs={12} md={8}>
           <Paper elevation={3} sx={{ p: 3, borderRadius: 3 }}>
-            <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2 }}>Dokumen & Foto</Typography>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+              <Typography variant="subtitle1" fontWeight={800}>Dokumen & Foto</Typography>
+              {compressing && (
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CircularProgress size={14} />
+                  <Typography variant="caption">Memproses Foto...</Typography>
+                </Stack>
+              )}
+            </Stack>
+
             <Grid container spacing={2}>
-              {Object.keys(form.dokumen_pendukung || {}).map(key => (
+              {DOKUMEN_SOP_RETRO.map(({ key, label }) => (
                 <Grid item xs={12} sm={6} key={key}>
                   <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                    <Typography fontWeight={700}>{DOKUMEN_SOP_RETRO.find(d => d.key === key)?.label || key}</Typography>
+                    <Typography variant="caption" fontWeight={800} display="block" sx={{ mb: 1, textTransform: 'uppercase' }}>
+                      {label}
+                    </Typography>
                     <Grid container spacing={1}>
                       {form.dokumen_pendukung[key]?.url && (
-                        <Grid item xs={6}>
-                          <Card sx={{ borderRadius: 2, overflow: 'hidden', cursor: 'pointer' }}>
+                        <Grid item xs={12}>
+                          <Card sx={{ borderRadius: 2, overflow: 'hidden', cursor: 'pointer', mb: 1 }}>
                             <CardActionArea onClick={() => setSelectedImage(form.dokumen_pendukung[key].url)}>
                               <CardMedia component="img" height="140" image={form.dokumen_pendukung[key].url} alt={key} />
                             </CardActionArea>
                           </Card>
-                          <Button variant="outlined" color="error" size="small" fullWidth sx={{ mt: 1 }} onClick={() => handleDokumenChange(key, null)}>Hapus</Button>
+                          <Button variant="outlined" color="error" size="small" fullWidth onClick={() => handleDokumenChange(key, null)}>Hapus</Button>
                         </Grid>
                       )}
+                      
+                      {/* Tombol Kamera */}
                       <Grid item xs={6}>
-                        <Button variant="contained" component="label" fullWidth size="small" sx={{ mt: 1 }}>
-                          Upload
+                        <Button variant="contained" component="label" fullWidth size="small" startIcon={<PhotoCamera />} disabled={compressing}>
+                          Kamera
+                          <input type="file" hidden accept="image/*" capture="environment" onChange={e => handleDokumenChange(key, e.target.files[0])} />
+                        </Button>
+                      </Grid>
+
+                      {/* Tombol Galeri */}
+                      <Grid item xs={6}>
+                        <Button variant="outlined" component="label" fullWidth size="small" startIcon={<Folder />} disabled={compressing}>
+                          Galeri
                           <input type="file" hidden accept="image/*" onChange={e => handleDokumenChange(key, e.target.files[0])} />
                         </Button>
                       </Grid>
@@ -262,13 +293,14 @@ const handleSubmit = async () => {
 
             <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 3 }}>
               <Button variant="outlined" color="secondary" onClick={() => navigate("/gadai-retro")}>Batal</Button>
-              <Button variant="contained" color="primary" onClick={handleSubmit} disabled={saving}>{saving ? "Menyimpan..." : "Update"}</Button>
+              <Button variant="contained" color="primary" onClick={handleSubmit} disabled={saving || compressing}>
+                {saving ? "Menyimpan..." : "Update"}
+              </Button>
             </Stack>
           </Paper>
         </Grid>
       </Grid>
 
-      {/* Dialog Preview */}
       <Dialog open={!!selectedImage} onClose={() => setSelectedImage("")} maxWidth="xl">
         <IconButton onClick={() => setSelectedImage("")} sx={{ position: 'absolute', top: 12, right: 12, zIndex: 30, bgcolor: 'rgba(255,255,255,0.9)' }}><Close /></IconButton>
         <Box component="img" src={selectedImage} alt="preview" sx={{ width: '100%', height: '80vh', objectFit: 'contain' }} />
