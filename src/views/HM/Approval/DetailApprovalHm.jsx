@@ -1,488 +1,238 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  CardHeader,
-  CardContent,
-  Typography,
-  Box,
-  CircularProgress,
-  Grid,
-  Paper,
-  Stack,
-  Button,
-  Dialog,
-  DialogContent,
-  IconButton,
-  Chip,
+  CardHeader, CardContent, Typography, Box, CircularProgress,
+  Grid, Paper, Stack, Button, Dialog, DialogContent, IconButton,
+  Chip, Divider, useTheme, useMediaQuery
 } from "@mui/material";
-import { ArrowBack, Close } from "@mui/icons-material";
+import { ArrowBack, Close, ZoomIn, AccountCircle, Assignment, History, PhotoLibrary } from "@mui/icons-material";
 import axiosInstance from "api/axiosInstance";
 
-// Helper: full URL dokumen
 const getFullDokumenUrl = (path) => {
   if (!path) return null;
   if (path.startsWith("http")) return path;
   const baseUrl = import.meta.env.VITE_API_BASE_URL.replace(/\/api$/, "");
-  return path.startsWith("storage/")
-    ? `${baseUrl}/${path}`
-    : `${baseUrl}/storage/${path}`;
+  return path.startsWith("storage/") ? `${baseUrl}/${path}` : `${baseUrl}/storage/${path}`;
 };
 
-// Helper: warna status
 const getStatusColor = (status) => {
-  if (!status) return "#ccc"; 
+  if (!status) return "default";
   const s = status.toLowerCase();
-  if (s.includes("approved")) return "#4caf50"; 
-  if (s.includes("rejected")) return "#f44336"; 
-  if (s.includes("pending")) return "#ff9800"; 
-  return "#ccc"; 
+  if (s.includes("approved")) return "success";
+  if (s.includes("rejected")) return "error";
+  if (s.includes("pending")) return "warning";
+  return "default";
 };
 
 const DetailApprovalHMPage = () => {
   const { detailGadaiId } = useParams();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedImage, setSelectedImage] = useState("");
 
-  useEffect(() => {
-    const fetchDetail = async () => {
-      setLoading(true);
-      try {
-        const res = await axiosInstance.get(`/approvals/${detailGadaiId}/full-detail`);
-        if (res.data.success) setData(res.data.data);
-        else setError(res.data.message || "Gagal mengambil data detail");
-      } catch (err) {
-        setError(err.message || "Terjadi kesalahan server");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchDetail();
+  const fetchDetail = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await axiosInstance.get(`/approvals/${detailGadaiId}/full-detail`);
+      if (res.data.success) setData(res.data.data);
+      else setError(res.data.message || "Gagal mengambil data detail");
+    } catch (err) {
+      setError(err.message || "Terjadi kesalahan server");
+    } finally {
+      setLoading(false);
+    }
   }, [detailGadaiId]);
 
-  if (loading)
-    return (
-      <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}>
-        <CircularProgress />
-      </Stack>
-    );
+  useEffect(() => {
+    fetchDetail();
+  }, [fetchDetail]);
 
-  if (error)
-    return (
-      <Typography color="error" variant="h6" align="center" sx={{ mt: 2 }}>
-        Error: {error}
-      </Typography>
-    );
+  if (loading) return <Stack alignItems="center" justifyContent="center" sx={{ height: "80vh" }}><CircularProgress /></Stack>;
+  if (error) return <Typography color="error" align="center" sx={{ mt: 2 }}>Error: {error}</Typography>;
+  if (!data) return <Typography align="center" sx={{ mt: 2 }}>Data tidak ditemukan.</Typography>;
 
-  if (!data)
-    return (
-      <Typography align="center" sx={{ mt: 2 }}>
-        Data tidak ditemukan.
-      </Typography>
-    );
+  const { detail_gadai } = data;
+  const { nasabah } = detail_gadai;
 
-  const detail_gadai = data.detail_gadai;
-  const nasabah = detail_gadai.nasabah;
-
-  // Ambil barang sesuai type
   const getBarang = () => {
-    switch (detail_gadai.type?.nama_type) {
-      case "Handphone":
-        return data.hp?.data || [];
-      case "Perhiasan":
-        return data.perhiasan?.data || [];
-      case "Logam Mulia":
-        return data.logam_mulia?.data || [];
-      case "Retro":
-        return data.retro?.data || [];
-      default:
-        return [];
-    }
+    const type = detail_gadai.type?.nama_type;
+    if (type === "Handphone") return data.hp?.data || [];
+    if (type === "Perhiasan") return data.perhiasan?.data || [];
+    if (type === "Logam Mulia") return data.logam_mulia?.data || [];
+    if (type === "Retro") return data.retro?.data || [];
+    return [];
   };
-  const barangList = getBarang();
 
   const dokumenList = [];
-
-  barangList.forEach((item) => {
+  getBarang().forEach((item) => {
     if (item.dokumen_pendukung) {
-      let dokumenObj = item.dokumen_pendukung;
-
-      // Pastikan jadi object
-      if (typeof dokumenObj === "string") {
-        try {
-          dokumenObj = JSON.parse(dokumenObj);
-        } catch {
-          dokumenObj = {};
-        }
-      }
-
-      Object.entries(dokumenObj).forEach(([key, val]) => {
-        let url = null;
-        if (typeof val === "string" && val) {
-          url = getFullDokumenUrl(val);
-
-        } else if (Array.isArray(val) && val.length > 0) {
-          url = val[0].startsWith("http")
-            ? val[0]
-            : `${window.location.origin}/${val[0]}`;
-        }
-
-        if (url) dokumenList.push({ key, url });
+      let doc = item.dokumen_pendukung;
+      if (typeof doc === "string") { try { doc = JSON.parse(doc); } catch { doc = {}; } }
+      Object.entries(doc).forEach(([key, val]) => {
+        if (typeof val === "string" && val) dokumenList.push({ key, url: getFullDokumenUrl(val) });
       });
     }
   });
 
+  const hmApprovals = detail_gadai.approvals?.filter((a) => a.role?.toLowerCase() === "hm") || [];
+  const checkerApprovals = detail_gadai.approvals?.filter((a) => a.role?.toLowerCase() === "checker") || [];
 
-  // Filter approval berdasarkan role
-  const hmApprovals =
-    detail_gadai.approvals?.filter((a) => a.role?.toLowerCase() === "hm") || [];
-  const checkerApprovals =
-    detail_gadai.approvals?.filter((a) => a.role?.toLowerCase() === "checker") ||
-    [];
-
-  const sectionPaper = { p: 2, borderRadius: 2, mb: 2, bgcolor: "#f9f9f9" };
+  const InfoRow = ({ label, value }) => (
+    <Box sx={{ mb: 1.5 }}>
+      <Typography variant="caption" color="text.secondary" display="block">{label}</Typography>
+      <Typography variant="body2" fontWeight={600}>{value || "-"}</Typography>
+    </Box>
+  );
 
   return (
-    <Box sx={{ maxWidth: 1000, mx: "auto", mt: 3, mb: 6 }}>
-      <Paper elevation={3} sx={{ borderRadius: 3, overflow: "hidden" }}>
-        <CardHeader
-          title={
-            <Typography variant="h5" fontWeight={600}>
-              Detail Approval HM
-            </Typography>
-          }
-          action={
-            <Button
-              variant="outlined"
-              startIcon={<ArrowBack />}
-              onClick={() => navigate(-1)}
+    <Box sx={{ p: { xs: 1, md: 3 }, maxWidth: 1000, mx: "auto" }}>
+      {/* Header Statis */}
+      <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+        <IconButton onClick={() => navigate(-1)} color="primary"><ArrowBack /></IconButton>
+        <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">Detail Approval</Typography>
+      </Stack>
+
+      <Paper elevation={0} sx={{ borderRadius: 3, border: "1px solid #e0e0e0", overflow: "hidden" }}>
+        <Box sx={{ p: { xs: 2, md: 3 } }}>
+          
+          {/* NASABAH SECTION */}
+          <Stack direction="row" spacing={1} alignItems="center" mb={2}>
+            <AccountCircle color="primary" />
+            <Typography variant="subtitle1" fontWeight="bold">Informasi Nasabah</Typography>
+          </Stack>
+          <Grid container spacing={isMobile ? 0 : 2}>
+            <Grid item xs={6} md={3}><InfoRow label="Nama" value={nasabah?.nama_lengkap} /></Grid>
+            <Grid item xs={6} md={3}><InfoRow label="NIK" value={nasabah?.nik} /></Grid>
+            <Grid item xs={6} md={3}><InfoRow label="No HP" value={nasabah?.no_hp} /></Grid>
+            <Grid item xs={6} md={3}><InfoRow label="Alamat" value={nasabah?.alamat} /></Grid>
+          </Grid>
+          {nasabah?.foto_ktp && (
+            <Button 
+              variant="outlined" 
+              size="small" 
+              startIcon={<PhotoLibrary />}
+              onClick={() => setSelectedImage(getFullDokumenUrl(nasabah.foto_ktp))}
+              sx={{ mt: 1, mb: 3 }}
             >
-              Kembali
+              Lihat Foto KTP
             </Button>
-          }
-          sx={{ bgcolor: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}
-        />
-        <CardContent sx={{ p: 3 }}>
-          {/* INFORMASI NASABAH */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>
-              Informasi Nasabah
-            </Typography>
-            <Paper sx={sectionPaper} variant="outlined">
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Nama:</strong> {nasabah?.nama_lengkap || "-"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>NIK:</strong> {nasabah?.nik || "-"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Alamat:</strong> {nasabah?.alamat || "-"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>No HP:</strong> {nasabah?.no_hp || "-"}
-                  </Typography>
-                </Grid>
-                {nasabah?.foto_ktp && (
-                  <Grid item xs={12}>
-                    <Box
-                      component="img"
-                      src={getFullDokumenUrl(nasabah.foto_ktp)}
-                      alt="KTP"
-                      sx={{
-                        maxWidth: 200,
-                        borderRadius: 1,
-                        border: "1px solid #ccc",
-                        cursor: "pointer",
-                        "&:hover": { transform: "scale(1.05)" },
-                        transition: "transform 0.3s",
-                      }}
-                      onClick={() =>
-                        setSelectedImage(getFullDokumenUrl(nasabah.foto_ktp))
-                      }
-                    />
-                  </Grid>
-                )}
-              </Grid>
-            </Paper>
-          </Box>
-
-          {/* DETAIL GADAI */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom>
-              Detail Gadai
-            </Typography>
-            <Paper sx={sectionPaper} variant="outlined">
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Type:</strong> {detail_gadai.type?.nama_type || "-"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>No Gadai:</strong> {detail_gadai.no_gadai || "-"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Tanggal Gadai:</strong>{" "}
-                    {detail_gadai.tanggal_gadai || "-"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Jatuh Tempo:</strong>{" "}
-                    {detail_gadai.jatuh_tempo || "-"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Uang Pinjaman:</strong>{" "}
-                    {detail_gadai.uang_pinjaman || "-"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Taksiran:</strong> {detail_gadai.taksiran || "-"}
-                  </Typography>
-                </Grid>
-              </Grid>
-            </Paper>
-          </Box>
-
-
-
-
-          {/* APPROVAL HISTORY CHECKER & HM (side by side) */}
-          {(checkerApprovals.length > 0 || hmApprovals.length > 0) && (
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="h6" fontWeight={600} gutterBottom>
-                Approval History
-              </Typography>
-              <Grid container spacing={2}>
-                {/* Checker Section */}
-                <Grid item xs={12} md={6}>
-                  <Paper sx={{ p: 2, borderRadius: 2, bgcolor: "#f9f9f9" }}>
-                    <Typography
-                      variant="subtitle1"
-                      fontWeight={600}
-                      gutterBottom
-                      sx={{ mb: 1 }}
-                    >
-                      Checker
-                    </Typography>
-                    {checkerApprovals.length > 0 ? (
-                      checkerApprovals.map((a, idx) => (
-                        <Paper
-                          key={idx}
-                          sx={{
-                            p: 2,
-                            borderRadius: 2,
-                            mb: 1.5,
-                            bgcolor: "#fff",
-                            boxShadow: 1,
-                          }}
-                        >
-                          <Typography>
-                            <strong>Role:</strong> {a.role}
-                          </Typography>
-                          <Typography sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <strong>Status:</strong>{" "}
-                            <Chip
-                              label={a.status}
-                              size="small"
-                              sx={{
-                                fontWeight: 500,
-                                color: "#fff",
-                                backgroundColor: getStatusColor(a.status),
-                              }}
-                            />
-                          </Typography>
-                          <Typography>
-                            <strong>Catatan:</strong> {a.catatan || "-"}
-                          </Typography>
-                          <Typography>
-                            <strong>User:</strong> {a.user?.name || "-"}
-                          </Typography>
-                        </Paper>
-                      ))
-                    ) : (
-                      <Typography color="text.secondary">Belum ada approval</Typography>
-                    )}
-                  </Paper>
-                </Grid>
-
-                {/* HM Section */}
-                <Grid item xs={12} md={6}>
-                  <Paper sx={{ p: 2, borderRadius: 2, bgcolor: "#f9f9f9" }}>
-                    <Typography
-                      variant="subtitle1"
-                      fontWeight={600}
-                      gutterBottom
-                      sx={{ mb: 1 }}
-                    >
-                      HM
-                    </Typography>
-                    {hmApprovals.length > 0 ? (
-                      hmApprovals.map((a, idx) => (
-                        <Paper
-                          key={idx}
-                          sx={{
-                            p: 2,
-                            borderRadius: 2,
-                            mb: 1.5,
-                            bgcolor: "#fff",
-                            boxShadow: 1,
-                          }}
-                        >
-                          <Typography>
-                            <strong>Role:</strong> {a.role}
-                          </Typography>
-                          <Typography sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <strong>Status:</strong>{" "}
-                            <Chip
-                              label={a.status}
-                              size="small"
-                              sx={{
-                                fontWeight: 500,
-                                color: "#fff",
-                                backgroundColor: getStatusColor(a.status),
-                              }}
-                            />
-                          </Typography>
-                          <Typography>
-                            <strong>Catatan:</strong> {a.catatan || "-"}
-                          </Typography>
-                          <Typography>
-                            <strong>User:</strong> {a.user?.name || "-"}
-                          </Typography>
-                        </Paper>
-                      ))
-                    ) : (
-                      <Typography color="text.secondary">Belum ada approval</Typography>
-                    )}
-                  </Paper>
-                </Grid>
-              </Grid>
-            </Box>
           )}
 
-          {/* DOKUMEN PENDUKUNG */}
+          <Divider sx={{ my: 2 }} />
+
+          {/* GADAI SECTION */}
+          <Stack direction="row" spacing={1} alignItems="center" mb={2}>
+            <Assignment color="primary" />
+            <Typography variant="subtitle1" fontWeight="bold">Detail Gadai & Pinjaman</Typography>
+          </Stack>
+          <Grid container spacing={isMobile ? 0 : 2}>
+            <Grid item xs={6} md={4}><InfoRow label="Tipe Barang" value={detail_gadai.type?.nama_type} /></Grid>
+            <Grid item xs={6} md={4}><InfoRow label="No Gadai" value={detail_gadai.no_gadai} /></Grid>
+            <Grid item xs={6} md={4}><InfoRow label="Tanggal Gadai" value={detail_gadai.tanggal_gadai} /></Grid>
+            <Grid item xs={12} md={4}>
+               <Paper sx={{ p: 1.5, bgcolor: '#f1f5f9', borderRadius: 2 }}>
+                 <Typography variant="caption" color="primary" fontWeight="bold">Uang Pinjaman</Typography>
+                 <Typography variant="h6" color="primary" fontWeight="bold">
+                   Rp {Number(detail_gadai.uang_pinjaman || 0).toLocaleString("id-ID")}
+                 </Typography>
+               </Paper>
+            </Grid>
+            <Grid item xs={12} md={4} sx={{ mt: isMobile ? 1 : 0 }}>
+               <Paper sx={{ p: 1.5, bgcolor: '#fff7ed', borderRadius: 2 }}>
+                 <Typography variant="caption" color="warning.dark" fontWeight="bold">Taksiran</Typography>
+                 <Typography variant="h6" color="warning.dark" fontWeight="bold">
+                   Rp {Number(detail_gadai.taksiran || 0).toLocaleString("id-ID")}
+                 </Typography>
+               </Paper>
+            </Grid>
+          </Grid>
+
+          <Divider sx={{ my: 3 }} />
+
+          {/* APPROVAL HISTORY */}
+          <Stack direction="row" spacing={1} alignItems="center" mb={2}>
+            <History color="primary" />
+            <Typography variant="subtitle1" fontWeight="bold">Sejarah Approval</Typography>
+          </Stack>
+          
+          <Grid container spacing={2}>
+            {/* Checker Column */}
+            <Grid item xs={12} md={6}>
+              <Typography variant="caption" fontWeight="bold" color="text.secondary">CHECKER</Typography>
+              {checkerApprovals.length > 0 ? checkerApprovals.map((a, i) => (
+                <Paper key={i} sx={{ p: 1.5, mt: 1, border: '1px solid #eee', bgcolor: '#fafafa' }}>
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography variant="body2" fontWeight="bold">{a.user?.name}</Typography>
+                    <Chip label={a.status} size="small" color={getStatusColor(a.status)} />
+                  </Stack>
+                  <Typography variant="caption" color="text.secondary">{a.catatan || "Tanpa catatan"}</Typography>
+                </Paper>
+              )) : <Typography variant="caption" display="block">Belum ada data</Typography>}
+            </Grid>
+            
+            {/* HM Column */}
+            <Grid item xs={12} md={6}>
+              <Typography variant="caption" fontWeight="bold" color="text.secondary">HEAD MANAGER (HM)</Typography>
+              {hmApprovals.length > 0 ? hmApprovals.map((a, i) => (
+                <Paper key={i} sx={{ p: 1.5, mt: 1, border: '1px solid #eee', bgcolor: '#f0fdf4' }}>
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography variant="body2" fontWeight="bold">{a.user?.name}</Typography>
+                    <Chip label={a.status} size="small" color={getStatusColor(a.status)} />
+                  </Stack>
+                  <Typography variant="caption" color="text.secondary">{a.catatan || "Tanpa catatan"}</Typography>
+                </Paper>
+              )) : <Typography variant="caption" display="block">Belum ada data</Typography>}
+            </Grid>
+          </Grid>
+
+          {/* DOKUMEN SECTION */}
           {dokumenList.length > 0 && (
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="h6" fontWeight={600} gutterBottom>
-                Dokumen Pendukung
-              </Typography>
-              <Grid container spacing={2}>
+            <>
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="subtitle1" fontWeight="bold" mb={2}>Dokumen Pendukung</Typography>
+              <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 1 }}>
                 {dokumenList.map((d, idx) => (
-                  <Grid item xs={12} sm={4} key={idx}>
-                    <Typography
-                      sx={{ mb: 1, fontSize: 14, fontWeight: 500 }}
-                    >
-                      {d.key.replace(/_/g, " ").toUpperCase()}
-                    </Typography>
-                    <Box
-                      component="img"
-                      src={d.url}
-                      alt={d.key}
-                      sx={{
-                        width: "100%",
-                        maxHeight: 150,
-                        objectFit: "contain",
-                        borderRadius: 1,
-                        border: "1px solid #ccc",
-                        cursor: "pointer",
-                        "&:hover": { transform: "scale(1.05)" },
-                        transition: "transform 0.3s",
-                      }}
+                  <Box key={idx} sx={{ minWidth: 120, textAlign: 'center' }}>
+                    <Paper 
+                      sx={{ position: 'relative', cursor: 'pointer', overflow: 'hidden', height: 100, borderRadius: 2 }}
                       onClick={() => setSelectedImage(d.url)}
-                    />
-                  </Grid>
+                    >
+                      <Box component="img" src={d.url} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <Box sx={{ position: 'absolute', top: 0, right: 0, p: 0.5, bgcolor: 'rgba(0,0,0,0.5)', borderBottomLeftRadius: 8 }}>
+                        <ZoomIn sx={{ color: '#fff', fontSize: 16 }} />
+                      </Box>
+                    </Paper>
+                    <Typography variant="caption" noWrap sx={{ display: 'block', mt: 0.5 }}>
+                      {d.key.replace(/_/g, " ")}
+                    </Typography>
+                  </Box>
                 ))}
-              </Grid>
-            </Box>
+              </Box>
+            </>
           )}
-        </CardContent>
+        </Box>
       </Paper>
 
-      {/* PREVIEW IMAGE */}
-      <Dialog
-        open={!!selectedImage}
-        onClose={() => setSelectedImage("")}
-        maxWidth="lg"
-        fullWidth
-      >
-        <DialogContent
-          sx={{
-            position: "relative",
-            p: 0,
-            textAlign: "center",
-            bgcolor: "#000",
-          }}
-        >
-          <IconButton
-            onClick={() => setSelectedImage("")}
-            sx={{
-              position: "absolute",
-              top: 8,
-              right: 8,
-              zIndex: 10,
-              bgcolor: "rgba(255,255,255,0.7)",
-            }}
-          >
-            <Close />
-          </IconButton>
-          <Box
-            component="img"
-            src={selectedImage}
-            alt="Preview"
-            sx={{
-              width: "100%",
-              height: "auto",
-              maxHeight: "90vh",
-              objectFit: "contain",
-            }}
-          />
-        </DialogContent>
-
-        {/* Tombol Aksi */}
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            gap: 2,
-            p: 2,
-            bgcolor: "#f9f9f9",
-            borderTop: "1px solid #ddd",
-          }}
-        >
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={() => window.open(selectedImage, "_blank")}
-          >
-            Perbesar
-          </Button>
-          <Button
-            variant="contained"
-            color="inherit"
-            onClick={() => setSelectedImage("")}
-          >
-            Tutup
-          </Button>
+      {/* LIGHTBOX / IMAGE PREVIEW */}
+      <Dialog open={!!selectedImage} onClose={() => setSelectedImage("")} fullScreen={isMobile} maxWidth="lg">
+        <Box sx={{ bgcolor: '#000', height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Stack direction="row" justifyContent="flex-end" p={1}>
+            <IconButton onClick={() => setSelectedImage("")} sx={{ color: '#fff' }}><Close /></IconButton>
+          </Stack>
+          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+            <Box component="img" src={selectedImage} sx={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }} />
+          </Box>
+          <Stack direction="row" spacing={2} p={3} justifyContent="center" bgcolor="rgba(255,255,255,0.1)">
+            <Button variant="contained" onClick={() => window.open(selectedImage, "_blank")}>Buka di Tab Baru</Button>
+            <Button variant="outlined" sx={{ color: '#fff', borderColor: '#fff' }} onClick={() => setSelectedImage("")}>Tutup</Button>
+          </Stack>
         </Box>
       </Dialog>
-
     </Box>
   );
 };

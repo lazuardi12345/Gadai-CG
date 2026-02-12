@@ -4,18 +4,21 @@ import {
     TableHead, TableBody, TableRow, TableCell, TablePagination,
     IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
     Button, CircularProgress, Stack, Grid, Typography, TextField, Paper,
+    Box, useTheme, useMediaQuery, Avatar // <-- Import Box, useTheme, useMediaQuery, & Avatar
 } from "@mui/material";
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from "@mui/icons-material";
 import axiosInstance from "api/axiosInstance";
 
 const KelengkapanEmasPage = () => {
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm')); // Deteksi Layar HP
+
     const user = JSON.parse(localStorage.getItem("auth_user"));
     const role = user?.role?.toLowerCase() || "";
 
     const getApiUrl = (role) => {
         switch (role) {
             case "checker": return "/checker/kelengkapan-emas";
-            case "hm":
             default: return "/kelengkapan-emas";
         }
     };
@@ -63,31 +66,21 @@ const KelengkapanEmasPage = () => {
         setOpenModal(true);
     };
 
-    const handleFormChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
-
     const handleSubmit = async () => {
-        if (!formData.nama_kelengkapan) {
+        if (!formData.nama_kelengkapan.trim()) {
             alert("Nama kelengkapan wajib diisi");
             return;
         }
 
         try {
             setSubmitting(true);
-            let res;
-            if (editingId) {
-                res = await axiosInstance.put(`${apiUrl}/${editingId}`, formData);
-            } else {
-                res = await axiosInstance.post(apiUrl, formData);
-            }
+            let res = editingId 
+                ? await axiosInstance.put(`${apiUrl}/${editingId}`, formData)
+                : await axiosInstance.post(apiUrl, formData);
 
             if (res.data.success) {
                 setOpenModal(false);
                 fetchData();
-            } else {
-                alert(res.data.message);
             }
         } catch (err) {
             alert("Terjadi kesalahan server");
@@ -106,109 +99,134 @@ const KelengkapanEmasPage = () => {
         }
     };
 
-    const handleChangePage = (_, newPage) => setPage(newPage);
-    const handleChangeRowsPerPage = (e) => {
-        setRowsPerPage(parseInt(e.target.value, 10));
-        setPage(0);
-    };
-
-    if (loading)
-        return (
-            <Grid container justifyContent="center" alignItems="center" sx={{ height: "100vh" }}>
-                <CircularProgress />
-            </Grid>
-        );
-
-    if (error) return <Typography color="error" align="center">{error}</Typography>;
+    if (loading) return (
+        <Box display="flex" justifyContent="center" alignItems="center" height="80vh">
+            <CircularProgress />
+        </Box>
+    );
 
     return (
-        <Card sx={{ boxShadow: 4, borderRadius: 3 }}>
-            <CardHeader
-                title={<Typography variant="h6" sx={{ fontWeight: "bold" }}>Master Kelengkapan Emas</Typography>}
-                action={
-                    <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => handleOpenModal()}
-                        sx={{ textTransform: "none", borderRadius: 2 }}
-                    >
-                        Tambah Kelengkapan
-                    </Button>
-                }
-            />
-            <Divider />
-            <CardContent>
-                <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
-                    <Table>
-                        <TableHead sx={{ background: "#fafafa" }}>
-                            <TableRow>
-                                <TableCell align="center"><b>No</b></TableCell>
-                                <TableCell><b>Nama Kelengkapan</b></TableCell>
-                                <TableCell align="center"><b>Aksi</b></TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {data.length > 0 ? (
-                                data
-                                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                                    .map((item, index) => (
+        <Box sx={{ p: { xs: 1, md: 3 } }}>
+            <Card sx={{ boxShadow: 3, borderRadius: { xs: 2, md: 3 } }}>
+                <CardHeader
+                    title={<Typography variant={isMobile ? "subtitle1" : "h6"} fontWeight="bold">Master Kelengkapan Emas</Typography>}
+                    action={
+                        <Button
+                            variant="contained"
+                            size={isMobile ? "small" : "medium"}
+                            startIcon={<AddIcon />}
+                            onClick={() => handleOpenModal()}
+                            sx={{ borderRadius: 2 }}
+                        >
+                            {isMobile ? "Tambah" : "Tambah Baru"}
+                        </Button>
+                    }
+                />
+                <Divider />
+                <CardContent sx={{ p: { xs: 1, md: 2 } }}>
+                    
+                    {isMobile ? (
+                        /* Tampilan MOBILE: Card Style */
+                        <Stack spacing={1.5}>
+                            {data.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item, index) => (
+                                <Paper key={item.id} variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                        <Stack direction="row" spacing={2} alignItems="center">
+                                            <Avatar sx={{ width: 30, height: 30, bgcolor: 'primary.main', fontSize: 12 }}>
+                                                {page * rowsPerPage + index + 1}
+                                            </Avatar>
+                                            <Typography variant="body2" fontWeight="500">
+                                                {item.nama_kelengkapan}
+                                            </Typography>
+                                        </Stack>
+                                        <Stack direction="row" spacing={0.5}>
+                                            <IconButton size="small" color="primary" onClick={() => handleOpenModal(item)}>
+                                                <EditIcon fontSize="small" />
+                                            </IconButton>
+                                            <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}>
+                                                <DeleteIcon fontSize="small" />
+                                            </IconButton>
+                                        </Stack>
+                                    </Stack>
+                                </Paper>
+                            ))}
+                        </Stack>
+                    ) : (
+                        /* Tampilan DESKTOP: Tabel Style */
+                        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                            <Table size="small">
+                                <TableHead sx={{ background: "#f8fafc" }}>
+                                    <TableRow>
+                                        <TableCell align="center" width="70"><b>No</b></TableCell>
+                                        <TableCell><b>Nama Kelengkapan</b></TableCell>
+                                        <TableCell align="center" width="120"><b>Aksi</b></TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {data.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item, index) => (
                                         <TableRow hover key={item.id}>
                                             <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
                                             <TableCell>{item.nama_kelengkapan}</TableCell>
                                             <TableCell align="center">
                                                 <Stack direction="row" spacing={1} justifyContent="center">
-                                                    <IconButton color="primary" onClick={() => handleOpenModal(item)}>
+                                                    <IconButton size="small" color="primary" onClick={() => handleOpenModal(item)}>
                                                         <EditIcon />
                                                     </IconButton>
-                                                    <IconButton color="error" onClick={() => handleDelete(item.id)}>
+                                                    <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}>
                                                         <DeleteIcon />
                                                     </IconButton>
                                                 </Stack>
                                             </TableCell>
                                         </TableRow>
-                                    ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell align="center" colSpan={3}>Tidak ada data</TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    )}
+
+                    {data.length === 0 && (
+                        <Typography variant="body2" align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                            Tidak ada data.
+                        </Typography>
+                    )}
+
                     <TablePagination
                         rowsPerPageOptions={[5, 10, 25]}
                         component="div"
                         count={data.length}
                         rowsPerPage={rowsPerPage}
                         page={page}
-                        onPageChange={handleChangePage}
-                        onRowsPerPageChange={handleChangeRowsPerPage}
+                        onPageChange={(_, p) => setPage(p)}
+                        onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+                        labelRowsPerPage={isMobile ? "Baris:" : "Baris per halaman:"}
                     />
-                </TableContainer>
-            </CardContent>
+                </CardContent>
+            </Card>
 
-            <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="sm" fullWidth>
+            <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="xs" fullWidth>
                 <DialogTitle sx={{ fontWeight: "bold" }}>
                     {editingId ? "Edit Kelengkapan" : "Tambah Kelengkapan"}
                 </DialogTitle>
                 <DialogContent>
-                    <Stack spacing={2} sx={{ mt: 1 }}>
-                        <TextField
-                            label="Nama Kelengkapan"
-                            name="nama_kelengkapan"
-                            value={formData.nama_kelengkapan}
-                            onChange={handleFormChange}
-                            fullWidth
-                        />
-                    </Stack>
+                    <TextField
+                        autoFocus
+                        margin="dense"
+                        label="Nama Kelengkapan"
+                        fullWidth
+                        variant="outlined"
+                        value={formData.nama_kelengkapan}
+                        onChange={(e) => setFormData({ ...formData, nama_kelengkapan: e.target.value })}
+                        sx={{ mt: 1 }}
+                    />
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setOpenModal(false)}>Batal</Button>
+                <DialogActions sx={{ p: 2.5, pt: 0 }}>
+                    <Button onClick={() => setOpenModal(false)} color="inherit">Batal</Button>
                     <Button variant="contained" onClick={handleSubmit} disabled={submitting}>
                         {submitting ? <CircularProgress size={22} /> : "Simpan"}
                     </Button>
                 </DialogActions>
             </Dialog>
-        </Card>
+        </Box>
     );
 };
 

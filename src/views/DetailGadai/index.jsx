@@ -39,6 +39,7 @@ const DetailGadaiPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [totalRows, setTotalRows] = useState(0);  
 
   const [openValidasi, setOpenValidasi] = useState(false);
   const [openLunas, setOpenLunas] = useState(false);
@@ -59,22 +60,33 @@ const DetailGadaiPage = () => {
     return `/${resource}`;
   };
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const res = await axiosInstance.get(getApiUrl("detail-gadai"), {
-        params: { per_page: 1000 },
-      });
-      if (res.data.success) {
-        setData(res.data.data);
-      }
-    } catch (err) {
-      console.error("Terjadi kesalahan server", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
+
+// 3. Fungsi Fetch yang sudah kamu perbaiki (sudah benar)
+const fetchData = async () => {
+  setLoading(true);
+  try {
+    const params = {
+      per_page: rowsPerPage,
+      page: page + 1,
+      search: searchTerm,
+      // Biarkan server yang buang data 'pending extension' 
+      // supaya totalRows (172 itu) sinkron sama yang tampil.
+      exclude_extending: true, 
+    };
+    const res = await axiosInstance.get(getApiUrl("detail-gadai"), { params });
+    
+    if (res.data.success) {
+      setData(res.data.data); 
+      setTotalRows(res.data.pagination?.total || 0);
+    }
+  } catch (err) {
+    console.error("Error:", err);
+    setData([]);
+  } finally {
+    setLoading(false);
+  }
+};
   const handleOpenValidasi = async (id) => {
     setProcessLoading(true);
     setSelectedItem(null); 
@@ -251,20 +263,20 @@ const handleSubmitLunas = async () => {
 };
 
 
-  useEffect(() => { fetchData(); }, [userRole]);
+useEffect(() => {
 
-  useEffect(() => {
-    const filtered = data.filter(item => {
-      const isCurrentlyExtending = item.perpanjangan_tempos?.some(p => p.status_bayar === "pending");
-      if (isCurrentlyExtending) return false;
-      const matchSearch = 
-        item.no_gadai?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.nasabah?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchSearch;
-    });
-    setFilteredData(filtered);
-    setPage(0);
-  }, [searchTerm, data]);
+  const delayDebounceFn = setTimeout(() => {
+    fetchData();
+  }, 500);
+
+  return () => clearTimeout(delayDebounceFn);
+
+}, [page, rowsPerPage, searchTerm]); 
+
+useEffect(() => {
+  setPage(0);
+}, [searchTerm]);
+
 
   const getStatusColor = (status) => {
     if (status === "proses") return "warning";
@@ -376,177 +388,217 @@ const handleSubmitLunas = async () => {
                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>Cetak Struk / Bukti</TableCell>
               </TableRow>
             </TableHead>
-            <TableBody>
-              {filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item, index) => {
-                const { checker, hm } = getApprovalStatus(item.approvals);
-                return (
-                  <TableRow key={item.id} hover>
-                    <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
-                    <TableCell>
-                      <Stack spacing={0.3}>
-                        <Typography variant="body2" fontWeight="bold" color="primary">{item.no_gadai}</Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Typography variant="caption" sx={{ fontWeight: 600 }}>Nasabah:</Typography>
-                          <Typography variant="caption" color="text.secondary">{item.nasabah?.nama_lengkap || '-'}</Typography>
-                        </Box>
-                        <Box sx={{ mt: 0.5, p: 0.5, bgcolor: '#f1f5f9', borderRadius: 1, borderLeft: '3px solid #1e293b', display: 'inline-flex', width: 'fit-content' }}>
-                          <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 'bold' }}>
-                            {getUnitIcon(item.type?.nama_type)} {item.type?.nama_type || 'Tanpa Type'}
-                          </Typography>
-                        </Box>
-                      </Stack>
-                    </TableCell>
-                   <TableCell align="center">
-  <Stack spacing={0.2} alignItems="center">
-    <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
-      Gadai: {new Date(item.tanggal_gadai).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-    </Typography>
-    <Typography variant="caption" fontWeight="bold" color="error.main" sx={{ fontSize: '0.65rem' }}>
-      JT: {new Date(item.jatuh_tempo).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-    </Typography>
+<TableBody>
+  {/* 1. Jangan pakai .slice() lagi, data dari server sudah pas (misal: 10 data).
+      2. Jangan pakai filteredData, pakai state 'data' hasil fetchData. 
+  */}
+  {data.map((item, index) => {
+    const { checker, hm } = getApprovalStatus(item.approvals);
+    return (
+      <TableRow key={item.id} hover>
+        {/* Nomor urut dinamis berdasarkan halaman */}
+        <TableCell align="center">
+          {page * rowsPerPage + index + 1}
+        </TableCell>
 
-    {item.hari_keterlambatan > 0 && (
-      <Tooltip title={`Terlambat ${item.hari_keterlambatan} hari`}>
-        <Chip 
-          label={`Telat ${item.hari_keterlambatan} Hari`} 
-          size="small" 
-          color="error" 
-          sx={{ 
-            fontSize: '0.6rem', 
-            height: 18, 
-            fontWeight: 'bold', 
-            mt: 0.5,
-            animation: 'pulse 1.5s infinite',
-            '@keyframes pulse': {
-              '0%': { opacity: 1 },
-              '50%': { opacity: 0.6 },
-              '100%': { opacity: 1 }
-            }
-          }} 
-        />
-      </Tooltip>
-    )}
-  </Stack>
-</TableCell>
-                    <TableCell align="right">
-                      <Stack spacing={0.2}>
-                        <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>Taksiran: {Number(item.taksiran).toLocaleString("id-ID")}</Typography>
-                        <Typography variant="body2" fontWeight="bold" color="primary.main">{Number(item.uang_pinjaman).toLocaleString("id-ID")}</Typography>
-                      </Stack>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Stack spacing={0.5} alignItems="center">
-                        <Chip label={item.status.toUpperCase()} color={getStatusColor(item.status)} size="small" sx={{ fontSize: '0.65rem', fontWeight: 'bold' }} />
-                        {item.perpanjangan_tempos?.length > 0 && (
-                          <Chip variant="outlined" color="secondary" size="small" icon={<ExtensionIcon style={{ fontSize: 12 }} />} label={`${item.perpanjangan_tempos.filter(p => p.status_bayar === 'lunas').length}x`} sx={{ fontSize: '0.65rem', height: 20 }} />
-                        )}
-                      </Stack>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Stack spacing={0.5} alignItems="center">
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'text.secondary', minWidth: 50 }}>Checker:</Typography>
-                          {renderApprovalBadge(checker)}
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'text.secondary', minWidth: 50 }}>HM:</Typography>
-                          {renderApprovalBadge(hm)}
-                        </Box>
-                      </Stack>
-                    </TableCell>
-                    <TableCell align="center">
-                      {isManagement && (
-                        <Stack direction="row" spacing={1} justifyContent="center">
-                          {item.status === "proses" && (
-                            <Button variant="contained" color="info" size="small" onClick={() => handleOpenValidasi(item.id)} sx={{ fontSize: '0.65rem', textTransform: 'none' }}>
-                              Cek Selesai
-                            </Button>
-                          )}
-                         {item.status === "selesai" && (
-  <Button 
-    variant="contained" 
-    color="success" 
-    size="small" 
-    onClick={() => { 
-      setSelectedItem(item);
-      setFileBukti(null);
-      
-      const pokok = Number(item.uang_pinjaman || 0);
-      const perpanjanganTerbaru = item.perpanjangan_tempos?.length
-        ? item.perpanjangan_tempos[item.perpanjangan_tempos.length - 1]
-        : null;
-      const jatuhTempoTerbaru = perpanjanganTerbaru?.jatuh_tempo_baru || item.jatuh_tempo;
-      const today = new Date();
-      const jatuhTempoDate = new Date(jatuhTempoTerbaru);
-      let selisihHari = Math.ceil((today - jatuhTempoDate) / (1000 * 60 * 60 * 24));
-      
-      const toleransi = 1;
-      if (selisihHari <= toleransi) {
-        selisihHari = 0;
-      } else {
-        selisihHari -= toleransi;
-      }
-      const typeNama = (item.type?.nama_type || '').toLowerCase();
-      const jenisSkema = ['handphone', 'elektronik'].includes(typeNama) ? 'hp' : 'non-hp';
-      let denda = 0, penalty = 0;
-      if (selisihHari > 0) {
-        const persenDendaPerHari = jenisSkema === 'hp' ? 0.003 : 0.001;
-        denda = pokok * persenDendaPerHari * selisihHari;
-        if (selisihHari > 15) {
-          penalty = 180000;
-        }
-      }
-      const totalBayarSebelum = pokok + denda + penalty;
-      const totalBayar = Math.ceil(totalBayarSebelum / 1000) * 1000;
-      
-      console.log('Perhitungan Preview:', {
-        pokok,
-        denda,
-        penalty,
-        selisihHari,
-        totalBayar
-      });
-      
-      setTargetBayar(totalBayar);
-      setNominalBayar(totalBayar.toString());
-      setOpenLunas(true);
-    }} 
-    sx={{ fontSize: '0.65rem', textTransform: 'none' }}
-  >
-    Bayar Lunas
-  </Button>
-)}
-                          {item.status === "lunas" && <Typography variant="caption" color="success.main" fontWeight="bold">LUNAS ✓</Typography>}
-                        </Stack>
-                      )}
-                    </TableCell>
-                    <TableCell align="center">
-                      <Stack direction="row" spacing={0.5} justifyContent="center">
-                        <Tooltip title={`Print SBG (${item.type?.nama_type || 'Gadai'})`}>
-                          <IconButton size="small" color="primary" onClick={() => navigate(getPrintSBGRoute(item))}><PrintIcon fontSize="small" /></IconButton>
-                        </Tooltip>
-                        <Tooltip title="Print Struk Awal">
-                          <IconButton size="small" color="secondary" onClick={() => navigate(`/print-struk-awal/${item.id}`)}><ReceiptIcon fontSize="small" /></IconButton>
-                        </Tooltip>
-                        {item.perpanjangan_tempos?.some(p => p.status_bayar === "pending") && (
-                          <Tooltip title="Print Struk Perpanjangan (Pending)">
-                            <IconButton size="small" color="warning" onClick={() => navigate(`/print-struk-perpanjangan/${item.id}`)}><ExtensionIcon fontSize="small" /></IconButton>
-                          </Tooltip>
-                        )}
-                        {item.status === "lunas" && (
-                          <Tooltip title="Print Struk Pelunasan">
-                            <IconButton size="small" color="success" onClick={() => navigate(`/print-struk-pelunasan/${item.id}`)}><PaymentsIcon fontSize="small" /></IconButton>
-                          </Tooltip>
-                        )}
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
+        <TableCell>
+          <Stack spacing={0.3}>
+            <Typography variant="body2" fontWeight="bold" color="primary">
+              {item.no_gadai}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600 }}>Nasabah:</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {item.nasabah?.nama_lengkap || '-'}
+              </Typography>
+            </Box>
+            <Box sx={{ mt: 0.5, p: 0.5, bgcolor: '#f1f5f9', borderRadius: 1, borderLeft: '3px solid #1e293b', display: 'inline-flex', width: 'fit-content' }}>
+              <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 'bold' }}>
+                {getUnitIcon(item.type?.nama_type)} {item.type?.nama_type || 'Tanpa Type'}
+              </Typography>
+            </Box>
+          </Stack>
+        </TableCell>
+
+        <TableCell align="center">
+          <Stack spacing={0.2} alignItems="center">
+            <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
+              Gadai: {new Date(item.tanggal_gadai).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+            </Typography>
+            <Typography variant="caption" fontWeight="bold" color="error.main" sx={{ fontSize: '0.65rem' }}>
+              JT: {new Date(item.jatuh_tempo).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+            </Typography>
+
+            {item.hari_keterlambatan > 0 && (
+              <Tooltip title={`Terlambat ${item.hari_keterlambatan} hari`}>
+                <Chip 
+                  label={`Telat ${item.hari_keterlambatan} Hari`} 
+                  size="small" 
+                  color="error" 
+                  sx={{ 
+                    fontSize: '0.6rem', 
+                    height: 18, 
+                    fontWeight: 'bold', 
+                    mt: 0.5,
+                    animation: 'pulse 1.5s infinite',
+                    '@keyframes pulse': {
+                      '0%': { opacity: 1 },
+                      '50%': { opacity: 0.6 },
+                      '100%': { opacity: 1 }
+                    }
+                  }} 
+                />
+              </Tooltip>
+            )}
+          </Stack>
+        </TableCell>
+
+        <TableCell align="right">
+          <Stack spacing={0.2}>
+            <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
+              Taksiran: {Number(item.taksiran).toLocaleString("id-ID")}
+            </Typography>
+            <Typography variant="body2" fontWeight="bold" color="primary.main">
+              {Number(item.uang_pinjaman).toLocaleString("id-ID")}
+            </Typography>
+          </Stack>
+        </TableCell>
+
+        <TableCell align="center">
+          <Stack spacing={0.5} alignItems="center">
+            <Chip 
+              label={item.status.toUpperCase()} 
+              color={getStatusColor(item.status)} 
+              size="small" 
+              sx={{ fontSize: '0.65rem', fontWeight: 'bold' }} 
+            />
+            {item.perpanjangan_tempos?.length > 0 && (
+              <Chip 
+                variant="outlined" 
+                color="secondary" 
+                size="small" 
+                icon={<ExtensionIcon style={{ fontSize: 12 }} />} 
+                label={`${item.perpanjangan_tempos.filter(p => p.status_bayar === 'lunas').length}x`} 
+                sx={{ fontSize: '0.65rem', height: 20 }} 
+              />
+            )}
+          </Stack>
+        </TableCell>
+
+        <TableCell align="center">
+          <Stack spacing={0.5} alignItems="center">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'text.secondary', minWidth: 50 }}>Checker:</Typography>
+              {renderApprovalBadge(checker)}
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'text.secondary', minWidth: 50 }}>HM:</Typography>
+              {renderApprovalBadge(hm)}
+            </Box>
+          </Stack>
+        </TableCell>
+
+        <TableCell align="center">
+          {isManagement && (
+            <Stack direction="row" spacing={1} justifyContent="center">
+              {item.status === "proses" && (
+                <Button variant="contained" color="info" size="small" onClick={() => handleOpenValidasi(item.id)} sx={{ fontSize: '0.65rem', textTransform: 'none' }}>
+                  Cek Selesai
+                </Button>
+              )}
+              {item.status === "selesai" && (
+                <Button 
+                  variant="contained" 
+                  color="success" 
+                  size="small" 
+                  onClick={() => { 
+                    setSelectedItem(item);
+                    setFileBukti(null);
+                    
+                    const pokok = Number(item.uang_pinjaman || 0);
+                    const perpanjanganTerbaru = item.perpanjangan_tempos?.length
+                      ? item.perpanjangan_tempos[item.perpanjangan_tempos.length - 1]
+                      : null;
+                    const jatuhTempoTerbaru = perpanjanganTerbaru?.jatuh_tempo_baru || item.jatuh_tempo;
+                    const today = new Date();
+                    const jatuhTempoDate = new Date(jatuhTempoTerbaru);
+                    let selisihHari = Math.ceil((today - jatuhTempoDate) / (1000 * 60 * 60 * 24));
+                    
+                    const toleransi = 1;
+                    if (selisihHari <= toleransi) {
+                      selisihHari = 0;
+                    } else {
+                      selisihHari -= toleransi;
+                    }
+                    const typeNama = (item.type?.nama_type || '').toLowerCase();
+                    const jenisSkema = ['handphone', 'elektronik'].includes(typeNama) ? 'hp' : 'non-hp';
+                    let denda = 0, penalty = 0;
+                    if (selisihHari > 0) {
+                      const persenDendaPerHari = jenisSkema === 'hp' ? 0.003 : 0.001;
+                      denda = pokok * persenDendaPerHari * selisihHari;
+                      if (selisihHari > 15) {
+                        penalty = 180000;
+                      }
+                    }
+                    const totalBayarSebelum = pokok + denda + penalty;
+                    const totalBayar = Math.ceil(totalBayarSebelum / 1000) * 1000;
+                    
+                    setTargetBayar(totalBayar);
+                    setNominalBayar(totalBayar.toString());
+                    setOpenLunas(true);
+                  }} 
+                  sx={{ fontSize: '0.65rem', textTransform: 'none' }}
+                >
+                  Bayar Lunas
+                </Button>
+              )}
+              {item.status === "lunas" && <Typography variant="caption" color="success.main" fontWeight="bold">LUNAS ✓</Typography>}
+            </Stack>
+          )}
+        </TableCell>
+
+        <TableCell align="center">
+          <Stack direction="row" spacing={0.5} justifyContent="center">
+            <Tooltip title={`Print SBG (${item.type?.nama_type || 'Gadai'})`}>
+              <IconButton size="small" color="primary" onClick={() => navigate(getPrintSBGRoute(item))}>
+                <PrintIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Print Struk Awal">
+              <IconButton size="small" color="secondary" onClick={() => navigate(`/print-struk-awal/${item.id}`)}>
+                <ReceiptIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            {item.status === "lunas" && (
+              <Tooltip title="Print Struk Pelunasan">
+                <IconButton size="small" color="success" onClick={() => navigate(`/print-struk-pelunasan/${item.id}`)}>
+                  <PaymentsIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Stack>
+        </TableCell>
+      </TableRow>
+    );
+  })}
+</TableBody>
           </Table>
         </TableContainer>
-        <TablePagination rowsPerPageOptions={[10, 25, 50]} component="div" count={filteredData.length} rowsPerPage={rowsPerPage} page={page} onPageChange={(_, p) => setPage(p)} onRowsPerPageChange={(e) => setRowsPerPage(parseInt(e.target.value, 10))} />
+       <TablePagination
+  rowsPerPageOptions={[10, 25, 50]}
+  component="div"
+  // Gunakan state totalRows (172), bukan filteredData.length (10)
+  count={totalRows} 
+  rowsPerPage={rowsPerPage}
+  page={page}
+  onPageChange={(event, newPage) => {
+    setPage(newPage); // Ini akan mentrigger useEffect untuk fetchData
+  }}
+  onRowsPerPageChange={(event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0); // Reset ke halaman pertama kalau jumlah per page ganti
+  }}
+/>
       </CardContent>
 
 <Dialog open={openValidasi} onClose={() => setOpenValidasi(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>

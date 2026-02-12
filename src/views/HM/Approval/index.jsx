@@ -1,21 +1,25 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext, useCallback } from "react";
 import {
   Box, Card, Typography, Tabs, Tab, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Chip, Button, Stack, CircularProgress, Paper, Tooltip,
   MenuItem, Select, FormControl, InputLabel, Snackbar, Alert, Dialog,
-  DialogTitle, DialogContent, DialogActions, TextField
+  DialogTitle, DialogContent, DialogActions, TextField, Divider, Avatar
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import AssignmentIcon from "@mui/icons-material/Assignment";
 import axiosInstance from "api/axiosInstance";
 import { AuthContext } from "AuthContex/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { useTheme, useMediaQuery } from "@mui/material";
 
 const ApprovalHMPage = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,34 +39,22 @@ const ApprovalHMPage = () => {
   });
 
   // === FETCH DATA ===
-  const fetchData = async (status = "semua", page = 1) => {
+  const fetchData = useCallback(async (status = "semua", page = 1) => {
     try {
       setLoading(true);
       let endpoint = "/approvals";
 
       switch (status) {
-        case "approved":
-          endpoint = "/approvals/hm/approved";
-          break;
-        case "rejected":
-          endpoint = "/approvals/hm/rejected";
-          break;
-        case "selesai":
-          endpoint = "/approvals/finished/filter";
-          break;
-        default:
-          endpoint = "/approvals";
+        case "approved": endpoint = "/approvals/hm/approved"; break;
+        case "rejected": endpoint = "/approvals/hm/rejected"; break;
+        case "selesai": endpoint = "/approvals/finished/filter"; break;
+        default: endpoint = "/approvals";
       }
 
       let params = { page };
-
       if (status === "selesai") {
         if (!bulan || !tahun) {
-          setNotif({
-            open: true,
-            message: "Silakan pilih bulan dan tahun.",
-            type: "warning"
-          });
+          setNotif({ open: true, message: "Silakan pilih bulan dan tahun.", type: "warning" });
           setLoading(false);
           return;
         }
@@ -74,49 +66,30 @@ const ApprovalHMPage = () => {
 
       if (res.data.success) {
         let filteredData = res.data.data || [];
-
-        // Tab Semua: tampilkan data checker yang sudah approve/reject tapi HM belum
         if (status === "semua") {
           filteredData = filteredData.filter((item) => {
             const checkerApprovedOrRejected = item.approvals?.some(
-              (a) =>
-                a.role === "checker" &&
-                ["approved_checker", "rejected_checker"].includes(a.status)
+              (a) => a.role === "checker" && ["approved_checker", "rejected_checker"].includes(a.status)
             );
             const hmAlreadyActed = item.approvals?.some(
-              (a) =>
-                a.role === "hm" &&
-                ["approved_hm", "rejected_hm"].includes(a.status)
+              (a) => a.role === "hm" && ["approved_hm", "rejected_hm"].includes(a.status)
             );
             return checkerApprovedOrRejected && !hmAlreadyActed;
           });
         }
-
         setData(filteredData);
-        setPagination(
-          res.data.pagination || {
-            current_page: 1,
-            last_page: 1,
-            per_page: 10,
-            total: 0
-          }
-        );
+        setPagination(res.data.pagination || { current_page: 1, last_page: 1, per_page: 10, total: 0 });
       }
     } catch (err) {
-      console.error(err);
-      setNotif({
-        open: true,
-        message: "Gagal memuat data approval",
-        type: "error"
-      });
+      setNotif({ open: true, message: "Gagal memuat data approval", type: "error" });
     } finally {
       setLoading(false);
     }
-  };
+  }, [bulan, tahun]);
 
   useEffect(() => {
     fetchData(tab, 1);
-  }, [tab]);
+  }, [tab, fetchData]);
 
   const handleTabChange = (event, newValue) => {
     setTab(newValue);
@@ -124,13 +97,6 @@ const ApprovalHMPage = () => {
     fetchData(newValue, 1);
   };
 
-  const handlePageChange = (newPage) => {
-    if (newPage < 1 || newPage > pagination.last_page) return;
-    setPagination((prev) => ({ ...prev, current_page: newPage }));
-    fetchData(tab, newPage);
-  };
-
-  // === MODAL HANDLERS ===
   const handleOpenModal = (id, action) => {
     setCurrentAction({ id, action });
     setCatatan("");
@@ -141,14 +107,9 @@ const ApprovalHMPage = () => {
 
   const handleApproval = async () => {
     if (!catatan.trim()) {
-      setNotif({
-        open: true,
-        message: "Catatan wajib diisi!",
-        type: "warning"
-      });
+      setNotif({ open: true, message: "Catatan wajib diisi!", type: "warning" });
       return;
     }
-
     const { id, action } = currentAction;
     const status = action === "approve" ? "approved_hm" : "rejected_hm";
 
@@ -161,12 +122,7 @@ const ApprovalHMPage = () => {
         setNotif({ open: true, message: res.data.message, type: "warning" });
       }
     } catch (err) {
-      console.error(err);
-      setNotif({
-        open: true,
-        message: "Gagal mengupdate status",
-        type: "error"
-      });
+      setNotif({ open: true, message: "Gagal mengupdate status", type: "error" });
     } finally {
       setOpenModal(false);
     }
@@ -174,8 +130,7 @@ const ApprovalHMPage = () => {
 
   const getChip = (approvals, roleKey) => {
     const entry = approvals?.find((a) => a.role === roleKey);
-    if (!entry)
-      return <Chip label="Pending" color="warning" size="small" />;
+    if (!entry) return <Chip label="Pending" color="warning" size="small" />;
     const approved = entry.status.includes("approved");
     return (
       <Chip
@@ -187,28 +142,22 @@ const ApprovalHMPage = () => {
   };
 
   const getStatusChip = (status) => {
-    switch ((status || "").toLowerCase()) {
-      case "proses":
-        return <Chip label="Proses" color="warning" size="small" />;
-      case "selesai":
-        return <Chip label="Selesai" color="primary" size="small" />;
-      case "lunas":
-        return <Chip label="Lunas" color="secondary" size="small" />;
-      default:
-        return <Chip label={status || "-"} color="default" size="small" />;
-    }
+    const s = (status || "").toLowerCase();
+    if (s === "proses") return <Chip label="Proses" color="warning" size="small" />;
+    if (s === "selesai") return <Chip label="Selesai" color="primary" size="small" />;
+    if (s === "lunas") return <Chip label="Lunas" color="secondary" size="small" />;
+    return <Chip label={status || "-"} color="default" size="small" />;
   };
 
-  if (loading)
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
-        <CircularProgress />
-      </Box>
-    );
+  if (loading) return (
+    <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
+      <CircularProgress />
+    </Box>
+  );
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, backgroundColor: "#f8fafc", minHeight: "100vh" }}>
-      <Typography variant="h5" fontWeight="bold" mb={2}>
+    <Box sx={{ p: { xs: 1.5, md: 4 }, backgroundColor: "#f8fafc", minHeight: "100vh" }}>
+      <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold" mb={2}>
         Approval Data Gadai (HM)
       </Typography>
 
@@ -222,164 +171,160 @@ const ApprovalHMPage = () => {
       </Card>
 
       {tab === "selesai" && (
-        <Stack direction="row" spacing={2} mb={2}>
-          <FormControl size="small">
-            <InputLabel>Bulan</InputLabel>
-            <Select value={bulan} onChange={(e) => setBulan(e.target.value)} label="Bulan">
-              {[...Array(12)].map((_, i) => (
-                <MenuItem key={i + 1} value={i + 1}>
-                  {i + 1}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small">
-            <InputLabel>Tahun</InputLabel>
-            <Select value={tahun} onChange={(e) => setTahun(e.target.value)} label="Tahun">
-              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((y) => (
-                <MenuItem key={y} value={y}>
-                  {y}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Button variant="contained" onClick={() => fetchData("selesai", 1)}>
-            Filter
-          </Button>
+        <Stack direction={isMobile ? "column" : "row"} spacing={2} mb={2}>
+          <Stack direction="row" spacing={2} sx={{ width: '100%' }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Bulan</InputLabel>
+              <Select value={bulan} onChange={(e) => setBulan(e.target.value)} label="Bulan">
+                {[...Array(12)].map((_, i) => (<MenuItem key={i + 1} value={i + 1}>{i + 1}</MenuItem>))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel>Tahun</InputLabel>
+              <Select value={tahun} onChange={(e) => setTahun(e.target.value)} label="Tahun">
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((y) => (<MenuItem key={y} value={y}>{y}</MenuItem>))}
+              </Select>
+            </FormControl>
+          </Stack>
+          <Button fullWidth={isMobile} variant="contained" onClick={() => fetchData("selesai", 1)}>Filter</Button>
         </Stack>
       )}
 
-      <Card sx={{ borderRadius: 3, boxShadow: 4, overflowX: "auto" }}>
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead sx={{ backgroundColor: "#f1f5f9" }}>
-              <TableRow>
-                <TableCell>No Gadai</TableCell>
-                <TableCell>Nama Nasabah</TableCell>
-                <TableCell>Jenis Barang</TableCell>
-                <TableCell>Taksiran</TableCell>
-                <TableCell>Pinjaman</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Status Checker</TableCell>
-                {tab !== "semua" && <TableCell>Status HM</TableCell>}
-                <TableCell align="center">Aksi</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {data.length > 0 ? (
-                data.map((item) => (
-                  <TableRow key={item.id} hover>
-                    <TableCell>{item.no_gadai}</TableCell>
-                    <TableCell>{item.nasabah?.nama_lengkap || "-"}</TableCell>
-                    <TableCell>{item.type?.nama_type || "-"}</TableCell>
-                    <TableCell>
-                      Rp {Number(item.taksiran || 0).toLocaleString("id-ID")}
-                    </TableCell>
-                    <TableCell>
-                      Rp {Number(item.uang_pinjaman || 0).toLocaleString("id-ID")}
-                    </TableCell>
-                    <TableCell>{getStatusChip(item.status)}</TableCell>
-                    <TableCell>{getChip(item.approvals, "checker")}</TableCell>
-                    {tab !== "semua" && <TableCell>{getChip(item.approvals, "hm")}</TableCell>}
-                    <TableCell align="center">
-                      <Stack direction="row" spacing={1} justifyContent="center">
-                        <Tooltip title="Lihat Detail">
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<VisibilityIcon />}
-                            onClick={() => navigate(`/approval-hm-gadai-detail/${item.id}`)}
-                          >
-                            Detail
-                          </Button>
-                        </Tooltip>
+      {isMobile ? (
+        /* === MOBILE VIEW (CARDS) === */
+        <Box>
+          {data.length > 0 ? (
+            data.map((item) => (
+              <Card key={item.id} sx={{ mb: 2, p: 2, borderRadius: 2, boxShadow: 2 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">No Gadai</Typography>
+                    <Typography variant="subtitle2" fontWeight="bold">{item.no_gadai}</Typography>
+                  </Box>
+                  {getStatusChip(item.status)}
+                </Stack>
+                
+                <Stack direction="row" spacing={1.5} alignItems="center" mb={1.5}>
+                  <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}><AssignmentIcon fontSize="small"/></Avatar>
+                  <Box>
+                    <Typography variant="body2" fontWeight="bold">{item.nasabah?.nama_lengkap || "-"}</Typography>
+                    <Typography variant="caption" color="text.secondary">{item.type?.nama_type || "-"}</Typography>
+                  </Box>
+                </Stack>
 
-                        {/* tombol edit hanya muncul di tab SEMUA dan role HM */}
-                        {tab === "semua" && user?.role === "hm" && (
-                          <Tooltip title="Edit Data">
-                            <Button
-                              variant="contained"
-                              color="primary"
-                              size="small"
-                              startIcon={<EditIcon />}
-                              onClick={() => navigate(`/approval-hm-gadai-edit/${item.id}`)}
-                            >
-                              Edit
-                            </Button>
-                          </Tooltip>
-                        )}
+                <Divider sx={{ my: 1, borderStyle: 'dashed' }} />
 
-                        {/* tombol approve/reject hanya muncul di tab SEMUA dan role HM */}
-                        {tab === "semua" && user?.role === "hm" && (
-                          <>
-                            <Button
-                              variant="contained"
-                              color="success"
-                              size="small"
-                              startIcon={<CheckCircleIcon />}
-                              onClick={() => handleOpenModal(item.id, "approve")}
-                            >
-                              Approve
-                            </Button>
-                            <Button
-                              variant="outlined"
-                              color="error"
-                              size="small"
-                              startIcon={<CancelIcon />}
-                              onClick={() => handleOpenModal(item.id, "reject")}
-                            >
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
+                <Stack direction="row" justifyContent="space-between" mb={1.5}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" display="block">Taksiran</Typography>
+                    <Typography variant="body2" fontWeight="bold">Rp {Number(item.taksiran || 0).toLocaleString("id-ID")}</Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography variant="caption" color="text.secondary" display="block">Pinjaman</Typography>
+                    <Typography variant="body2" color="primary.main" fontWeight="bold">Rp {Number(item.uang_pinjaman || 0).toLocaleString("id-ID")}</Typography>
+                  </Box>
+                </Stack>
+
+                <Stack spacing={1} mb={2}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="caption">Checker:</Typography>
+                    {getChip(item.approvals, "checker")}
+                  </Box>
+                  {tab !== "semua" && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="caption">HM:</Typography>
+                      {getChip(item.approvals, "hm")}
+                    </Box>
+                  )}
+                </Stack>
+
+                <Stack direction="row" spacing={1}>
+                  <Button fullWidth variant="outlined" size="small" startIcon={<VisibilityIcon />} onClick={() => navigate(`/approval-hm-gadai-detail/${item.id}`)}>Detail</Button>
+                  {tab === "semua" && user?.role === "hm" && (
+                    <Button fullWidth variant="contained" size="small" startIcon={<EditIcon />} onClick={() => navigate(`/approval-hm-gadai-edit/${item.id}`)}>Edit</Button>
+                  )}
+                </Stack>
+
+                {tab === "semua" && user?.role === "hm" && (
+                  <Stack direction="row" spacing={1} mt={1}>
+                    <Button fullWidth variant="contained" color="success" size="small" onClick={() => handleOpenModal(item.id, "approve")}>Approve</Button>
+                    <Button fullWidth variant="outlined" color="error" size="small" onClick={() => handleOpenModal(item.id, "reject")}>Reject</Button>
+                  </Stack>
+                )}
+              </Card>
+            ))
+          ) : (
+            <Typography align="center" color="text.secondary" sx={{ py: 4 }}>Tidak ada data.</Typography>
+          )}
+        </Box>
+      ) : (
+        /* === DESKTOP VIEW (TABLE) === */
+        <Card sx={{ borderRadius: 3, boxShadow: 4, overflow: "hidden" }}>
+          <TableContainer>
+            <Table>
+              <TableHead sx={{ backgroundColor: "#f1f5f9" }}>
                 <TableRow>
-                  <TableCell colSpan={9} align="center">
-                    <Typography color="text.secondary">Tidak ada data.</Typography>
-                  </TableCell>
+                  <TableCell>No Gadai</TableCell>
+                  <TableCell>Nama Nasabah</TableCell>
+                  <TableCell>Jenis Barang</TableCell>
+                  <TableCell>Taksiran</TableCell>
+                  <TableCell>Pinjaman</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Status Checker</TableCell>
+                  {tab !== "semua" && <TableCell>Status HM</TableCell>}
+                  <TableCell align="center">Aksi</TableCell>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Card>
+              </TableHead>
+              <TableBody>
+                {data.length > 0 ? (
+                  data.map((item) => (
+                    <TableRow key={item.id} hover>
+                      <TableCell>{item.no_gadai}</TableCell>
+                      <TableCell>{item.nasabah?.nama_lengkap || "-"}</TableCell>
+                      <TableCell>{item.type?.nama_type || "-"}</TableCell>
+                      <TableCell>Rp {Number(item.taksiran || 0).toLocaleString("id-ID")}</TableCell>
+                      <TableCell>Rp {Number(item.uang_pinjaman || 0).toLocaleString("id-ID")}</TableCell>
+                      <TableCell>{getStatusChip(item.status)}</TableCell>
+                      <TableCell>{getChip(item.approvals, "checker")}</TableCell>
+                      {tab !== "semua" && <TableCell>{getChip(item.approvals, "hm")}</TableCell>}
+                      <TableCell align="center">
+                        <Stack direction="row" spacing={1} justifyContent="center">
+                          <Button variant="outlined" size="small" onClick={() => navigate(`/approval-hm-gadai-detail/${item.id}`)}>Detail</Button>
+                          {tab === "semua" && user?.role === "hm" && (
+                            <>
+                              <Button variant="contained" color="primary" size="small" onClick={() => navigate(`/approval-hm-gadai-edit/${item.id}`)}>Edit</Button>
+                              <Button variant="contained" color="success" size="small" onClick={() => handleOpenModal(item.id, "approve")}>Approve</Button>
+                              <Button variant="outlined" color="error" size="small" onClick={() => handleOpenModal(item.id, "reject")}>Reject</Button>
+                            </>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow><TableCell colSpan={9} align="center">Tidak ada data.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
+      )}
 
-      {/* MODAL */}
-      <Dialog open={openModal} onClose={handleCloseModal}>
-        <DialogTitle>
-          {currentAction?.action === "approve" ? "Approve" : "Reject"} Gadai
-        </DialogTitle>
+      {/* MODAL & SNACKBAR TETAP SAMA */}
+      <Dialog open={openModal} onClose={handleCloseModal} fullWidth maxWidth="xs">
+        <DialogTitle>{currentAction?.action === "approve" ? "Approve" : "Reject"} Gadai</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Catatan"
-            fullWidth
-            multiline
-            rows={3}
-            value={catatan}
-            onChange={(e) => setCatatan(e.target.value)}
-          />
+          <TextField autoFocus margin="dense" label="Catatan" fullWidth multiline rows={3} value={catatan} onChange={(e) => setCatatan(e.target.value)} />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseModal}>Batal</Button>
-          <Button variant="contained" onClick={handleApproval}>
+          <Button variant="contained" color={currentAction?.action === "approve" ? "success" : "error"} onClick={handleApproval}>
             {currentAction?.action === "approve" ? "Approve" : "Reject"}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* SNACKBAR */}
-      <Snackbar
-        open={notif.open}
-        autoHideDuration={3000}
-        onClose={() => setNotif({ ...notif, open: false })}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
+      <Snackbar open={notif.open} autoHideDuration={3000} onClose={() => setNotif({ ...notif, open: false })} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>
         <Alert severity={notif.type}>{notif.message}</Alert>
       </Snackbar>
     </Box>

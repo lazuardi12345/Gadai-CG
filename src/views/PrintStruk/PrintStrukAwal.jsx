@@ -38,15 +38,13 @@ const PrintStrukPage = () => {
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}><CircularProgress /></Box>;
   if (!data) return <p>Tidak ada data.</p>;
 
-  // --- DATA MAPPING DARI BACKEND ---
   const detail = data || {};
-  const struk = detail.perhitungan_struk || {}; // Data hasil hitungan Service Laravel
+  const struk = detail.perhitungan_struk || {}; 
   const nasabah = detail?.nasabah || {};
   const petugas = nasabah?.user?.name || "-";
   const typeNama = detail?.type?.nama_type || "-";
   const type = (typeNama || "").toLowerCase();
 
-  // --- FORMATTING ---
   const formatRupiah = (val) => `Rp. ${Number(val || 0).toLocaleString("id-ID")}`;
   
   const formatHariTanggal = (date) => {
@@ -61,7 +59,6 @@ const PrintStrukPage = () => {
 
   const { tanggalStr, jamStr } = formatHariTanggal(new Date());
 
-  // --- PREPARING BARANG DETAIL (UI ONLY) ---
   let barangNama = "-";
   let barangDetail = "-";
   let labelBarangDetail = "Detail Barang";

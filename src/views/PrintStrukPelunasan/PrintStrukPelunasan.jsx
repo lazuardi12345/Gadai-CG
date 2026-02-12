@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useRef, useContext } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { useParams } from "react-router-dom";
 import axiosInstance from "api/axiosInstance";
-import { CircularProgress, Button, Box, Typography } from "@mui/material";
+import { CircularProgress, Button, Box, Typography, Paper, Divider } from "@mui/material";
 import { AuthContext } from "AuthContex/AuthContext";
 import logo from "assets/images/LogoBaru1.png";
 
@@ -12,8 +12,8 @@ const PrintStrukPelunasanPage = () => {
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const printRef = useRef();
 
+  // --- 1. Logic URL API ---
   const getApiUrl = () => {
     switch (userRole) {
       case "petugas": return `/petugas/detail-gadai/${id}`;
@@ -26,9 +26,11 @@ const PrintStrukPelunasanPage = () => {
     const fetchData = async () => {
       try {
         const res = await axiosInstance.get(getApiUrl());
-        if (res.data?.success) setData(res.data.data);
+        if (res.data?.success) {
+          setData(res.data.data);
+        }
       } catch (err) {
-        console.error(err);
+        console.error("Error fetching data:", err);
       } finally {
         setLoading(false);
       }
@@ -37,102 +39,93 @@ const PrintStrukPelunasanPage = () => {
   }, [id, userRole]);
 
   if (loading) return <CircularProgress sx={{ display: "block", mx: "auto", mt: 10 }} />;
-  if (!data) return <p>Tidak ada data.</p>;
+  if (!data) return <Typography align="center" sx={{ mt: 5 }}>Data tidak ditemukan.</Typography>;
 
+  // --- 2. Data Mapping ---
   const detail = data;
-  const nasabah = detail?.nasabah || {};
-  const petugas = nasabah?.user?.name || "-";
-  const typeNama = detail?.type?.nama_type?.toLowerCase() || "-";
-
-  // Data Keuangan dari Backend
-  const pokok = Number(detail?.uang_pinjaman || 0);
-  const nominalBayarDB = Number(detail?.nominal_bayar || 0);
+  const perhitungan = detail?.perhitungan_pelunasan || {}; 
   
-  // Ambil denda & penalty (Sudah bersih dari Backend)
-  const denda = Number(detail?.perhitungan?.denda || 0);
-  const penalty = Number(detail?.perhitungan?.penalty || 0);
-  const totalBayar = Number(detail?.perhitungan?.total_bayar || nominalBayarDB);
-  // Ambil hari keterlambatan yang sudah terkunci di Backend
-  const hariTerlambat = detail?.hari_keterlambatan || detail?.perhitungan?.hari_terlambat || 0;
+  const pokok = Number(perhitungan?.pokok || detail?.uang_pinjaman || 0);
+  const denda = Number(perhitungan?.denda || 0);
+  const penalty = Number(perhitungan?.penalty || 0);
+  const totalBayar = Number(perhitungan?.total_bayar || detail?.nominal_bayar || 0);
+  const hariTerlambat = perhitungan?.hari_terlambat || 0;
 
-  const formatRupiah = (val) => `Rp. ${Number(val || 0).toLocaleString("id-ID")}`;
+  // Nama petugas tetap ditampilkan sebagai penanggung jawab
+  const petugas = detail?.nasabah?.user?.name || "-";
+  const formatRupiah = (val) => `Rp. ${Number(val).toLocaleString("id-ID")}`;
 
-  const formatHariTanggal = (dateStr) => {
-    const date = dateStr ? new Date(dateStr) : new Date();
-    const hari = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-    const bulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-    const pad = (n) => n.toString().padStart(2, "0");
-    const tanggalStr = `${hari[date.getDay()]}, ${date.getDate()} ${bulan[date.getMonth()]} ${date.getFullYear()}`;
-    const jamStr = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
-    return { tanggalStr, jamStr };
-  };
+  // Formatting Waktu
+  const dateObj = detail?.tanggal_bayar ? new Date(detail.tanggal_bayar) : new Date();
+  const tglLunas = dateObj.toLocaleDateString("id-ID", { 
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+  });
+  const jamLunas = dateObj.toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' });
 
-  const { tanggalStr, jamStr } = formatHariTanggal(detail?.tanggal_bayar);
-
-  // --- LOGIC TAMPILAN BARANG ---
-  let barangNama = "-", barangDetail = "-", labelBarangDetail = "-";
-  const cleanText = (val) => (val && typeof val !== 'object') ? String(val).replace(/,|\/+/g, "").trim() : "-";
-
-  if (typeNama.includes("handphone") || typeNama.includes("elektronik")) {
-    if (detail.hp) {
-      barangNama = cleanText(detail.hp.nama_barang);
-      barangDetail = `MERK/TYPE: ${cleanText(detail.hp.merk?.nama_merk)} ${cleanText(detail.hp.type_hp?.nama_type)}\nIMEI: ${cleanText(detail.hp.imei)}`;
-      labelBarangDetail = "Detail Barang";
-    }
+  // Logic Barang
+  let barangNama = "-", barangDetail = "";
+  if (detail.hp) {
+    barangNama = detail.hp.nama_barang;
+    barangDetail = `${detail.hp.merk?.nama_merk} ${detail.hp.type_hp?.nama_type} / IMEI: ${detail.hp.imei}`;
   } else {
     const item = detail.perhiasan || detail.logam_mulia || detail.retro;
-    if (item) {
-      barangNama = cleanText(item.nama_barang);
-      barangDetail = `${cleanText(item.karat || item.karatase)} / ${cleanText(item.berat || item.berat_bersih)} gr`;
-      labelBarangDetail = "Karat / Berat";
-    }
+    barangNama = item?.nama_barang || "-";
+    barangDetail = `${item?.karat || item?.karatase || '-'}K / ${item?.berat || item?.berat_bersih || '-'} gr`;
   }
 
+  // --- 3. Fungsi Print Thermal ---
   const handlePrint = () => {
     const printWindow = window.open("", "", "width=400,height=600");
     printWindow.document.write(`
       <html>
         <head>
-          <title>Struk Pelunasan</title>
+          <title>Struk Pelunasan - ${detail?.no_gadai}</title>
           <style>
             @page { size: 80mm auto; margin: 0; }
-            body { width: 75mm; margin: 0; padding: 5px; font-family: "Courier New", monospace; font-size: 11px; font-weight: 600; }
+            body { width: 72mm; margin: 0 auto; padding: 5px; font-family: 'Courier New', Courier, monospace; font-size: 11px; line-height: 1.2; }
             .center { text-align: center; }
-            .bold { font-weight: 700; }
-            img { display: block; margin: 0 auto 6px auto; width: 120px; }
-            .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+            .bold { font-weight: bold; }
+            .header-img { width: 100px; margin-bottom: 5px; }
+            .row { display: flex; justify-content: space-between; margin: 2px 0; }
             hr { border: none; border-top: 1px dashed #000; margin: 5px 0; }
-            pre { white-space: pre-wrap; margin: 0; font-family: inherit; }
           </style>
         </head>
         <body>
           <div class="center">
-            <img src="${logo}" />
-            <div>No Transaksi</div>
-            <div class="bold">${detail?.no_gadai || "-"}</div>
+            <img src="${logo}" class="header-img" />
+            <div class="bold">STRUK PELUNASAN (LUNAS)</div>
+            <div class="bold">${detail?.no_gadai}</div>
           </div>
-          <div class="row"><span>Tanggal Lunas</span><span>${tanggalStr}</span></div>
-          <div class="row"><span>Jam</span><span>${jamStr}</span></div>
+          <hr />
+          <div class="row"><span>Tanggal</span><span>${tglLunas}</span></div>
+          <div class="row"><span>Jam</span><span>${jamLunas}</span></div>
           <div class="row"><span>Petugas</span><span>${petugas}</span></div>
           <hr />
-          <div class="center bold">PELUNASAN SELESAI</div>
-          <div class="row"><span>Barang</span><span>${barangNama}</span></div>
-          <div class="row"><span>${labelBarangDetail}</span><span><pre>${barangDetail}</pre></span></div>
+          <div class="bold">DETAIL BARANG:</div>
+          <div>${barangNama}</div>
+          <div style="font-size: 10px;">${barangDetail}</div>
           <hr />
           <div class="row"><span>Pokok Pinjaman</span><span>${formatRupiah(pokok)}</span></div>
+          
+          ${hariTerlambat > 0 ? `<div class="row"><span>Keterlambatan</span><span>${hariTerlambat} Hari</span></div>` : ""}
           ${denda > 0 ? `<div class="row"><span>Denda</span><span>${formatRupiah(denda)}</span></div>` : ""}
           ${penalty > 0 ? `<div class="row"><span>Penalty</span><span>${formatRupiah(penalty)}</span></div>` : ""}
-          <div class="row"><span>Keterlambatan</span><span>${hariTerlambat} hari</span></div>
+          
           <hr />
           <div class="row bold" style="font-size: 13px;"><span>TOTAL BAYAR</span><span>${formatRupiah(totalBayar)}</span></div>
-          <div class="row"><span>Metode</span><span>${(detail?.metode_pembayaran || "cash").toUpperCase()}</span></div>
+          <div class="row"><span>Metode Bayar</span><span>${(detail?.metode_pembayaran || "CASH").toUpperCase()}</span></div>
           <hr />
           <div class="center">
             <div>Terima kasih atas kepercayaan Anda!</div>
-            <div>Unit barang telah diserahkan kembali.</div>
-            <div class="bold">SENTRA GADAI INDONESIA</div>
+            <div class="bold">Unit barang telah diserahkan kembali.</div>
+            <div class="bold" style="margin-top: 5px;">SENTRA GADAI INDONESIA</div>
           </div>
-          <script>window.onload = function() { window.print(); window.close(); }</script>
+          <script>
+            window.onload = function() { 
+              window.print(); 
+              setTimeout(() => { window.close(); }, 500);
+            }
+          </script>
         </body>
       </html>
     `);
@@ -140,50 +133,66 @@ const PrintStrukPelunasanPage = () => {
   };
 
   return (
-    <Box sx={{ maxWidth: 400, mx: "auto", p: 2, textAlign: "center" }}>
-      <Box ref={printRef} sx={{ border: "1px dashed #ccc", p: 2, mb: 2, textAlign: "left", fontFamily: "monospace" }}>
-        <Box sx={{ textAlign: "center", mb: 2 }}>
-            <img src={logo} alt="Logo" style={{ width: "120px" }} />
-            <Typography variant="body2" fontWeight="bold">No: {detail?.no_gadai}</Typography>
+    <Box sx={{ maxWidth: 450, mx: "auto", p: 3 }}>
+      <Paper elevation={3} sx={{ p: 3, borderRadius: 2, bgcolor: '#fff' }}>
+        <Box sx={{ textAlign: 'center', mb: 2 }}>
+            <img src={logo} alt="SGI Logo" style={{ width: 120, marginBottom: 10 }} />
+            <Typography variant="h6" fontWeight="bold">PREVIEW STRUK</Typography>
+            <Typography variant="body2" color="text.secondary">{detail?.no_gadai}</Typography>
         </Box>
-        
-        <Typography variant="caption" display="block">Tanggal: {tanggalStr} {jamStr}</Typography>
-        <Typography variant="caption" display="block">Petugas: {petugas}</Typography>
-        <hr />
-        <Typography variant="body2" fontWeight="bold" align="center">STRUK PELUNASAN</Typography>
-        <hr />
-        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="caption">Pokok Pinjaman:</Typography>
-            <Typography variant="caption">{formatRupiah(pokok)}</Typography>
-        </Box>
-        {denda > 0 && (
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="caption">Denda:</Typography>
-                <Typography variant="caption">{formatRupiah(denda)}</Typography>
-            </Box>
-        )}
-        {penalty > 0 && (
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="caption">Penalty:</Typography>
-                <Typography variant="caption">{formatRupiah(penalty)}</Typography>
-            </Box>
-        )}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="caption">Telat:</Typography>
-            <Typography variant="caption">{hariTerlambat} hari</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-            <Typography variant="body2" fontWeight="bold">TOTAL BAYAR:</Typography>
-            <Typography variant="body2" fontWeight="bold">{formatRupiah(totalBayar)}</Typography>
-        </Box>
-        <hr />
-        <Typography variant="caption" align="center" display="block">Unit barang telah diserahkan kembali.</Typography>
-        <Typography variant="caption" align="center" display="block" fontWeight="bold">SENTRA GADAI INDONESIA</Typography>
-      </Box>
 
-      <Button variant="contained" fullWidth onClick={handlePrint} size="large">
-        Cetak Struk Pelunasan
-      </Button>
+        <Divider sx={{ my: 2, borderStyle: 'dashed' }} />
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body2">Status</Typography>
+                <Typography variant="body2" color="success.main" fontWeight="bold">LUNAS</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body2">Petugas</Typography>
+                <Typography variant="body2">{petugas}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body2">Pokok Pinjaman</Typography>
+                <Typography variant="body2">{formatRupiah(pokok)}</Typography>
+            </Box>
+            
+            {hariTerlambat > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2">Keterlambatan</Typography>
+                    <Typography variant="body2">{hariTerlambat} hari</Typography>
+                </Box>
+            )}
+            {denda > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2">Denda</Typography>
+                    <Typography variant="body2" color="error">{formatRupiah(denda)}</Typography>
+                </Box>
+            )}
+            {penalty > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2">Penalty</Typography>
+                    <Typography variant="body2" color="error">{formatRupiah(penalty)}</Typography>
+                </Box>
+            )}
+
+            <Divider sx={{ my: 1 }} />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="subtitle1" fontWeight="bold">Total Bayar</Typography>
+                <Typography variant="subtitle1" fontWeight="bold">{formatRupiah(totalBayar)}</Typography>
+            </Box>
+        </Box>
+
+        <Button 
+            variant="contained" 
+            fullWidth 
+            size="large" 
+            onClick={handlePrint} 
+            sx={{ mt: 4, borderRadius: 2, py: 1.5, fontWeight: 'bold' }}
+        >
+          CETAK STRUK SEKARANG
+        </Button>
+      </Paper>
     </Box>
   );
 };

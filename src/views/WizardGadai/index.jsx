@@ -24,7 +24,7 @@ const BANK_LIST = [
   'BANK_JATIM', 'BANK_DIY', 'BANK_JAMBI', 'BANK_SUMUT', 'BANK_RIAU_KEPRI', 
   'BANK_SUMSEL_BABEL', 'BANK_LAMPUNG', 'BANK_KALBAR', 'BANK_KALSEL', 
   'BANK_KALTIMTARA', 'BANK_KALTENG', 'BANK_SULSELBAR', 'BANK_SULUTGO', 
-  'BANK_NTB', 'BANK_NTT', 'BANK_BALI', 'BANK_PAPUA', 'BANK_BENGKULU', 'BANK_SULTRA'
+  'BANK_NTB', 'BANK_NTT', 'BANK_BALI', 'BANK_PAPUA', 'BANK_BENGKULU', 'BANK_SULTRA', 'ALADIN_SYARIAH',
 ];
 
 const getRoleBaseUrl = () => {
@@ -145,22 +145,31 @@ const getFormattedJatuhTempo = () => {
     }
   }, [barang.merk_hp_id, baseUrl]);
 
-  useEffect(() => {
-    if (barang.type_hp_id) {
-      axiosInstance.get(`${baseUrl}/harga-hp/type/${barang.type_hp_id}`)
-        .then(res => {
-          const data = res.data?.data || null;
-          const gradeData = data?.grades?.[0] || data?.grades || null;
+useEffect(() => {
+  if (barang.type_hp_id) {
+    axiosInstance.get(`${baseUrl}/harga-hp/type/${barang.type_hp_id}`)
+      .then(res => {
+
+        const paginatedData = res.data?.data?.data; 
+        
+        if (paginatedData && paginatedData.length > 0) {
+          const firstItem = paginatedData[0];
+          const gradeData = firstItem.grades?.[0] || null;
+          
           setMasterHarga(gradeData);
           if (gradeData?.id) {
             setBarang(prev => ({ ...prev, grade_hp_id: gradeData.id }));
           }
-        })
-        .catch(err => {
+        } else {
           setMasterHarga(null);
-        });
-    }
-  }, [barang.type_hp_id, baseUrl]);
+        }
+      })
+      .catch(err => {
+        console.error("Gagal ambil harga:", err);
+        setMasterHarga(null);
+      });
+  }
+}, [barang.type_hp_id, baseUrl]);
 
   const handleNasabahChange = (e) => setNasabah(prev => ({ ...prev, [e.target.name]: e.target.value }));
   const handleDetailChange = (e) => setDetail(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -211,16 +220,12 @@ const getFormattedJatuhTempo = () => {
       setLoading(true);
       const formData = new FormData();
       
-      // Nasabah
       Object.entries(nasabah).forEach(([k, v]) => formData.append(`nasabah[${k}]`, v));
       if (fotoKtp) formData.append("nasabah[foto_ktp]", fotoKtp);
       
-      // Detail - Kirim tanggal yang sudah diformat sesuai durasi
       formData.append("detail[tanggal_gadai]", detail.tanggal_gadai);
-      formData.append("detail[jatuh_tempo]", getFormattedJatuhTempo()); // BE akan meng-override ini sesuai logic durasi 15 hari mereka
+      formData.append("detail[jatuh_tempo]", getFormattedJatuhTempo()); 
       formData.append("detail[type_id]", detail.type_id);
-
-      // Barang
       Object.entries(barang).forEach(([k, v]) => {
         if (['dokumen_pendukung', 'kerusakan', 'kelengkapan'].includes(k)) return;
         formData.append(`barang[${k}]`, v);

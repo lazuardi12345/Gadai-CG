@@ -5,14 +5,16 @@ import 'react-toastify/dist/ReactToastify.css';
 import { AuthContext } from '../../AuthContex/AuthContext'; 
 import { BadgeContext } from 'contexts/BadgeContext';
 import { Box, Typography, Button, Paper, Stack } from '@mui/material';
+import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_NOTIFICATION_SERVICE_URL?.replace(/\/$/, "") || ""; 
+const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/api$/, "") || "http://localhost:8000";
 
 const NotificationListener = () => {
     const socketRef = useRef(null);
     const [showPrompt, setShowPrompt] = useState(false);
     const { user, token } = useContext(AuthContext);
-    const { incrementBadge } = useContext(BadgeContext); 
+    const { incrementBadge, setBadgeCount } = useContext(BadgeContext); 
     const processedNotifications = useRef(new Set());
 
     const urlBase64ToUint8Array = (base64String) => {
@@ -55,7 +57,6 @@ const NotificationListener = () => {
             </div>
         );
 
-        // LOGIKA FLOW BARU: HANDLING APPROVAL & STATUS
         switch (type) {
             case 'NEW_PAWN':
                 incrementBadge('NEW_PAWN');
@@ -64,14 +65,12 @@ const NotificationListener = () => {
                 break;
 
             case 'APPROVAL_TO_HM':
-                // Checker kirim ke HM -> HM butuh refresh badge Approval
                 incrementBadge('APPROVAL_HM');
                 eventName = 'REFRESH_APPROVAL_LIST';
                 toast.info(content, { ...options, icon: "📩" });
                 break;
 
             case 'APPROVAL_FROM_HM':
-                // HM kirim balik ke Staff/Checker
                 eventName = 'REFRESH_GADAI_DETAIL'; 
                 const isRejected = data.status_transaksi === 'rejected';
                 isRejected ? toast.error(content, options) : toast.success(content, options);
@@ -109,13 +108,13 @@ const NotificationListener = () => {
 
         new Audio(`/sounds/notif-in.mp3`).play().catch(() => {});
         window.dispatchEvent(new CustomEvent(eventName, { detail: data }));
+        window.dispatchEvent(new CustomEvent('NEW_NOTIFICATION', { detail: data }));
     }, [incrementBadge]);
 
     const handleIncoming = useCallback((rawData) => {
         const payload = rawData.body || rawData.data || rawData;
         const meta = payload.metadata || {};
         
-        // Prioritaskan type dari payload paling luar atau metadata
         const type = (rawData.type || payload.notificationType || payload.type || meta.type || 'GENERAL').toUpperCase();
         
         const data = {
@@ -147,6 +146,7 @@ const NotificationListener = () => {
 
         socketRef.current = socket;
         socket.on('connect', () => {
+            console.log('✅ Socket connected');
             socket.emit('register', { userId: String(user.id || user.sub), applicationType: 'pawn-apps' });
         });
         socket.on('notification', handleIncoming);
@@ -157,89 +157,83 @@ const NotificationListener = () => {
         return () => { if (socketRef.current) socketRef.current.disconnect(); };
     }, [token, user, handleIncoming]);
 
-
     const checkSubscriptionStatus = useCallback(async () => {
-    // Cek apakah browser mendukung fitur push
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        // alert("Browser ini GAK SUPPORT push (Safari Biasa/Lama)");
-        return;
-    }
-
-    const permission = Notification.permission;
-    // alert("Status Izin Saat Ini: " + permission);
-
-    if (permission === 'default') {
-        setShowPrompt(true);
-    } else if (permission === 'granted') {
-        const sw = await navigator.serviceWorker.ready;
-        const subscription = await sw.pushManager.getSubscription();
-        if (!subscription) {
-            setShowPrompt(true);
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            return;
         }
-    }
-}, []);
 
+        const permission = Notification.permission;
+
+        if (permission === 'default') {
+            setShowPrompt(true);
+        } else if (permission === 'granted') {
+            const sw = await navigator.serviceWorker.ready;
+            const subscription = await sw.pushManager.getSubscription();
+            if (!subscription) {
+                setShowPrompt(true);
+            }
+        }
+    }, []);
 
     useEffect(() => {
         const timer = setTimeout(() => checkSubscriptionStatus(), 1500);
         return () => clearTimeout(timer);
     }, [checkSubscriptionStatus]);
 
-const handleSubscribe = async () => {
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const handleSubscribe = async () => {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
 
-    // Masalah Utama iPhone: Wajib Add to Home Screen
-    if (isIOS && !isStandalone) {
-        toast.warning(
-            "Wajib: Klik 'Share' lalu 'Add to Home Screen' dulu biar notif aktif di iPhone!", 
-            { position: "top-center", autoClose: 8000 }
-        );
-        return;
-    }
-
-    try {
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-            toast.error("Izin ditolak sistem!");
+        if (isIOS && !isStandalone) {
+            toast.warning(
+                "Wajib: Klik 'Share' lalu 'Add to Home Screen' dulu biar notif aktif di iPhone!", 
+                { position: "top-center", autoClose: 8000 }
+            );
             return;
         }
 
-        // Pakai path absolut /sw.js agar terbaca dari root
-        const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-        const readyRegistration = await navigator.serviceWorker.ready;
+        try {
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                toast.error("Izin ditolak sistem!");
+                return;
+            }
 
-        const keyRes = await fetch(`${API_URL}/web-push/vapid-public-key`, { 
-            headers: { 'Authorization': `Bearer ${token}` } 
-        });
-        const { publicKey } = await keyRes.json();
+            const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+            const readyRegistration = await navigator.serviceWorker.ready;
 
-        const subscription = await readyRegistration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicKey)
-        });
+            const keyRes = await fetch(`${API_URL}/web-push/vapid-public-key`, { 
+                headers: { 'Authorization': `Bearer ${token}` } 
+            });
+            const { publicKey } = await keyRes.json();
 
-        await fetch(`${API_URL}/web-push/subscribe`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${token}` 
-            },
-            body: JSON.stringify({
-                endpoint: subscription.endpoint,
-                keys: subscription.toJSON().keys,
-                userId: String(user.id || user.sub),
-                applicationType: 'pawn-apps'
-            })
-        });
+            const subscription = await readyRegistration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicKey)
+            });
 
-        setShowPrompt(false);
-        toast.success("Notifikasi Aktif! 🚀");
-    } catch (err) { 
-        console.error("Gagal total:", err);
-        toast.error("Gagal: " + err.message);
-    }
-};
+            await fetch(`${API_URL}/web-push/subscribe`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'Authorization': `Bearer ${token}` 
+                },
+                body: JSON.stringify({
+                    endpoint: subscription.endpoint,
+                    keys: subscription.toJSON().keys,
+                    userId: String(user.id || user.sub),
+                    applicationType: 'pawn-apps'
+                })
+            });
+
+            setShowPrompt(false);
+            toast.success("Notifikasi Aktif! 🚀");
+        } catch (err) { 
+            console.error("Gagal total:", err);
+            toast.error("Gagal: " + err.message);
+        }
+    };
+
     return (
         <>
             <ToastContainer limit={3} newestOnTop />
@@ -259,10 +253,16 @@ const handleSubscribe = async () => {
                     }}
                 >
                     <Typography variant="subtitle1" fontWeight="bold">Aktifkan Notifikasi? 🔔</Typography>
-                    <Typography variant="body2" sx={{ my: 1, color: 'text.secondary' }}>Terima update Approval, Lunas, dan Lelang langsung di HP/Desktop kamu.</Typography>
+                    <Typography variant="body2" sx={{ my: 1, color: 'text.secondary' }}>
+                        Terima update Approval, Lunas, dan Lelang langsung di HP/Desktop kamu.
+                    </Typography>
                     <Stack direction="row" spacing={1.5} mt={1.5}>
-                        <Button fullWidth variant="contained" color="success" size="small" onClick={handleSubscribe}>Aktifkan</Button>
-                        <Button fullWidth variant="outlined" color="inherit" size="small" onClick={() => setShowPrompt(false)}>Nanti</Button>
+                        <Button fullWidth variant="contained" color="success" size="small" onClick={handleSubscribe}>
+                            Aktifkan
+                        </Button>
+                        <Button fullWidth variant="outlined" color="inherit" size="small" onClick={() => setShowPrompt(false)}>
+                            Nanti
+                        </Button>
                     </Stack>
                 </Paper>
             )}

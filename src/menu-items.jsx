@@ -185,7 +185,7 @@ export default {
           type: 'item',
           url: '/laporan-harian',
           icon: icons.AssessmentOutlinedIcon,
-          role: ['checker']
+          role: ['checker', 'hm']
         },
         {
           id: 'Laporan Harian Petugas',
@@ -193,7 +193,7 @@ export default {
           type: 'item',
           url: '/laporan-harian-petugas',
           icon: icons.AssessmentOutlinedIcon,
-          role: ['petugas']
+          role: ['petugas', 'hm']
         },
         {
           id: 'Laporan approval',
@@ -261,7 +261,17 @@ export default {
           icon: icons.NotificationsNoneOutlinedIcon,
           role: ['checker', 'hm', 'petugas'],
           badgeKey: 'NOTIF_LIST' 
-        }
+        },
+
+        // {
+        //   id: 'notifications-history',
+        //   title: 'Riwayat Notifikasi',
+        //   type: 'item',
+        //   url: '/histori-notifikasi',
+        //   icon: icons.NotificationsNoneOutlinedIcon,
+        //   role: ['checker', 'hm', 'petugas'],
+        //   badgeKey: 'NOTIF_LIST' 
+        // }
       ]
     },
 

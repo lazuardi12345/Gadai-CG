@@ -110,6 +110,7 @@ const LaporanGudangCetak = Loadable(lazy(() => import('views/gudang/laporanGudan
 
 const LaporanMingguanDetailAdmin = Loadable(lazy(() => import('views/Admin/LaporanMingguan/LaporanMIngguanDetailAdmin')));
 const LaporanBrankasCetak = Loadable(lazy(() => import('views/Kasir/LaporanKasir')));
+const NotificationHistory = Loadable(lazy(() => import('views/Notifications/NotificationHistory')));
 // ==============================|| MAIN ROUTES ||============================== //
 const MainRoutes = {
   path: '/',
@@ -191,7 +192,8 @@ const MainRoutes = {
     { path: '/laporan-struk-pelunasan-lelang', element: <RekapStrukPelunasanLelang/> },
     { path: '/laporan-gudang', element: <LaporanMutasiGudang/> },
     { path: '/laporan-gudang-cetak', element: <LaporanGudangCetak/> },
-     { path: '/laporan-kasir-cetak', element: <LaporanBrankasCetak/> },
+    { path: '/laporan-kasir-cetak', element: <LaporanBrankasCetak/> },
+    { path: '/histori-notifikasi', element: <NotificationHistory/> },
 
 
 

@@ -98,7 +98,7 @@ const apiUrl = getApiUrlById("data-nasabah", role, id);
     <Box sx={{ p: 3 }}>
       <Card sx={{ boxShadow: 3, borderRadius: 3, maxWidth: 900, mx: "auto", backgroundColor: "#ffffff" }}>
         <CardHeader
-          title={<Typography variant="h6" sx={{ fontWeight: "bold" }}>👤 Detail Nasabah</Typography>}
+          title={<Typography variant="h6" sx={{ fontWeight: "bold" }}> Detail Nasabah</Typography>}
           action={
             <Stack direction="row" spacing={1}>
               <Button
