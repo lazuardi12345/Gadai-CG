@@ -192,7 +192,7 @@ const GadaiHpPage = () => {
                 onRowsPerPageChange={(e) => { 
                   setRowsPerPage(parseInt(e.target.value, 10)); 
                   setPage(0); 
-                }}
+                }}  
               />
             </>
           )}

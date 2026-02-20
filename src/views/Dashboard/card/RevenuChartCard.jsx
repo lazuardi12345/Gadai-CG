@@ -1,17 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   Card,
   CardHeader,
   CardContent,
   Divider,
-  CircularProgress,
   Typography,
   Box
 } from '@mui/material';
 import Chart from 'react-apexcharts';
-import axiosInstance from 'api/axiosInstance';
 
-const RevenueChartCard = () => {
+const RevenueChartCard = ({ data, tahun }) => {
   // Ambil role user login
   const user = JSON.parse(localStorage.getItem('auth_user'));
   const userRole = user?.role?.toLowerCase() || '';
@@ -19,64 +17,36 @@ const RevenueChartCard = () => {
   // Render hanya untuk HM dan Checker
   if (!['hm', 'checker'].includes(userRole)) return null;
 
-  const [loading, setLoading] = useState(true);
-  const [tahun, setTahun] = useState(new Date().getFullYear());
-  const [bulanList, setBulanList] = useState([]);
-  const [pendapatanData, setPendapatanData] = useState([]);
-  const [nasabahData, setNasabahData] = useState([]);
-
-  useEffect(() => {
-    const fetchCharts = async () => {
-      try {
-        const [pendapatanRes, nasabahRes] = await Promise.all([
-          axiosInstance.get('/pendapatan-bulanan'),
-          axiosInstance.get('/nasabah-bulanan')
-        ]);
-
-        setTahun(pendapatanRes?.data?.tahun || new Date().getFullYear());
-
-        const pendapatan = pendapatanRes?.data?.data || [];
-        const nasabah = nasabahRes?.data?.data || [];
-
-        setBulanList(pendapatan.map(item => item.bulan || '-'));
-        setPendapatanData(pendapatan.map(item => Number(item.total_pinjaman) || 0));
-        setNasabahData(nasabah.map(item => Number(item.total_nasabah) || 0));
-      } catch (err) {
-        console.error('❌ Error fetching chart data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCharts();
-  }, []);
-
-  if (loading)
+  // Jika data belum siap
+  if (!data || data.length === 0) {
     return (
       <Box textAlign="center" sx={{ py: 6 }}>
-        <CircularProgress />
-        <Typography variant="body2" sx={{ mt: 1 }}>
-          Memuat data grafik...
-        </Typography>
+        <Typography variant="body2">Data grafik tidak tersedia.</Typography>
       </Box>
     );
+  }
+
+  // Mapping data dari props gadai_chart
+  const bulanList = data.map(item => item.bulan);
+  const pendapatanData = data.map(item => Number(item.total_pinjaman) || 0);
+  const nasabahData = data.map(item => Number(item.total_nasabah) || 0);
 
   const commonOptions = {
     chart: { toolbar: { show: false } },
     xaxis: {
       categories: bulanList,
-      labels: { style: { fontSize: '13px' } }
+      labels: { style: { fontSize: '11px' } }
     },
-    dataLabels: { enabled: true },
-    stroke: { curve: 'smooth' },
+    dataLabels: { enabled: false }, // Dimatikan agar tidak terlalu ramai
+    stroke: { curve: 'smooth', width: 3 },
     grid: { borderColor: '#eee' }
   };
 
   return (
     <>
-      {/* 🔸 Total Pendapatan Gadai per Bulan */}
-      <Card sx={{ mb: 3 }}>
-        <CardHeader title={`Total Pendapatan Gadai per Bulan (${tahun})`} />
+      {/* 🔸 Total Pinjaman (Pendapatan) Gadai per Bulan */}
+      <Card sx={{ mb: 3, borderRadius: 2 }}>
+        <CardHeader title={<Typography variant="subtitle1" fontWeight="bold">Trend Pinjaman ({tahun})</Typography>} />
         <Divider />
         <CardContent>
           <Chart
@@ -85,25 +55,23 @@ const RevenueChartCard = () => {
               colors: ['#FF9800'],
               yaxis: {
                 labels: {
-                  formatter: (val) => `Rp ${val.toLocaleString('id-ID')}`
+                  formatter: (val) => val > 0 ? `${(val / 1000000).toFixed(1)}jt` : 0
                 }
               },
               tooltip: {
-                y: {
-                  formatter: (val) => `Rp ${val.toLocaleString('id-ID')}`
-                }
+                y: { formatter: (val) => `Rp ${val.toLocaleString('id-ID')}` }
               }
             }}
-            series={[{ name: 'Total Pendapatan', data: pendapatanData }]}
+            series={[{ name: 'Total Pinjaman', data: pendapatanData }]}
             type="line"
-            height={320}
+            height={250}
           />
         </CardContent>
       </Card>
 
       {/* 🔹 Jumlah Nasabah per Bulan */}
-      <Card>
-        <CardHeader title={`Jumlah Nasabah per Bulan (${tahun})`} />
+      <Card sx={{ borderRadius: 2 }}>
+        <CardHeader title={<Typography variant="subtitle1" fontWeight="bold">Jumlah Nasabah ({tahun})</Typography>} />
         <Divider />
         <CardContent>
           <Chart
@@ -119,7 +87,7 @@ const RevenueChartCard = () => {
             }}
             series={[{ name: 'Jumlah Nasabah', data: nasabahData }]}
             type="bar"
-            height={320}
+            height={250}
           />
         </CardContent>
       </Card>

@@ -20,6 +20,9 @@ import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import RepeatIcon from '@mui/icons-material/Repeat';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
+// TAMBAHAN ICON BARU
+import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
+import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined';
 
 // daftar icon
 const icons = {
@@ -45,6 +48,8 @@ const icons = {
   AccountBalanceWalletIcon,
   AssessmentOutlinedIcon,
   FactCheckOutlinedIcon,
+  AccountBalanceOutlinedIcon, // Tambahkan ini
+  PaymentsOutlinedIcon // Tambahkan ini
 };
 
 // ==============================|| MENU ITEMS ||============================== //
@@ -78,6 +83,7 @@ export default {
       ]
     },
 
+    // Group Gadai
     {
       id: 'nasabah',
       title: 'Data Gadai',
@@ -122,7 +128,6 @@ export default {
               url: '/gadai-ulang-emas',
               icon: icons.DiamondOutlinedIcon,
               role: ['checker', 'hm', 'petugas']
-              
             }
           ]
         },
@@ -140,7 +145,7 @@ export default {
               url: '/data-nasabah',
               icon: icons.PeopleAltOutlinedIcon,
               role: ['checker', 'hm', 'petugas'],
-               badgeKey: 'NEW_PAWN' 
+              badgeKey: 'NEW_PAWN'
             },
             {
               id: 'type-penggadaian',
@@ -151,15 +156,14 @@ export default {
               role: ['checker', 'hm']
             },
             {
-
-  id: 'detail-gadai',
-  title: 'Detail Gadai',
-  type: 'item',
-  url: '/detail-gadai',
-  icon: icons.InfoOutlinedIcon,
-  role: ['checker', 'hm', 'petugas'],
-  badgeKey: ['NEW_PAWN', 'REPEAT_ORDER'] 
-},
+              id: 'detail-gadai',
+              title: 'Detail Gadai',
+              type: 'item',
+              url: '/detail-gadai',
+              icon: icons.InfoOutlinedIcon,
+              role: ['checker', 'hm', 'petugas'],
+              badgeKey: ['NEW_PAWN', 'REPEAT_ORDER']
+            },
             {
               id: 'perpanjangan-tempo',
               title: 'Perpanjangan Tempo',
@@ -167,12 +171,64 @@ export default {
               url: '/perpanjangan-tempo',
               icon: icons.TimerOutlinedIcon,
               role: ['checker', 'hm', 'petugas']
+            },
+            {
+              id: 'cetak kwitansi',
+              title: 'Kwitansi',
+              type: 'item',
+              url: '/cetak-kwitansi',
+              icon: icons.TimerOutlinedIcon,
+              role: ['checker', 'hm', 'kasir']
             }
           ]
         }
       ]
     },
 
+    // Group Management Internal
+    {
+      id: 'management-internal',
+      title: 'Manajemen Internal',
+      type: 'group',
+      icon: icons.AccountBalanceOutlinedIcon,
+      children: [
+        {
+          id: 'hr-management',
+          title: 'SDM & Keuangan',
+          type: 'collapse',
+          icon: icons.PeopleAltOutlinedIcon,
+          role: ['hm'],
+          children: [
+            {
+              id: 'daftar-pegawai',
+              title: 'Daftar Pegawai',
+              type: 'item',
+              url: '/employee',
+              icon: icons.PeopleAltOutlinedIcon,
+              role: ['hm']
+            },
+            {
+              id: 'data-penggajian',
+              title: 'Penggajian',
+              type: 'item',
+              url: '/penggajian',
+              icon: icons.PaymentsOutlinedIcon,
+              role: ['hm']
+            },
+            {
+              id: 'biaya-operasional',
+              title: 'Operasional',
+              type: 'item',
+              url: '/operasional',
+              icon: icons.AssessmentOutlinedIcon,
+              role: ['hm']
+            }
+          ]
+        }
+      ]
+    },
+
+    // Laporan
     {
       id: 'laporan-group',
       title: 'Laporan',
@@ -202,12 +258,12 @@ export default {
           url: '/pengajuan-laporan',
           icon: icons.AssessmentOutlinedIcon,
           role: ['hm'],
-          badgeKey: 'LAPORAN_TERBARU' 
+          badgeKey: 'LAPORAN_TERBARU'
         }
       ]
     },
 
-     {
+    {
       id: 'gadai',
       title: 'Macam Macam Gadai',
       type: 'group',
@@ -242,7 +298,6 @@ export default {
           url: '/approval-gadai',
           icon: icons.CheckCircleOutlineOutlinedIcon,
           role: ['checker'],
-         
         },
         {
           id: 'approval-hm',
@@ -251,7 +306,7 @@ export default {
           url: '/approval-hm-gadai',
           icon: icons.CheckCircleOutlineOutlinedIcon,
           role: ['hm'],
-          badgeKey: 'APPROVAL_HM' 
+          badgeKey: 'APPROVAL_HM'
         },
         {
           id: 'notifications-item',
@@ -260,18 +315,8 @@ export default {
           url: '/notifications',
           icon: icons.NotificationsNoneOutlinedIcon,
           role: ['checker', 'hm', 'petugas'],
-          badgeKey: 'NOTIF_LIST' 
+          badgeKey: 'NOTIF_LIST'
         },
-
-        // {
-        //   id: 'notifications-history',
-        //   title: 'Riwayat Notifikasi',
-        //   type: 'item',
-        //   url: '/histori-notifikasi',
-        //   icon: icons.NotificationsNoneOutlinedIcon,
-        //   role: ['checker', 'hm', 'petugas'],
-        //   badgeKey: 'NOTIF_LIST' 
-        // }
       ]
     },
 
@@ -316,8 +361,6 @@ export default {
       ]
     },
 
-
-    // Gudang Management
     {
       id: 'gudang',
       title: 'Manajemen Gudang',
@@ -372,4 +415,4 @@ export default {
       ]
     }
   ]
-};
+};  

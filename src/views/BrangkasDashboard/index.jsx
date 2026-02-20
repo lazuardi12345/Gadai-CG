@@ -10,7 +10,6 @@ import { gridSpacing } from 'config.js';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'; 
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 
 const LocalReportCard = ({ primary, secondary, color, iconPrimary: Icon }) => (
@@ -19,7 +18,6 @@ const LocalReportCard = ({ primary, secondary, color, iconPrimary: Icon }) => (
     color: '#fff',
     boxShadow: '0 4px 20px 0 rgba(0,0,0,0.1)',
     borderRadius: '12px',
-    overflow: 'hidden',
     height: '100%'
   }}>
     <CardContent>
@@ -33,7 +31,7 @@ const LocalReportCard = ({ primary, secondary, color, iconPrimary: Icon }) => (
           </Typography>
         </Grid>
         <Grid item>
-          <Avatar variant="rounded" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', width: 40, height: 40 }}>
+          <Avatar variant="rounded" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff' }}>
             <Icon fontSize="medium" />
           </Avatar>
         </Grid>
@@ -47,19 +45,10 @@ const BrankasDashboard = () => {
   const userRole = (user?.role || "").toLowerCase();
 
   const [loading, setLoading] = useState(true);
-  const [brankasSummary, setBrankasSummary] = useState({
-    saldo_toko: 0,
-    saldo_rekening: 0,
-    total_masuk: 0,
-    total_keluar: 0,
-    total_pending: 0,
-    info: { bulan: '', tahun: '' }
-  });
-
-  const [chartData, setChartData] = useState({
-    pemasukan: [],
-    pengeluaran: [],
-    labels: []
+  const [data, setData] = useState({
+    summary: {},
+    chart: { pemasukan: [], pengeluaran: [], labels: [] },
+    info: { bulan_aktif: '', tahun_aktif: '' }
   });
 
   const colors = {
@@ -78,52 +67,30 @@ const BrankasDashboard = () => {
     }).format(value || 0);
   };
 
-
   const fetchData = useCallback(async () => {
     if (!userRole) return;
     setLoading(true);
 
-    // 2. Logic role-based path
-    const base = userRole === "admin" 
-        ? "/admin" 
-        : userRole === "checker" 
-            ? "/checker" 
-            : "/kasir";
-
+    // Penyesuaian Path sesuai Route baru kamu
+    const basePath = userRole === "admin" ? "/admin" : (userRole === "checker" ? "/checker" : "/kasir");
+    
     try {
-      const [resStats, resChart] = await Promise.all([
-        axiosInstance.get(`${base}/brankas`), 
-        axiosInstance.get(`${base}/dashboard/brankas-chart`)
-      ]);
-
-      if (resStats.data.success) {
-        const data = resStats.data.summary;
-        setBrankasSummary({
-          saldo_toko: data?.saldo_toko_saat_ini || 0,
-          saldo_rekening: data?.saldo_rekening_saat_ini || 0,
-          total_masuk: data?.total_modal_dari_pusat || 0, 
-          total_keluar: data?.total_setoran_ke_admin || 0,
-          total_pending: data?.total_setoran_pending || 0,
-          info: resStats.data.info || { 
-            bulan: new Date().toLocaleString('id-ID', { month: 'long' }), 
-            tahun: new Date().getFullYear() 
-          }
+      // Cukup satu request sekarang, lebih kenceng!
+      const response = await axiosInstance.get(`${basePath}/brankasDashboard`);
+      
+      if (response.data.success) {
+        setData({
+          summary: response.data.summary,
+          chart: response.data.chart,
+          info: response.data.info
         });
-      }
-
-      if (resChart.data.success) {
-        setChartData(resChart.data.data);
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
     }
-  }, [userRole]); // Penutup useCallback yang benar
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  }, [userRole]);
 
   useEffect(() => {
     fetchData();
@@ -131,10 +98,10 @@ const BrankasDashboard = () => {
 
   const chartOptions = {
     chart: { type: 'area', toolbar: { show: false }, zoom: { enabled: false }, fontFamily: 'Inter, sans-serif' },
-    colors: [colors.diterima, '#dc2626'],
+    colors: [colors.diterima, '#dc2626', colors.fisik], // Ditambah warna untuk saldo kumulatif
     dataLabels: { enabled: false },
     stroke: { curve: 'smooth', width: 3 },
-    xaxis: { categories: chartData.labels || [] },
+    xaxis: { categories: data.chart.labels || [] },
     yaxis: { labels: { formatter: (val) => `Rp ${(val / 1000000).toFixed(1)}jt` } },
     tooltip: { y: { formatter: (val) => formatRupiah(val) } },
   };
@@ -153,16 +120,16 @@ const BrankasDashboard = () => {
                 Analitik Brankas Toko
             </Typography>
             <Typography variant="subtitle2" color="textSecondary">
-                Periode berjalan: <b>{brankasSummary?.info?.bulan} {brankasSummary?.info?.tahun}</b>
+                Periode: <b>{data.info.bulan_aktif} {data.info.tahun_aktif}</b>
             </Typography>
         </Box>
       </Grid>
 
-      {/* BARIS KOTAK SUMMARY */}
+      {/* SUMMARY CARDS */}
       <Grid item lg={2.4} md={6} xs={12}>
         <LocalReportCard 
-          primary={formatRupiah(brankasSummary.saldo_toko)} 
-          secondary="SALDO DI TOKO (FISIK)" 
+          primary={formatRupiah(data.summary.saldo_toko_saat_ini)} 
+          secondary="SALDO TOKO (FISIK)" 
           color={colors.fisik} 
           iconPrimary={AccountBalanceWalletIcon} 
         />
@@ -170,7 +137,7 @@ const BrankasDashboard = () => {
 
       <Grid item lg={2.4} md={6} xs={12}>
         <LocalReportCard 
-          primary={formatRupiah(brankasSummary.saldo_rekening)} 
+          primary={formatRupiah(data.summary.saldo_rekening_saat_ini)} 
           secondary="SALDO REKENING" 
           color={colors.rekening} 
           iconPrimary={AccountBalanceIcon} 
@@ -179,8 +146,8 @@ const BrankasDashboard = () => {
 
       <Grid item lg={2.4} md={6} xs={12}>
         <LocalReportCard 
-          primary={formatRupiah(brankasSummary.total_masuk)} 
-          secondary="TOTAL INJEKSI MODAL" 
+          primary={formatRupiah(data.summary.total_modal_dari_pusat)} 
+          secondary="INJEKSI MODAL" 
           color={colors.modal} 
           iconPrimary={AccountBalanceIcon} 
         />
@@ -188,8 +155,8 @@ const BrankasDashboard = () => {
 
       <Grid item lg={2.4} md={6} xs={12}>
         <LocalReportCard 
-          primary={formatRupiah(brankasSummary.total_keluar)} 
-          secondary="SETORAN DITERIMA" 
+          primary={formatRupiah(data.summary.total_setoran_ke_admin)} 
+          secondary="SETORAN LUNAS" 
           color={colors.diterima} 
           iconPrimary={TrendingUpIcon} 
         />
@@ -197,8 +164,8 @@ const BrankasDashboard = () => {
 
       <Grid item lg={2.4} md={6} xs={12}>
         <LocalReportCard 
-          primary={formatRupiah(brankasSummary.total_pending)} 
-          secondary="SETORAN BELUM DIVALIDASI" 
+          primary={formatRupiah(data.summary.total_setoran_pending)} 
+          secondary="SETORAN PENDING" 
           color={colors.pending} 
           iconPrimary={HourglassEmptyIcon} 
         />
@@ -211,17 +178,23 @@ const BrankasDashboard = () => {
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
                 <Box>
                     <Typography variant="h4" fontWeight="800">Tren Arus Kas Tahunan</Typography>
-                    <Typography variant="caption" color="textSecondary">Perbandingan akumulasi masuk & keluar per bulan</Typography>
+                    <Typography variant="caption" color="textSecondary">Perbandingan pemasukan, pengeluaran, dan saldo kumulatif</Typography>
                 </Box>
                 <Avatar sx={{ bgcolor: '#f0f4ff', color: colors.fisik }}>
                     <TrendingUpIcon />
                 </Avatar>
             </Stack>
             <Box sx={{ width: '100%', pt: 2 }}>
-                <Chart options={chartOptions} series={[
-                  { name: 'Pemasukan', data: chartData.pemasukan || [] },
-                  { name: 'Pengeluaran', data: chartData.pengeluaran || [] }
-                ]} type="area" height={350} />
+                <Chart 
+                  options={chartOptions} 
+                  series={[
+                    { name: 'Pemasukan', data: data.chart.pemasukan || [] },
+                    { name: 'Pengeluaran', data: data.chart.pengeluaran || [] },
+                    { name: 'Saldo Kumulatif', data: data.chart.saldo_kumulatif || [] }
+                  ]} 
+                  type="area" 
+                  height={350} 
+                />
             </Box>
           </CardContent>
         </Card>

@@ -34,7 +34,6 @@ const DetailGadaiPage = () => {
   const userRole = (user?.role || "").toLowerCase();
 
   const [data, setData] = useState([]);
-  const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(0);
@@ -50,8 +49,6 @@ const DetailGadaiPage = () => {
   const [fileBukti, setFileBukti] = useState(null);
   const [targetBayar, setTargetBayar] = useState(0);
   const [processLoading, setProcessLoading] = useState(false);
-
-  // State untuk Preview Foto
   const [previewImage, setPreviewImage] = useState(null);
 
   const getApiUrl = (resource) => {
@@ -60,40 +57,30 @@ const DetailGadaiPage = () => {
     return `/${resource}`;
   };
 
-
-
-// 3. Fungsi Fetch yang sudah kamu perbaiki (sudah benar)
-const fetchData = async () => {
-  setLoading(true);
-  try {
-    const params = {
-      per_page: rowsPerPage,
-      page: page + 1,
-      search: searchTerm,
-      // Biarkan server yang buang data 'pending extension' 
-      // supaya totalRows (172 itu) sinkron sama yang tampil.
-      exclude_extending: true, 
-    };
-    const res = await axiosInstance.get(getApiUrl("detail-gadai"), { params });
-    
-    if (res.data.success) {
-      setData(res.data.data); 
-      setTotalRows(res.data.pagination?.total || 0);
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const params = { per_page: rowsPerPage, page: page + 1, search: searchTerm, exclude_extending: true };
+      const res = await axiosInstance.get(getApiUrl("detail-gadai"), { params });
+      if (res.data.success) {
+        setData(res.data.data);
+        setTotalRows(res.data.pagination?.total || 0);
+      }
+    } catch (err) {
+      console.error("Error:", err);
+      setData([]);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error("Error:", err);
-    setData([]);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
   const handleOpenValidasi = async (id) => {
     setProcessLoading(true);
-    setSelectedItem(null); 
+    setSelectedItem(null);
     try {
       const res = await axiosInstance.get(`${getApiUrl("detail-gadai")}/${id}`);
       if (res.data.success) {
-        setSelectedItem(res.data.data); 
+        setSelectedItem(res.data.data);
         setOpenValidasi(true);
       }
     } catch (err) {
@@ -103,180 +90,110 @@ const fetchData = async () => {
     }
   };
 
-  const handleValidasiSelesai = async () => {
+const handleValidasiSelesai = async (status) => {
   if (!selectedItem) return;
+
+  const isReject = status === "rejected_checker";
+  
+  const result = await Swal.fire({
+    title: isReject ? "Konfirmasi Penolakan" : "Konfirmasi Pengecekan",
+    input: "textarea",
+    inputLabel: isReject ? "Alasan Reject" : "Catatan Pengecekan",
+    inputPlaceholder: "Tulis catatan di sini...",
+    showCancelButton: true,
+    confirmButtonText: isReject ? "Reject" : "Selesai",
+    confirmButtonColor: isReject ? "#d32f2f" : "#2e7d32",
+    didOpen: () => { Swal.getContainer().style.zIndex = "9999"; },
+    inputValidator: (value) => {
+        if (!value) return "Catatan wajib diisi!";
+    },
+  });
+
+  if (!result.isConfirmed) return;
+
   setProcessLoading(true);
 
   try {
-    const res = await axiosInstance.patch(`${getApiUrl("detail-gadai")}/${selectedItem.id}/validasi-selesai`);
-    
-    if (res.data.success) {
-      setOpenValidasi(false);
-      fetchData();
-      Swal.fire({
-        icon: 'success',
-        title: 'Validasi Berhasil!',
-        html: `Status transaksi sudah menjadi <b style="color: #2e7d32;">Selesai</b>.<br/>.`,
-        showConfirmButton: false,
-        timer: 2500,
-        timerProgressBar: true,
-        background: '#ffffff',
-        iconColor: '#0288d1',
-      });
-    }
-  } catch (err) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Validasi Gagal',
-      text: err.response?.data?.message || "Terjadi kesalahan saat validasi status",
-      confirmButtonColor: '#d33',
+    const res = await axiosInstance.post(`${getApiUrl("approvals")}/${selectedItem.id}`, {
+      status: status,
+      catatan: result.value,
     });
-  } finally {
-    setProcessLoading(false);
-  }
-};
 
-const handleSubmitLunas = async () => {
-  if (!nominalBayar || !metodeBayar) {
-    Swal.fire('Peringatan', 'Harap isi nominal dan pilih metode pembayaran.', 'warning');
-    return;
-  }
-
-  if (Number(nominalBayar) <= 0) {
-    Swal.fire('Peringatan', 'Nominal bayar harus lebih dari 0', 'warning');
-    return;
-  }
-
-  setProcessLoading(true);
-  try {
-    const formData = new FormData();
-    formData.append("nominal_bayar", nominalBayar);
-    const metodeFix = (metodeBayar === "tunai" || metodeBayar === "cash") ? "cash" : "transfer";
-    formData.append("metode_pembayaran", metodeFix);
-
-    if (fileBukti) {
-      formData.append("bukti_transfer", fileBukti);
-    }
-
-    const res = await axiosInstance.post(
-      `${getApiUrl("detail-gadai")}/${selectedItem.id}/pelunasan?_method=PATCH`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      }
-    );
-
-    console.log('Response dari backend:', res.data); 
-
-    if (res.data.success) {
-      const responseData = res.data.data;
-      const perhitungan = responseData.detail_gadai?.perhitungan || {};
-      const kembalian = responseData.kembalian || 0;
-      const nominal_dibayar = responseData.nominal_dibayar || 0;
-      setOpenLunas(false);
-      setFileBukti(null);
-      setNominalBayar("");
-      setMetodeBayar("cash");
-      await fetchData();
-      await Swal.fire({
-        title: 'Pelunasan Berhasil!',
-        icon: 'success',
-        html: `
-          <div style="text-align: left; background: #f9f9f9; padding: 15px; border-radius: 10px; font-family: sans-serif;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <span>Pokok:</span> <b>Rp ${Number(perhitungan.pokok || 0).toLocaleString("id-ID")}</b>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <span>Denda & Jasa:</span> <b>Rp ${Number(perhitungan.denda || 0).toLocaleString("id-ID")}</b>
-            </div>
-            <hr style="border: 0.5px solid #ddd">
-            <div style="display: flex; justify-content: space-between; font-size: 1.1em; color: #2e7d32;">
-              <span>Total Tagihan:</span> <b>Rp ${Number(perhitungan.total_bayar || 0).toLocaleString("id-ID")}</b>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-top: 5px;">
-              <span>Uang Diterima:</span> <b>Rp ${Number(nominal_dibayar).toLocaleString("id-ID")}</b>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-top: 10px; padding: 10px; background: #e8f5e9; border-radius: 5px;">
-              <span style="font-weight: bold;">KEMBALIAN:</span> 
-              <span style="font-weight: bold; color: #2e7d32;">Rp ${Number(kembalian).toLocaleString("id-ID")}</span>
-            </div>
-          </div>
-          <p style="margin-top: 15px; font-size: 0.9em; color: #666;">Klik OK untuk mencetak struk</p>
-        `,
-        confirmButtonText: 'Cetak Struk',
-        confirmButtonColor: '#2e7d32',
-        allowOutsideClick: false
-      });
-
-      navigate(`/print-struk-pelunasan/${selectedItem.id}`);
+    // Cek payload atau error property sesuai format backend
+    if (!res.data.error && !res.data.payload?.error) {
+      setOpenValidasi(false);
+      fetchData(); 
+      Swal.fire({ icon: "success", title: "Berhasil!", text: "Data berhasil diproses ke status SELESAI.", timer: 2000 });
     }
   } catch (err) {
-    console.error('Error pelunasan:', err);
-    console.error('Error response:', err.response?.data);
-
-    if (err.response?.status === 400) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Gadai Sudah Lunas',
-        text: err.response?.data?.message || 'Data gadai ini sudah dilunasi sebelumnya.',
-        confirmButtonColor: '#f59e0b',
-      }).then(() => {
-        setOpenLunas(false);
-        fetchData();
-      });
-    } else if (err.response?.status === 422) {
-      const errorData = err.response.data;
-      
-      if (errorData.perhitungan) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Nominal Kurang',
-          html: `
-            <p>Total yang harus dibayar:</p>
-            <h3 style="color: #d32f2f; margin: 10px 0;">Rp ${Number(errorData.perhitungan.total_bayar).toLocaleString("id-ID")}</h3>
-            <p style="font-size: 0.9em; color: #666;">Silakan masukkan nominal yang sesuai atau lebih</p>
-          `,
-          confirmButtonColor: '#f59e0b',
-        });
-      } else if (errorData.errors) {
-        const msg = Object.values(errorData.errors).flat().join("<br>");
-        Swal.fire({
-          icon: 'error',
-          title: 'Gagal Validasi',
-          html: msg,
-          confirmButtonColor: '#d33',
-        });
-      }
-    } else {
-      Swal.fire({
-        icon: 'error',
-        title: 'Terjadi Kesalahan',
-        text: err.response?.data?.message || 'Gagal memproses pelunasan. Silakan coba lagi.',
-        confirmButtonColor: '#d33',
-      });
-    }
+    Swal.fire({ icon: "error", title: "Gagal", text: err.response?.data?.error || "Terjadi kesalahan." });
   } finally {
     setProcessLoading(false);
   }
 };
 
+  const handleSubmitLunas = async () => {
+    if (!nominalBayar || !metodeBayar) { Swal.fire('Peringatan', 'Harap isi nominal dan pilih metode pembayaran.', 'warning'); return; }
+    if (Number(nominalBayar) <= 0) { Swal.fire('Peringatan', 'Nominal bayar harus lebih dari 0', 'warning'); return; }
 
-useEffect(() => {
+    setProcessLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("nominal_bayar", nominalBayar);
+      formData.append("metode_pembayaran", (metodeBayar === "tunai" || metodeBayar === "cash") ? "cash" : "transfer");
+      if (fileBukti) formData.append("bukti_transfer", fileBukti);
 
-  const delayDebounceFn = setTimeout(() => {
-    fetchData();
-  }, 500);
+      const res = await axiosInstance.post(
+        `${getApiUrl("detail-gadai")}/${selectedItem.id}/pelunasan?_method=PATCH`,
+        formData, { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
 
-  return () => clearTimeout(delayDebounceFn);
+      if (res.data.success) {
+        const responseData = res.data.data;
+        const perhitungan = responseData.detail_gadai?.perhitungan || {};
+        const kembalian = responseData.kembalian || 0;
+        const nominal_dibayar = responseData.nominal_dibayar || 0;
+        setOpenLunas(false); setFileBukti(null); setNominalBayar(""); setMetodeBayar("cash");
+        await fetchData();
+        await Swal.fire({
+          title: 'Pelunasan Berhasil!', icon: 'success',
+          html: `
+            <div style="text-align:left;background:#f9f9f9;padding:15px;border-radius:10px;font-family:sans-serif;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span>Pokok:</span><b>Rp ${Number(perhitungan.pokok||0).toLocaleString("id-ID")}</b></div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span>Denda & Jasa:</span><b>Rp ${Number(perhitungan.denda||0).toLocaleString("id-ID")}</b></div>
+              <hr style="border:0.5px solid #ddd">
+              <div style="display:flex;justify-content:space-between;font-size:1.1em;color:#2e7d32;"><span>Total Tagihan:</span><b>Rp ${Number(perhitungan.total_bayar||0).toLocaleString("id-ID")}</b></div>
+              <div style="display:flex;justify-content:space-between;margin-top:5px;"><span>Uang Diterima:</span><b>Rp ${Number(nominal_dibayar).toLocaleString("id-ID")}</b></div>
+              <div style="display:flex;justify-content:space-between;margin-top:10px;padding:10px;background:#e8f5e9;border-radius:5px;"><span style="font-weight:bold;">KEMBALIAN:</span><span style="font-weight:bold;color:#2e7d32;">Rp ${Number(kembalian).toLocaleString("id-ID")}</span></div>
+            </div>`,
+          confirmButtonText: 'Cetak Struk', confirmButtonColor: '#2e7d32', allowOutsideClick: false
+        });
+        navigate(`/print-struk-pelunasan/${selectedItem.id}`);
+      }
+    } catch (err) {
+      if (err.response?.status === 400) {
+        Swal.fire({ icon: 'warning', title: 'Gadai Sudah Lunas', text: err.response?.data?.message || 'Data gadai ini sudah dilunasi.', confirmButtonColor: '#f59e0b' }).then(() => { setOpenLunas(false); fetchData(); });
+      } else if (err.response?.status === 422) {
+        const errorData = err.response.data;
+        if (errorData.perhitungan) {
+          Swal.fire({ icon: 'warning', title: 'Nominal Kurang', html: `<p>Total yang harus dibayar:</p><h3 style="color:#d32f2f;">Rp ${Number(errorData.perhitungan.total_bayar).toLocaleString("id-ID")}</h3>`, confirmButtonColor: '#f59e0b' });
+        } else if (errorData.errors) {
+          Swal.fire({ icon: 'error', title: 'Gagal Validasi', html: Object.values(errorData.errors).flat().join("<br>"), confirmButtonColor: '#d33' });
+        }
+      } else {
+        Swal.fire({ icon: 'error', title: 'Terjadi Kesalahan', text: err.response?.data?.message || 'Gagal memproses pelunasan.', confirmButtonColor: '#d33' });
+      }
+    } finally {
+      setProcessLoading(false);
+    }
+  };
 
-}, [page, rowsPerPage, searchTerm]); 
+  useEffect(() => {
+    const delay = setTimeout(() => { fetchData(); }, 500);
+    return () => clearTimeout(delay);
+  }, [page, rowsPerPage, searchTerm]);
 
-useEffect(() => {
-  setPage(0);
-}, [searchTerm]);
-
+  useEffect(() => { setPage(0); }, [searchTerm]);
 
   const getStatusColor = (status) => {
     if (status === "proses") return "warning";
@@ -285,31 +202,24 @@ useEffect(() => {
     return "default";
   };
 
-  const getApprovalStatus = (approvals) => {
-    const checker = approvals?.find(a => a.role === 'checker');
-    const hm = approvals?.find(a => a.role === 'hm');
-    return { checker, hm };
-  };
+  const getApprovalStatus = (approvals) => ({
+    checker: approvals?.find(a => a.role === 'checker'),
+    hm: approvals?.find(a => a.role === 'hm'),
+  });
 
   const renderApprovalBadge = (approval) => {
     if (!approval) return <Chip label="Belum" size="small" variant="outlined" sx={{ fontSize: '0.65rem' }} />;
     const isApproved = approval.status?.includes('approved');
     return (
-      <Chip 
-        label={isApproved ? "Approved" : "Rejected"}
-        size="small"
-        color={isApproved ? "success" : "error"}
+      <Chip label={isApproved ? "Approved" : "Rejected"} size="small" color={isApproved ? "success" : "error"}
         icon={isApproved ? <CheckCircleIcon style={{ fontSize: 14 }} /> : <CancelIcon style={{ fontSize: 14 }} />}
-        sx={{ fontSize: '0.65rem', fontWeight: 'bold' }}
-      />
+        sx={{ fontSize: '0.65rem', fontWeight: 'bold' }} />
     );
   };
 
   const getPrintSBGRoute = (item) => {
     const typeName = item.type?.nama_type?.toLowerCase() || '';
-    if (["retro", "logam_mulia", "perhiasan", "logam mulia"].includes(typeName)) {
-      return `/print-surat-bukti-gadai-emas/${item.id}`;
-    }
+    if (["retro", "logam_mulia", "perhiasan", "logam mulia"].includes(typeName)) return `/print-surat-bukti-gadai-emas/${item.id}`;
     if (typeName === "handphone") return `/print-surat-bukti-gadai-hp/${item.id}`;
     return `/print-surat-bukti-gadai-emas/${item.id}`;
   };
@@ -325,37 +235,44 @@ useEffect(() => {
     if (!url) return null;
     return (
       <Grid item xs={4} sm={3}>
-        <Box 
-          onClick={() => setPreviewImage({ url, label })}
-          sx={{ 
-            position: 'relative', 
-            cursor: 'pointer', 
-            borderRadius: 2, 
-            overflow: 'hidden', 
-            border: '1px solid #ddd',
-            '&:hover .overlay': { opacity: 1 }
-          }}
-        >
+        <Box onClick={() => setPreviewImage({ url, label })}
+          sx={{ position: 'relative', cursor: 'pointer', borderRadius: 2, overflow: 'hidden', border: '1px solid #ddd', '&:hover .overlay': { opacity: 1 } }}>
           <img src={url} alt={label} style={{ width: '100%', height: '80px', objectFit: 'cover', display: 'block' }} />
-          <Box className="overlay" sx={{ 
-            position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
-            bgcolor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            opacity: 0, transition: '0.3s' 
-          }}>
+          <Box className="overlay" sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', bgcolor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: '0.3s' }}>
             <VisibilityIcon sx={{ color: 'white' }} />
           </Box>
         </Box>
-        <Typography variant="caption" align="center" display="block" sx={{ fontSize: '0.6rem', mt: 0.5, noWrap: true }}>{label}</Typography>
+        <Typography variant="caption" align="center" display="block" sx={{ fontSize: '0.6rem', mt: 0.5 }}>{label}</Typography>
       </Grid>
     );
+  };
+  const getDokumenEntries = (item) => {
+    const entries = [];
+
+    // HP
+    if (item?.hp?.dokumen_pendukung_hp) {
+      Object.entries(item.hp.dokumen_pendukung_hp).forEach(([key, value]) => {
+        if (value && typeof value === 'string' && value.startsWith('http')) {
+          entries.push({ key, url: value, label: key.toUpperCase() });
+        }
+      });
+    }
+    const emasObj = item?.logam_mulia || item?.perhiasan || item?.retro;
+    if (emasObj?.dokumen_pendukung) {
+      Object.entries(emasObj.dokumen_pendukung).forEach(([key, value]) => {
+        if (value && typeof value === 'string' && value.startsWith('http')) {
+          entries.push({ key, url: value, label: key.replace(/_/g, ' ').toUpperCase() });
+        }
+      });
+    }
+
+    return entries;
   };
 
   const isManagement = ["hm", "checker"].includes(userRole);
 
   if (loading) return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-      <CircularProgress />
-    </Box>
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}><CircularProgress /></Box>
   );
 
   return (
@@ -363,13 +280,8 @@ useEffect(() => {
       <CardHeader
         title={<Typography variant="h6" fontWeight="bold">Data Detail Gadai</Typography>}
         action={
-          <TextField
-            size="small"
-            placeholder="Cari No Gadai / Nasabah..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ width: 300, bgcolor: 'white', borderRadius: 1 }}
-          />
+          <TextField size="small" placeholder="Cari No Gadai / Nasabah..." value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)} sx={{ width: 300, bgcolor: 'white', borderRadius: 1 }} />
         }
       />
       <Divider />
@@ -388,458 +300,319 @@ useEffect(() => {
                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>Cetak Struk / Bukti</TableCell>
               </TableRow>
             </TableHead>
-<TableBody>
-  {/* 1. Jangan pakai .slice() lagi, data dari server sudah pas (misal: 10 data).
-      2. Jangan pakai filteredData, pakai state 'data' hasil fetchData. 
-  */}
-  {data.map((item, index) => {
-    const { checker, hm } = getApprovalStatus(item.approvals);
-    return (
-      <TableRow key={item.id} hover>
-        {/* Nomor urut dinamis berdasarkan halaman */}
-        <TableCell align="center">
-          {page * rowsPerPage + index + 1}
-        </TableCell>
-
-        <TableCell>
-          <Stack spacing={0.3}>
-            <Typography variant="body2" fontWeight="bold" color="primary">
-              {item.no_gadai}
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Typography variant="caption" sx={{ fontWeight: 600 }}>Nasabah:</Typography>
-              <Typography variant="caption" color="text.secondary">
-                {item.nasabah?.nama_lengkap || '-'}
-              </Typography>
-            </Box>
-            <Box sx={{ mt: 0.5, p: 0.5, bgcolor: '#f1f5f9', borderRadius: 1, borderLeft: '3px solid #1e293b', display: 'inline-flex', width: 'fit-content' }}>
-              <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 'bold' }}>
-                {getUnitIcon(item.type?.nama_type)} {item.type?.nama_type || 'Tanpa Type'}
-              </Typography>
-            </Box>
-          </Stack>
-        </TableCell>
-
-        <TableCell align="center">
-          <Stack spacing={0.2} alignItems="center">
-            <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
-              Gadai: {new Date(item.tanggal_gadai).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-            </Typography>
-            <Typography variant="caption" fontWeight="bold" color="error.main" sx={{ fontSize: '0.65rem' }}>
-              JT: {new Date(item.jatuh_tempo).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-            </Typography>
-
-            {item.hari_keterlambatan > 0 && (
-              <Tooltip title={`Terlambat ${item.hari_keterlambatan} hari`}>
-                <Chip 
-                  label={`Telat ${item.hari_keterlambatan} Hari`} 
-                  size="small" 
-                  color="error" 
-                  sx={{ 
-                    fontSize: '0.6rem', 
-                    height: 18, 
-                    fontWeight: 'bold', 
-                    mt: 0.5,
-                    animation: 'pulse 1.5s infinite',
-                    '@keyframes pulse': {
-                      '0%': { opacity: 1 },
-                      '50%': { opacity: 0.6 },
-                      '100%': { opacity: 1 }
-                    }
-                  }} 
-                />
-              </Tooltip>
-            )}
-          </Stack>
-        </TableCell>
-
-        <TableCell align="right">
-          <Stack spacing={0.2}>
-            <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
-              Taksiran: {Number(item.taksiran).toLocaleString("id-ID")}
-            </Typography>
-            <Typography variant="body2" fontWeight="bold" color="primary.main">
-              {Number(item.uang_pinjaman).toLocaleString("id-ID")}
-            </Typography>
-          </Stack>
-        </TableCell>
-
-        <TableCell align="center">
-          <Stack spacing={0.5} alignItems="center">
-            <Chip 
-              label={item.status.toUpperCase()} 
-              color={getStatusColor(item.status)} 
-              size="small" 
-              sx={{ fontSize: '0.65rem', fontWeight: 'bold' }} 
-            />
-            {item.perpanjangan_tempos?.length > 0 && (
-              <Chip 
-                variant="outlined" 
-                color="secondary" 
-                size="small" 
-                icon={<ExtensionIcon style={{ fontSize: 12 }} />} 
-                label={`${item.perpanjangan_tempos.filter(p => p.status_bayar === 'lunas').length}x`} 
-                sx={{ fontSize: '0.65rem', height: 20 }} 
-              />
-            )}
-          </Stack>
-        </TableCell>
-
-        <TableCell align="center">
-          <Stack spacing={0.5} alignItems="center">
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'text.secondary', minWidth: 50 }}>Checker:</Typography>
-              {renderApprovalBadge(checker)}
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'text.secondary', minWidth: 50 }}>HM:</Typography>
-              {renderApprovalBadge(hm)}
-            </Box>
-          </Stack>
-        </TableCell>
-
-        <TableCell align="center">
-          {isManagement && (
-            <Stack direction="row" spacing={1} justifyContent="center">
-              {item.status === "proses" && (
-                <Button variant="contained" color="info" size="small" onClick={() => handleOpenValidasi(item.id)} sx={{ fontSize: '0.65rem', textTransform: 'none' }}>
-                  Cek Selesai
-                </Button>
-              )}
-              {item.status === "selesai" && (
-                <Button 
-                  variant="contained" 
-                  color="success" 
-                  size="small" 
-                  onClick={() => { 
-                    setSelectedItem(item);
-                    setFileBukti(null);
-                    
-                    const pokok = Number(item.uang_pinjaman || 0);
-                    const perpanjanganTerbaru = item.perpanjangan_tempos?.length
-                      ? item.perpanjangan_tempos[item.perpanjangan_tempos.length - 1]
-                      : null;
-                    const jatuhTempoTerbaru = perpanjanganTerbaru?.jatuh_tempo_baru || item.jatuh_tempo;
-                    const today = new Date();
-                    const jatuhTempoDate = new Date(jatuhTempoTerbaru);
-                    let selisihHari = Math.ceil((today - jatuhTempoDate) / (1000 * 60 * 60 * 24));
-                    
-                    const toleransi = 1;
-                    if (selisihHari <= toleransi) {
-                      selisihHari = 0;
-                    } else {
-                      selisihHari -= toleransi;
-                    }
-                    const typeNama = (item.type?.nama_type || '').toLowerCase();
-                    const jenisSkema = ['handphone', 'elektronik'].includes(typeNama) ? 'hp' : 'non-hp';
-                    let denda = 0, penalty = 0;
-                    if (selisihHari > 0) {
-                      const persenDendaPerHari = jenisSkema === 'hp' ? 0.003 : 0.001;
-                      denda = pokok * persenDendaPerHari * selisihHari;
-                      if (selisihHari > 15) {
-                        penalty = 180000;
-                      }
-                    }
-                    const totalBayarSebelum = pokok + denda + penalty;
-                    const totalBayar = Math.ceil(totalBayarSebelum / 1000) * 1000;
-                    
-                    setTargetBayar(totalBayar);
-                    setNominalBayar(totalBayar.toString());
-                    setOpenLunas(true);
-                  }} 
-                  sx={{ fontSize: '0.65rem', textTransform: 'none' }}
-                >
-                  Bayar Lunas
-                </Button>
-              )}
-              {item.status === "lunas" && <Typography variant="caption" color="success.main" fontWeight="bold">LUNAS ✓</Typography>}
-            </Stack>
-          )}
-        </TableCell>
-
-        <TableCell align="center">
-          <Stack direction="row" spacing={0.5} justifyContent="center">
-            <Tooltip title={`Print SBG (${item.type?.nama_type || 'Gadai'})`}>
-              <IconButton size="small" color="primary" onClick={() => navigate(getPrintSBGRoute(item))}>
-                <PrintIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Print Struk Awal">
-              <IconButton size="small" color="secondary" onClick={() => navigate(`/print-struk-awal/${item.id}`)}>
-                <ReceiptIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            {item.status === "lunas" && (
-              <Tooltip title="Print Struk Pelunasan">
-                <IconButton size="small" color="success" onClick={() => navigate(`/print-struk-pelunasan/${item.id}`)}>
-                  <PaymentsIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Stack>
-        </TableCell>
-      </TableRow>
-    );
-  })}
-</TableBody>
+            <TableBody>
+              {data.map((item, index) => {
+                const { checker, hm } = getApprovalStatus(item.approvals);
+                return (
+                  <TableRow key={item.id} hover>
+                    <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
+                    <TableCell>
+                      <Stack spacing={0.3}>
+                        <Typography variant="body2" fontWeight="bold" color="primary">{item.no_gadai}</Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 600 }}>Nasabah:</Typography>
+                          <Typography variant="caption" color="text.secondary">{item.nasabah?.nama_lengkap || '-'}</Typography>
+                        </Box>
+                        <Box sx={{ mt: 0.5, p: 0.5, bgcolor: '#f1f5f9', borderRadius: 1, borderLeft: '3px solid #1e293b', display: 'inline-flex', width: 'fit-content' }}>
+                          <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 'bold' }}>
+                            {getUnitIcon(item.type?.nama_type)} {item.type?.nama_type || 'Tanpa Type'}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Stack spacing={0.2} alignItems="center">
+                        <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>Gadai: {new Date(item.tanggal_gadai).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}</Typography>
+                        <Typography variant="caption" fontWeight="bold" color="error.main" sx={{ fontSize: '0.65rem' }}>JT: {new Date(item.jatuh_tempo).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}</Typography>
+                        {item.hari_keterlambatan > 0 && (
+                          <Tooltip title={`Terlambat ${item.hari_keterlambatan} hari`}>
+                            <Chip label={`Telat ${item.hari_keterlambatan} Hari`} size="small" color="error"
+                              sx={{ fontSize: '0.6rem', height: 18, fontWeight: 'bold', mt: 0.5, animation: 'pulse 1.5s infinite', '@keyframes pulse': { '0%': { opacity: 1 }, '50%': { opacity: 0.6 }, '100%': { opacity: 1 } } }} />
+                          </Tooltip>
+                        )}
+                      </Stack>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Stack spacing={0.2}>
+                        <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>Taksiran: {Number(item.taksiran).toLocaleString("id-ID")}</Typography>
+                        <Typography variant="body2" fontWeight="bold" color="primary.main">{Number(item.uang_pinjaman).toLocaleString("id-ID")}</Typography>
+                      </Stack>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Stack spacing={0.5} alignItems="center">
+                        <Chip label={item.status.toUpperCase()} color={getStatusColor(item.status)} size="small" sx={{ fontSize: '0.65rem', fontWeight: 'bold' }} />
+                        {item.perpanjangan_tempos?.length > 0 && (
+                          <Chip variant="outlined" color="secondary" size="small" icon={<ExtensionIcon style={{ fontSize: 12 }} />}
+                            label={`${item.perpanjangan_tempos.filter(p => p.status_bayar === 'lunas').length}x`}
+                            sx={{ fontSize: '0.65rem', height: 20 }} />
+                        )}
+                      </Stack>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Stack spacing={0.5} alignItems="center">
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'text.secondary', minWidth: 50 }}>Checker:</Typography>
+                          {renderApprovalBadge(checker)}
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'text.secondary', minWidth: 50 }}>HM:</Typography>
+                          {renderApprovalBadge(hm)}
+                        </Box>
+                      </Stack>
+                    </TableCell>
+                    <TableCell align="center">
+                      {isManagement && (
+                        <Stack direction="row" spacing={1} justifyContent="center">
+                          {item.status === "proses" && (
+                            <Button variant="contained" color="info" size="small" onClick={() => handleOpenValidasi(item.id)} sx={{ fontSize: '0.65rem', textTransform: 'none' }}>Cek Selesai</Button>
+                          )}
+                          {item.status === "selesai" && (
+                            <Button variant="contained" color="success" size="small" onClick={() => {
+                              setSelectedItem(item); setFileBukti(null);
+                              const pokok = Number(item.uang_pinjaman || 0);
+                              const perpanjanganTerbaru = item.perpanjangan_tempos?.length ? item.perpanjangan_tempos[item.perpanjangan_tempos.length - 1] : null;
+                              const jatuhTempoTerbaru = perpanjanganTerbaru?.jatuh_tempo_baru || item.jatuh_tempo;
+                              const today = new Date();
+                              const jatuhTempoDate = new Date(jatuhTempoTerbaru);
+                              let selisihHari = Math.ceil((today - jatuhTempoDate) / (1000 * 60 * 60 * 24));
+                              const toleransi = 1;
+                              selisihHari = selisihHari <= toleransi ? 0 : selisihHari - toleransi;
+                              const typeNama = (item.type?.nama_type || '').toLowerCase();
+                              const jenisSkema = ['handphone', 'elektronik'].includes(typeNama) ? 'hp' : 'non-hp';
+                              let denda = 0, penalty = 0;
+                              if (selisihHari > 0) {
+                                denda = pokok * (jenisSkema === 'hp' ? 0.003 : 0.001) * selisihHari;
+                                if (selisihHari > 15) penalty = 180000;
+                              }
+                              const totalBayar = Math.ceil((pokok + denda + penalty) / 1000) * 1000;
+                              setTargetBayar(totalBayar); setNominalBayar(totalBayar.toString()); setOpenLunas(true);
+                            }} sx={{ fontSize: '0.65rem', textTransform: 'none' }}>Bayar Lunas</Button>
+                          )}
+                          {item.status === "lunas" && <Typography variant="caption" color="success.main" fontWeight="bold">LUNAS ✓</Typography>}
+                        </Stack>
+                      )}
+                    </TableCell>
+                    <TableCell align="center">
+                      <Stack direction="row" spacing={0.5} justifyContent="center">
+                        <Tooltip title={`Print SBG (${item.type?.nama_type || 'Gadai'})`}>
+                          <IconButton size="small" color="primary" onClick={() => navigate(getPrintSBGRoute(item))}><PrintIcon fontSize="small" /></IconButton>
+                        </Tooltip>
+                        <Tooltip title="Print Struk Awal">
+                          <IconButton size="small" color="secondary" onClick={() => navigate(`/print-struk-awal/${item.id}`)}><ReceiptIcon fontSize="small" /></IconButton>
+                        </Tooltip>
+                        {item.status === "lunas" && (
+                          <Tooltip title="Print Struk Pelunasan">
+                            <IconButton size="small" color="success" onClick={() => navigate(`/print-struk-pelunasan/${item.id}`)}><PaymentsIcon fontSize="small" /></IconButton>
+                          </Tooltip>
+                        )}
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
           </Table>
         </TableContainer>
-       <TablePagination
-  rowsPerPageOptions={[10, 25, 50]}
-  component="div"
-  // Gunakan state totalRows (172), bukan filteredData.length (10)
-  count={totalRows} 
-  rowsPerPage={rowsPerPage}
-  page={page}
-  onPageChange={(event, newPage) => {
-    setPage(newPage); // Ini akan mentrigger useEffect untuk fetchData
-  }}
-  onRowsPerPageChange={(event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0); // Reset ke halaman pertama kalau jumlah per page ganti
-  }}
-/>
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 50]} component="div" count={totalRows}
+          rowsPerPage={rowsPerPage} page={page}
+          onPageChange={(e, newPage) => setPage(newPage)}
+          onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+        />
       </CardContent>
 
-<Dialog open={openValidasi} onClose={() => setOpenValidasi(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-  <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'info.main', color: 'white', py: 2 }}>
-    <Avatar sx={{ bgcolor: 'white', color: 'info.main', width: 32, height: 32 }}><InventoryIcon fontSize="small" /></Avatar>
-    <Box>
-      <Typography variant="subtitle1" fontWeight="bold" lineHeight={1.2}>Validasi Unit & Dokumen</Typography>
-      <Typography variant="caption" sx={{ opacity: 0.8 }}>Konfirmasi akhir sebelum pelunasan</Typography>
-    </Box>
-  </DialogTitle>
+      {/* Dialog Validasi */}
+      <Dialog open={openValidasi} onClose={() => setOpenValidasi(false)} maxWidth="md" disableEnforceFocus={true} fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'info.main', color: 'white', py: 2 }}>
+          <Avatar sx={{ bgcolor: 'white', color: 'info.main', width: 32, height: 32 }}><InventoryIcon fontSize="small" /></Avatar>
+          <Box>
+            <Typography variant="subtitle1" fontWeight="bold" lineHeight={1.2}>Validasi Unit & Dokumen</Typography>
+            <Typography variant="caption" sx={{ opacity: 0.8 }}>Konfirmasi akhir sebelum pelunasan</Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ bgcolor: '#fbfbfb' }}>
+          {processLoading && !selectedItem ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress size={30} /></Box>
+          ) : (
+            <Grid container spacing={3} sx={{ mt: 1 }}>
+              <Grid item xs={12} md={6}>
+                <Stack spacing={2}>
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'white' }}>
+                    <Typography variant="caption" color="textSecondary">Nomor Gadai / Nasabah</Typography>
+                    <Typography variant="body2" fontWeight="bold">{selectedItem?.no_gadai}</Typography>
+                    <Typography variant="body1" fontWeight="bold" color="primary">{selectedItem?.nasabah?.nama_lengkap}</Typography>
+                  </Paper>
 
-  <DialogContent dividers sx={{ bgcolor: '#fbfbfb' }}>
-    {processLoading && !selectedItem ? (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress size={30} /></Box>
-    ) : (
-      <Grid container spacing={3} sx={{ mt: 1 }}>
-        <Grid item xs={12} md={6}>
-          <Stack spacing={2}>
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'white' }}>
-              <Typography variant="caption" color="textSecondary">Nomor Gadai / Nasabah</Typography>
-              <Typography variant="body2" fontWeight="bold">{selectedItem?.no_gadai}</Typography>
-              <Typography variant="body1" fontWeight="bold" color="primary">{selectedItem?.nasabah?.nama_lengkap}</Typography>
-            </Paper>
+                  {selectedItem?.hp && (
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                      <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <SmartphoneOutlinedIcon fontSize="small" color="primary" /> Detail Handphone
+                      </Typography>
+                      <Grid container spacing={1.5}>
+                        <Grid item xs={6}><Typography variant="caption" color="textSecondary">Merk / Type</Typography><Typography variant="body2" fontWeight="bold">{selectedItem.hp.merk?.nama_merk} {selectedItem.hp.type_hp?.nama_type}</Typography></Grid>
+                        <Grid item xs={6}><Typography variant="caption" color="textSecondary">IMEI / Warna</Typography><Typography variant="body2" fontWeight="bold">{selectedItem.hp.imei} / {selectedItem.hp.warna}</Typography></Grid>
+                        <Grid item xs={6}><Typography variant="caption" color="textSecondary">RAM / ROM</Typography><Typography variant="body2">{selectedItem.hp.ram}GB / {selectedItem.hp.rom}GB</Typography></Grid>
+                        <Grid item xs={6}><Typography variant="caption" color="textSecondary">Password/PIN</Typography><Typography variant="body2" sx={{ color: 'error.main', fontWeight: 'bold' }}>{selectedItem.hp.kunci_password || '-'}</Typography></Grid>
+                        <Grid item xs={6}><Typography variant="caption" color="textSecondary">Grade</Typography><Typography variant="body2" sx={{ textTransform: 'uppercase' }}>{selectedItem.hp.grade_type?.replace('_', ' ')}</Typography></Grid>
+                        <Grid item xs={12}>
+                          <Typography variant="caption" color="textSecondary">Kelengkapan:</Typography>
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                            {selectedItem.hp.kelengkapan_list?.map((k, i) => (
+                              <Chip key={i} label={k.nama_kelengkapan} size="small" color="primary" variant="outlined" sx={{ fontSize: '0.65rem' }} />
+                            ))}
+                          </Box>
+                        </Grid>
+                      </Grid>
+                    </Paper>
+                  )}
 
-            {selectedItem?.hp && (
-              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <SmartphoneOutlinedIcon fontSize="small" color="primary" /> Detail Handphone
-                </Typography>
-                <Grid container spacing={1.5}>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="textSecondary">Merk / Type</Typography>
-                    <Typography variant="body2" fontWeight="bold">{selectedItem.hp.merk?.nama_merk} {selectedItem.hp.type_hp?.nama_type}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="textSecondary">IMEI / Warna</Typography>
-                    <Typography variant="body2" fontWeight="bold">{selectedItem.hp.imei} / {selectedItem.hp.warna}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="textSecondary">RAM / ROM</Typography>
-                    <Typography variant="body2">{selectedItem.hp.ram}GB / {selectedItem.hp.rom}GB</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="textSecondary">Password/PIN</Typography>
-                    <Typography variant="body2" sx={{ color: 'error.main', fontWeight: 'bold' }}>{selectedItem.hp.kunci_password || '-'}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="textSecondary">Grade</Typography>
-                    <Typography variant="body2" sx={{ textTransform: 'uppercase' }}>{selectedItem.hp.grade_type?.replace('_', ' ')}</Typography>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Typography variant="caption" color="textSecondary">Kelengkapan:</Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                      {selectedItem.hp.kelengkapan_list?.map((k, i) => (
-                        <Chip key={i} label={k.nama_kelengkapan} size="small" color="primary" variant="outlined" sx={{ fontSize: '0.65rem' }} />
-                      ))}
-                    </Box>
-                  </Grid>
-                </Grid>
-              </Paper>
-            )}
+                  {(selectedItem?.logam_mulia || selectedItem?.perhiasan || selectedItem?.retro) && (
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                      <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <DiamondOutlinedIcon fontSize="small" color="warning" /> Detail Barang (Emas)
+                      </Typography>
+                      {(() => {
+                        const emas = selectedItem.logam_mulia || selectedItem.perhiasan || selectedItem.retro;
+                        return (
+                          <Grid container spacing={1.5}>
+                            <Grid item xs={12}><Typography variant="caption" color="textSecondary">Nama Barang</Typography><Typography variant="body2" fontWeight="bold">{emas.nama_barang}</Typography></Grid>
+                            <Grid item xs={6}><Typography variant="caption" color="textSecondary">Karatase</Typography><Typography variant="body2">{emas.karat || emas.kadar_emas} K</Typography></Grid>
+                            <Grid item xs={6}><Typography variant="caption" color="textSecondary">Berat</Typography><Typography variant="body2">{emas.berat || emas.berat_bersih} gr</Typography></Grid>
+                            <Grid item xs={6}><Typography variant="caption" color="textSecondary">Kode Cap</Typography><Typography variant="body2">{emas.kode_cap || '-'}</Typography></Grid>
+                            <Grid item xs={6}><Typography variant="caption" color="textSecondary">Potongan Batu</Typography><Typography variant="body2">{emas.potongan_batu || '0'}</Typography></Grid>
+                          </Grid>
+                        );
+                      })()}
+                    </Paper>
+                  )}
 
-
-{(selectedItem?.logam_mulia || selectedItem?.perhiasan || selectedItem?.retro) && (
-  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-    <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-      <DiamondOutlinedIcon fontSize="small" color="warning"/> Detail Barang (Emas)
-    </Typography>
-    
-    {(() => {
-      const emas = selectedItem.logam_mulia || selectedItem.perhiasan || selectedItem.retro;
-      return (
-        <Grid container spacing={1.5}>
-          <Grid item xs={12}>
-            <Typography variant="caption" color="textSecondary">Nama Barang</Typography>
-            <Typography variant="body2" fontWeight="bold">{emas.nama_barang}</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="caption" color="textSecondary">Karatase</Typography>
-            <Typography variant="body2">{emas.karat || emas.kadar_emas} K</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="caption" color="textSecondary">Berat Kotor/Bersih</Typography>
-            <Typography variant="body2">{emas.berat || emas.berat_bersih} gr</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="caption" color="textSecondary">Kode Cap</Typography>
-            <Typography variant="body2">{emas.kode_cap || '-'}</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="caption" color="textSecondary">Potongan Batu</Typography>
-            <Typography variant="body2">{emas.potongan_batu || '0'}</Typography>
-          </Grid>
-        </Grid>
-      );
-    })()}
-  </Paper>
-)}
-
-            {selectedItem?.perhitungan && (
-              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#e3f2fd', border: '1px solid #90caf9' }}>
-                <Typography variant="subtitle2" fontWeight="bold" color="primary" sx={{ mb: 1 }}>Rincian Pelunasan</Typography>
-                <Stack spacing={0.5}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="caption">Uang Pinjaman</Typography>
-                    <Typography variant="caption" fontWeight="bold">Rp {Number(selectedItem.perhitungan.pokok).toLocaleString()}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', color: 'error.main' }}>
-                    <Typography variant="caption">Total Denda (Terlambat {selectedItem.perhitungan.hari_terlambat} hari)</Typography>
-                    <Typography variant="caption" fontWeight="bold">Rp {(Number(selectedItem.perhitungan.denda) + Number(selectedItem.perhitungan.penalty)).toLocaleString()}</Typography>
-                  </Box>
-                  <Divider sx={{ my: 0.5 }} />
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body1" fontWeight="bold">Total Bayar</Typography>
-                    <Typography variant="body1" fontWeight="bold" color="primary">Rp {Number(selectedItem.perhitungan.total_bayar).toLocaleString()}</Typography>
-                  </Box>
-                  <Typography variant="caption" align="right" sx={{ fontStyle: 'italic', opacity: 0.7 }}>
-                    Jatuh Tempo: {selectedItem.perhitungan.jatuh_tempo}
-                  </Typography>
+                  {selectedItem?.perhitungan_pelunasan && (
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#e3f2fd', border: '1px solid #90caf9' }}>
+                      <Typography variant="subtitle2" fontWeight="bold" color="primary" sx={{ mb: 1 }}>Rincian Pelunasan</Typography>
+                      <Stack spacing={0.5}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="caption">Uang Pinjaman</Typography>
+                          <Typography variant="caption" fontWeight="bold">Rp {Number(selectedItem.perhitungan_pelunasan.pokok).toLocaleString()}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', color: 'error.main' }}>
+                          <Typography variant="caption">Denda (Terlambat {selectedItem.perhitungan_pelunasan.hari_terlambat} hari)</Typography>
+                          <Typography variant="caption" fontWeight="bold">Rp {(Number(selectedItem.perhitungan_pelunasan.denda) + Number(selectedItem.perhitungan_pelunasan.penalty)).toLocaleString()}</Typography>
+                        </Box>
+                        <Divider sx={{ my: 0.5 }} />
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body1" fontWeight="bold">Total Bayar</Typography>
+                          <Typography variant="body1" fontWeight="bold" color="primary">Rp {Number(selectedItem.perhitungan_pelunasan.total_bayar).toLocaleString()}</Typography>
+                        </Box>
+                        <Typography variant="caption" align="right" sx={{ fontStyle: 'italic', opacity: 0.7 }}>Jatuh Tempo: {selectedItem.perhitungan_pelunasan.jatuh_tempo}</Typography>
+                      </Stack>
+                    </Paper>
+                  )}
                 </Stack>
-              </Paper>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Box sx={{ p: 2, border: '1px dashed #ccc', borderRadius: 2, bgcolor: '#fff', height: '100%' }}>
+                  <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PhotoLibraryIcon fontSize="small" /> Dokumen Pendukung
+                  </Typography>
+                  <Grid container spacing={1.5}>
+                    {getDokumenEntries(selectedItem).length > 0
+                      ? getDokumenEntries(selectedItem).map(({ key, url, label }) => (
+                          <ImageThumbnail key={key} url={url} label={label} />
+                        ))
+                      : (
+                        <Grid item xs={12}>
+                          <Typography variant="caption" color="textSecondary">Tidak ada foto dokumen pendukung.</Typography>
+                        </Grid>
+                      )
+                    }
+                  </Grid>
+                </Box>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+       <DialogActions
+  sx={{ p: 3, bgcolor: '#f1f3f4', borderTop: '1px solid #e0e0e0' }}
+>
+  <Button
+    onClick={() => setOpenValidasi(false)}
+    color="inherit"
+    disabled={processLoading}
+  >
+    Batal
+  </Button>
+
+  {/* ❌ REJECT */}
+  <Button
+    variant="contained"
+    color="error"
+    disabled={processLoading}
+    onClick={() => handleValidasiSelesai("rejected_checker")}
+    sx={{
+      px: 3,
+      borderRadius: '8px',
+      textTransform: 'none',
+      fontWeight: 'bold'
+    }}
+  >
+    Reject
+  </Button>
+
+  {/* ✅ APPROVE */}
+  <Button
+    variant="contained"
+    color="success"
+    disabled={processLoading}
+    onClick={() => handleValidasiSelesai("approved_checker")}
+    startIcon={
+      processLoading
+        ? <CircularProgress size={20} color="inherit" />
+        : <CheckCircleIcon />
+    }
+    sx={{
+      px: 4,
+      borderRadius: '8px',
+      textTransform: 'none',
+      fontWeight: 'bold'
+    }}
+  >
+    {processLoading ? "Memproses..." : "Ya, Pengecekan Selesai"}
+  </Button>
+</DialogActions>
+
+      </Dialog>
+      <Dialog open={openLunas} onClose={() => setOpenLunas(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 4 } }}>
+        <Box sx={{ bgcolor: 'success.main', color: 'white', px: 3, py: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <PaymentsIcon />
+          <Typography variant="h6" fontWeight="bold">Pelunasan Unit</Typography>
+        </Box>
+        <DialogContent sx={{ mt: 2 }}>
+          <Stack spacing={2.5}>
+            <Box sx={{ p: 2, bgcolor: '#f0fdf4', borderRadius: 3, textAlign: 'center' }}>
+              <Typography variant="caption" color="success.dark" fontWeight="bold">TOTAL TEBUSAN (POKOK+DENDA+PENALTY)</Typography>
+              <Typography variant="h4" color="success.main" fontWeight="900">Rp {Number(targetBayar).toLocaleString("id-ID")}</Typography>
+            </Box>
+            <TextField fullWidth label="Nominal Bayar (Uang dari Nasabah)" type="number" value={nominalBayar}
+              onChange={(e) => setNominalBayar(e.target.value)} helperText="Ubah jika nasabah bayar lebih" />
+            <TextField select fullWidth label="Metode Pembayaran" value={metodeBayar} onChange={(e) => setMetodeBayar(e.target.value)}>
+              <MenuItem value="cash">Tunai (Cash)</MenuItem>
+              <MenuItem value="transfer">Transfer Bank</MenuItem>
+            </TextField>
+            {metodeBayar === "transfer" && (
+              <Button variant="outlined" component="label" startIcon={<UploadIcon />} color={fileBukti ? "success" : "primary"} fullWidth>
+                {fileBukti ? fileBukti.name : "Upload Bukti Transfer"}
+                <input type="file" hidden accept="image/*" onChange={(e) => setFileBukti(e.target.files[0])} />
+              </Button>
             )}
           </Stack>
-        </Grid>
-
-<Grid item xs={12} md={6}>
-  <Box sx={{ p: 2, border: '1px dashed #ccc', borderRadius: 2, bgcolor: '#fff', height: '100%' }}>
-    <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-      <PhotoLibraryIcon fontSize="small" /> Dokumen Pendukung
-    </Typography>
-    
-    <Grid container spacing={1.5}>
-      {selectedItem?.dokumen_pendukung_hp && Object.entries(selectedItem.dokumen_pendukung_hp).map(([key, value]) => (
-        value && typeof value === 'string' && value.startsWith('http') && (
-          <ImageThumbnail key={key} url={value} label={key.toUpperCase()} />
-        )
-      ))}
-
-      {selectedItem?.dokumen_pendukung_emas && Object.entries(selectedItem.dokumen_pendukung_emas).map(([key, value]) => (
-        key.endsWith('_url') && value && (
-          <ImageThumbnail 
-            key={key} 
-            url={value} 
-            label={key.replace('_url', '').replace('_', ' ').toUpperCase()} 
-          />
-        )
-      ))}
-
-      {(!selectedItem?.dokumen_pendukung_hp && !selectedItem?.dokumen_pendukung_emas) && (
-        <Grid item xs={12}>
-          <Typography variant="caption" color="textSecondary">Tidak ada foto dokumen pendukung.</Typography>
-        </Grid>
-      )}
-    </Grid>
-  </Box>
-</Grid>
-      </Grid>
-    )}
-  </DialogContent>
-
-  <DialogActions sx={{ p: 3, bgcolor: '#f1f3f4', borderTop: '1px solid #e0e0e0' }}>
-    <Button onClick={() => setOpenValidasi(false)} color="inherit" disabled={processLoading}>
-      Batal
-    </Button>
-    <Button 
-      variant="contained" color="info" onClick={handleValidasiSelesai} disabled={processLoading}
-      startIcon={processLoading ? <CircularProgress size={20} color="inherit" /> : <CheckCircleIcon />}
-      sx={{ px: 4, borderRadius: '8px', textTransform: 'none', fontWeight: 'bold' }}
-    >
-      {processLoading ? "Memvalidasi..." : "Ya, Pengecekan selesai"}
-    </Button>
-  </DialogActions>
-</Dialog>
-
-<Dialog open={openLunas} onClose={() => setOpenLunas(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 4 } }}>
-  <Box sx={{ bgcolor: 'success.main', color: 'white', px: 3, py: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-    <PaymentsIcon />
-    <Typography variant="h6" fontWeight="bold">Pelunasan Unit</Typography>
-  </Box>
-  <DialogContent sx={{ mt: 2 }}>
-    <Stack spacing={2.5}>
-      <Box sx={{ p: 2, bgcolor: '#f0fdf4', borderRadius: 3, textAlign: 'center' }}>
-        <Typography variant="caption" color="success.dark" fontWeight="bold">TOTAL TEBUSAN (POKOK+DENDA+PENALTY)</Typography>
-        <Typography variant="h4" color="success.main" fontWeight="900">
-          Rp {Number(targetBayar).toLocaleString("id-ID")}
-        </Typography>
-      </Box>
-
-      <TextField
-        fullWidth
-        label="Nominal Bayar (Uang dari Nasabah)"
-        type="number"
-        variant="outlined"
-        value={nominalBayar}
-        onChange={(e) => setNominalBayar(e.target.value)}
-        helperText="Nominal sudah terisi otomatis, ubah jika nasabah bayar lebih"
-        InputProps={{
-          readOnly: false,
-        }}
-      />
-
-      <TextField
-        select
-        fullWidth
-        label="Metode Pembayaran"
-        value={metodeBayar}
-        onChange={(e) => setMetodeBayar(e.target.value)}
-      >
-        <MenuItem value="cash">Tunai (Cash)</MenuItem>
-        <MenuItem value="transfer">Transfer Bank</MenuItem>
-      </TextField>
-
-      {metodeBayar === "transfer" && (
-        <Button
-          variant="outlined"
-          component="label"
-          startIcon={<UploadIcon />}
-          color={fileBukti ? "success" : "primary"}
-          fullWidth
-        >
-          {fileBukti ? fileBukti.name : "Upload Bukti Transfer"}
-          <input type="file" hidden accept="image/*" onChange={(e) => setFileBukti(e.target.files[0])} />
-        </Button>
-      )}
-    </Stack>
-  </DialogContent>
-  <DialogActions sx={{ p: 3 }}>
-    <Button onClick={() => setOpenLunas(false)} color="inherit">Batal</Button>
-    <Button 
-      variant="contained" 
-      color="success" 
-      onClick={handleSubmitLunas} 
-      disabled={processLoading}
-      sx={{ px: 4, borderRadius: 2 }}
-    >
-      {processLoading ? "Memproses..." : "Bayar Sekarang"}
-    </Button>
-  </DialogActions>
-</Dialog>
-
-      {/* Dialog Preview Image */}
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setOpenLunas(false)} color="inherit">Batal</Button>
+          <Button variant="contained" color="success" onClick={handleSubmitLunas} disabled={processLoading} sx={{ px: 4, borderRadius: 2 }}>
+            {processLoading ? "Memproses..." : "Bayar Sekarang"}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Dialog open={Boolean(previewImage)} onClose={() => setPreviewImage(null)} maxWidth="md" fullWidth>
         <DialogTitle>{previewImage?.label}</DialogTitle>
         <DialogContent>

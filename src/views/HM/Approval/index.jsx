@@ -1,331 +1,206 @@
-import React, { useEffect, useState, useContext, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
-  Box, Card, Typography, Tabs, Tab, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Chip, Button, Stack, CircularProgress, Paper, Tooltip,
-  MenuItem, Select, FormControl, InputLabel, Snackbar, Alert, Dialog,
-  DialogTitle, DialogContent, DialogActions, TextField, Divider, Avatar
+  Box, Card, Typography, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, Button, Stack, CircularProgress, Tooltip,
+  Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Avatar, IconButton, useMediaQuery, useTheme
 } from "@mui/material";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import CancelIcon from "@mui/icons-material/Cancel";
-import EditIcon from "@mui/icons-material/Edit";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import AssignmentIcon from "@mui/icons-material/Assignment";
+import {
+  Visibility as VisibilityIcon,
+  Edit as EditIcon,
+  AccountCircle as AccountIcon,
+  History as HistoryIcon,
+  CheckCircle as CheckIcon,
+  Cancel as CancelIcon
+} from "@mui/icons-material";
 import axiosInstance from "api/axiosInstance";
-import { AuthContext } from "AuthContex/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { useTheme, useMediaQuery } from "@mui/material";
+
+const formatRp = (val) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(val || 0);
 
 const ApprovalHMPage = () => {
-  const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("md")); // Deteksi layar HP/Tablet
 
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("semua");
   const [notif, setNotif] = useState({ open: false, message: "", type: "success" });
-  const [bulan, setBulan] = useState("");
-  const [tahun, setTahun] = useState(new Date().getFullYear());
   const [openModal, setOpenModal] = useState(false);
   const [catatan, setCatatan] = useState("");
   const [currentAction, setCurrentAction] = useState(null);
 
-  const [pagination, setPagination] = useState({
-    current_page: 1,
-    last_page: 1,
-    per_page: 10,
-    total: 0
-  });
-
-  // === FETCH DATA ===
-  const fetchData = useCallback(async (status = "semua", page = 1) => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      let endpoint = "/approvals";
-
-      switch (status) {
-        case "approved": endpoint = "/approvals/hm/approved"; break;
-        case "rejected": endpoint = "/approvals/hm/rejected"; break;
-        case "selesai": endpoint = "/approvals/finished/filter"; break;
-        default: endpoint = "/approvals";
-      }
-
-      let params = { page };
-      if (status === "selesai") {
-        if (!bulan || !tahun) {
-          setNotif({ open: true, message: "Silakan pilih bulan dan tahun.", type: "warning" });
-          setLoading(false);
-          return;
-        }
-        params.bulan = bulan;
-        params.tahun = tahun;
-      }
-
-      const res = await axiosInstance.get(endpoint, { params });
-
-      if (res.data.success) {
-        let filteredData = res.data.data || [];
-        if (status === "semua") {
-          filteredData = filteredData.filter((item) => {
-            const checkerApprovedOrRejected = item.approvals?.some(
-              (a) => a.role === "checker" && ["approved_checker", "rejected_checker"].includes(a.status)
-            );
-            const hmAlreadyActed = item.approvals?.some(
-              (a) => a.role === "hm" && ["approved_hm", "rejected_hm"].includes(a.status)
-            );
-            return checkerApprovedOrRejected && !hmAlreadyActed;
-          });
-        }
-        setData(filteredData);
-        setPagination(res.data.pagination || { current_page: 1, last_page: 1, per_page: 10, total: 0 });
+      const res = await axiosInstance.get("/approvals");
+      if (res.data.payload && !res.data.payload.error) {
+        setData(res.data.payload.data.items || []);
       }
     } catch (err) {
-      setNotif({ open: true, message: "Gagal memuat data approval", type: "error" });
+      setNotif({ open: true, message: "Gagal ambil antrian", type: "error" });
     } finally {
       setLoading(false);
     }
-  }, [bulan, tahun]);
+  }, []);
 
-  useEffect(() => {
-    fetchData(tab, 1);
-  }, [tab, fetchData]);
-
-  const handleTabChange = (event, newValue) => {
-    setTab(newValue);
-    setPagination((prev) => ({ ...prev, current_page: 1 }));
-    fetchData(newValue, 1);
-  };
-
-  const handleOpenModal = (id, action) => {
-    setCurrentAction({ id, action });
-    setCatatan("");
-    setOpenModal(true);
-  };
-
-  const handleCloseModal = () => setOpenModal(false);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleApproval = async () => {
-    if (!catatan.trim()) {
-      setNotif({ open: true, message: "Catatan wajib diisi!", type: "warning" });
-      return;
-    }
-    const { id, action } = currentAction;
-    const status = action === "approve" ? "approved_hm" : "rejected_hm";
-
+    if (!catatan.trim()) return setNotif({ open: true, message: "Catatan wajib diisi!", type: "warning" });
     try {
-      const res = await axiosInstance.post(`/approvals/${id}`, { status, catatan });
-      if (res.data.success) {
-        setNotif({ open: true, message: res.data.message, type: "success" });
-        fetchData(tab, pagination.current_page);
-      } else {
-        setNotif({ open: true, message: res.data.message, type: "warning" });
-      }
+      const { id, action } = currentAction;
+      await axiosInstance.post(`/approvals/${id}`, { 
+        status: action === "approve" ? "approved_hm" : "rejected_hm", 
+        catatan 
+      });
+      setNotif({ open: true, message: "Berhasil diproses", type: "success" });
+      fetchData();
     } catch (err) {
-      setNotif({ open: true, message: "Gagal mengupdate status", type: "error" });
+      setNotif({ open: true, message: "Gagal proses approval", type: "error" });
     } finally {
       setOpenModal(false);
     }
   };
 
-  const getChip = (approvals, roleKey) => {
-    const entry = approvals?.find((a) => a.role === roleKey);
-    if (!entry) return <Chip label="Pending" color="warning" size="small" />;
-    const approved = entry.status.includes("approved");
-    return (
-      <Chip
-        label={`${approved ? "Approved" : "Rejected"} by ${roleKey.toUpperCase()}`}
-        color={approved ? "success" : "error"}
-        size="small"
-      />
-    );
-  };
-
-  const getStatusChip = (status) => {
-    const s = (status || "").toLowerCase();
-    if (s === "proses") return <Chip label="Proses" color="warning" size="small" />;
-    if (s === "selesai") return <Chip label="Selesai" color="primary" size="small" />;
-    if (s === "lunas") return <Chip label="Lunas" color="secondary" size="small" />;
-    return <Chip label={status || "-"} color="default" size="small" />;
-  };
-
-  if (loading) return (
-    <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
-      <CircularProgress />
-    </Box>
-  );
-
   return (
-    <Box sx={{ p: { xs: 1.5, md: 4 }, backgroundColor: "#f8fafc", minHeight: "100vh" }}>
-      <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold" mb={2}>
-        Approval Data Gadai (HM)
-      </Typography>
-
-      <Card sx={{ mb: 2, borderRadius: 2, boxShadow: 2 }}>
-        <Tabs value={tab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
-          <Tab label="Semua" value="semua" />
-          <Tab label="Approved" value="approved" />
-          <Tab label="Rejected" value="rejected" />
-          <Tab label="Selesai" value="selesai" />
-        </Tabs>
-      </Card>
-
-      {tab === "selesai" && (
-        <Stack direction={isMobile ? "column" : "row"} spacing={2} mb={2}>
-          <Stack direction="row" spacing={2} sx={{ width: '100%' }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Bulan</InputLabel>
-              <Select value={bulan} onChange={(e) => setBulan(e.target.value)} label="Bulan">
-                {[...Array(12)].map((_, i) => (<MenuItem key={i + 1} value={i + 1}>{i + 1}</MenuItem>))}
-              </Select>
-            </FormControl>
-            <FormControl fullWidth size="small">
-              <InputLabel>Tahun</InputLabel>
-              <Select value={tahun} onChange={(e) => setTahun(e.target.value)} label="Tahun">
-                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((y) => (<MenuItem key={y} value={y}>{y}</MenuItem>))}
-              </Select>
-            </FormControl>
-          </Stack>
-          <Button fullWidth={isMobile} variant="contained" onClick={() => fetchData("selesai", 1)}>Filter</Button>
-        </Stack>
-      )}
-
-      {isMobile ? (
-        /* === MOBILE VIEW (CARDS) === */
+    <Box sx={{ p: { xs: 2, md: 4 }, backgroundColor: "#F4F7F7", minHeight: "100vh" }}>
+      {/* Header Responsif */}
+      <Stack 
+        direction={{ xs: 'column', sm: 'row' }} 
+        justifyContent="space-between" 
+        alignItems={{ xs: 'flex-start', sm: 'center' }} 
+        spacing={2} 
+        mb={4}
+      >
         <Box>
-          {data.length > 0 ? (
-            data.map((item) => (
-              <Card key={item.id} sx={{ mb: 2, p: 2, borderRadius: 2, boxShadow: 2 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">No Gadai</Typography>
-                    <Typography variant="subtitle2" fontWeight="bold">{item.no_gadai}</Typography>
-                  </Box>
-                  {getStatusChip(item.status)}
-                </Stack>
-                
-                <Stack direction="row" spacing={1.5} alignItems="center" mb={1.5}>
-                  <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}><AssignmentIcon fontSize="small"/></Avatar>
-                  <Box>
-                    <Typography variant="body2" fontWeight="bold">{item.nasabah?.nama_lengkap || "-"}</Typography>
-                    <Typography variant="caption" color="text.secondary">{item.type?.nama_type || "-"}</Typography>
-                  </Box>
-                </Stack>
-
-                <Divider sx={{ my: 1, borderStyle: 'dashed' }} />
-
-                <Stack direction="row" justifyContent="space-between" mb={1.5}>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">Taksiran</Typography>
-                    <Typography variant="body2" fontWeight="bold">Rp {Number(item.taksiran || 0).toLocaleString("id-ID")}</Typography>
-                  </Box>
-                  <Box sx={{ textAlign: 'right' }}>
-                    <Typography variant="caption" color="text.secondary" display="block">Pinjaman</Typography>
-                    <Typography variant="body2" color="primary.main" fontWeight="bold">Rp {Number(item.uang_pinjaman || 0).toLocaleString("id-ID")}</Typography>
-                  </Box>
-                </Stack>
-
-                <Stack spacing={1} mb={2}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="caption">Checker:</Typography>
-                    {getChip(item.approvals, "checker")}
-                  </Box>
-                  {tab !== "semua" && (
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="caption">HM:</Typography>
-                      {getChip(item.approvals, "hm")}
-                    </Box>
-                  )}
-                </Stack>
-
-                <Stack direction="row" spacing={1}>
-                  <Button fullWidth variant="outlined" size="small" startIcon={<VisibilityIcon />} onClick={() => navigate(`/approval-hm-gadai-detail/${item.id}`)}>Detail</Button>
-                  {tab === "semua" && user?.role === "hm" && (
-                    <Button fullWidth variant="contained" size="small" startIcon={<EditIcon />} onClick={() => navigate(`/approval-hm-gadai-edit/${item.id}`)}>Edit</Button>
-                  )}
-                </Stack>
-
-                {tab === "semua" && user?.role === "hm" && (
-                  <Stack direction="row" spacing={1} mt={1}>
-                    <Button fullWidth variant="contained" color="success" size="small" onClick={() => handleOpenModal(item.id, "approve")}>Approve</Button>
-                    <Button fullWidth variant="outlined" color="error" size="small" onClick={() => handleOpenModal(item.id, "reject")}>Reject</Button>
-                  </Stack>
-                )}
-              </Card>
-            ))
-          ) : (
-            <Typography align="center" color="text.secondary" sx={{ py: 4 }}>Tidak ada data.</Typography>
-          )}
+          <Typography variant={isMobile ? "h5" : "h4"} fontWeight={900} color="#004D40">Antrian Approval</Typography>
+          <Typography variant="body2" color="textSecondary">Head Manager Dashboard</Typography>
         </Box>
+        <Button 
+          fullWidth={isMobile}
+          variant="contained" 
+          startIcon={<HistoryIcon />} 
+          onClick={() => navigate('/approval-history-hm')}
+          sx={{ bgcolor: '#004D40', borderRadius: '10px', px: 3, py: isMobile ? 1.5 : 1 }}
+        >
+          Lihat History
+        </Button>
+      </Stack>
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress color="success" /></Box>
+      ) : data.length === 0 ? (
+        <Card sx={{ p: 4, textAlign: 'center', borderRadius: '20px' }}><Typography color="textSecondary">Tidak ada antrian</Typography></Card>
       ) : (
-        /* === DESKTOP VIEW (TABLE) === */
-        <Card sx={{ borderRadius: 3, boxShadow: 4, overflow: "hidden" }}>
-          <TableContainer>
-            <Table>
-              <TableHead sx={{ backgroundColor: "#f1f5f9" }}>
-                <TableRow>
-                  <TableCell>No Gadai</TableCell>
-                  <TableCell>Nama Nasabah</TableCell>
-                  <TableCell>Jenis Barang</TableCell>
-                  <TableCell>Taksiran</TableCell>
-                  <TableCell>Pinjaman</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Status Checker</TableCell>
-                  {tab !== "semua" && <TableCell>Status HM</TableCell>}
-                  <TableCell align="center">Aksi</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {data.length > 0 ? (
-                  data.map((item) => (
-                    <TableRow key={item.id} hover>
-                      <TableCell>{item.no_gadai}</TableCell>
-                      <TableCell>{item.nasabah?.nama_lengkap || "-"}</TableCell>
-                      <TableCell>{item.type?.nama_type || "-"}</TableCell>
-                      <TableCell>Rp {Number(item.taksiran || 0).toLocaleString("id-ID")}</TableCell>
-                      <TableCell>Rp {Number(item.uang_pinjaman || 0).toLocaleString("id-ID")}</TableCell>
-                      <TableCell>{getStatusChip(item.status)}</TableCell>
-                      <TableCell>{getChip(item.approvals, "checker")}</TableCell>
-                      {tab !== "semua" && <TableCell>{getChip(item.approvals, "hm")}</TableCell>}
-                      <TableCell align="center">
-                        <Stack direction="row" spacing={1} justifyContent="center">
-                          <Button variant="outlined" size="small" onClick={() => navigate(`/approval-hm-gadai-detail/${item.id}`)}>Detail</Button>
-                          {tab === "semua" && user?.role === "hm" && (
-                            <>
-                              <Button variant="contained" color="primary" size="small" onClick={() => navigate(`/approval-hm-gadai-edit/${item.id}`)}>Edit</Button>
-                              <Button variant="contained" color="success" size="small" onClick={() => handleOpenModal(item.id, "approve")}>Approve</Button>
-                              <Button variant="outlined" color="error" size="small" onClick={() => handleOpenModal(item.id, "reject")}>Reject</Button>
-                            </>
-                          )}
-                        </Stack>
-                      </TableCell>
+        <>
+          {/* TAMPILAN DESKTOP (TABLE) */}
+          {!isMobile && (
+            <Card sx={{ borderRadius: '20px', boxShadow: '0 8px 32px rgba(0,0,0,0.05)', border: '1px solid #E0EED2' }}>
+              <TableContainer>
+                <Table sx={{ minWidth: 1000 }}>
+                  <TableHead sx={{ bgcolor: '#F8FAF8' }}>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 800, color: '#004D40' }}>NASABAH</TableCell>
+                      <TableCell sx={{ fontWeight: 800, color: '#004D40' }}>UNIT</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 800, color: '#004D40' }}>TAKSIRAN</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 800, color: '#004D40' }}>PINJAMAN</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 800, color: '#004D40' }}>AKSI</TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow><TableCell colSpan={9} align="center">Tidak ada data.</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Card>
+                  </TableHead>
+                  <TableBody>
+                    {data.map((item) => (
+                      <TableRow key={item.id} hover>
+                        <TableCell>
+                          <Stack direction="row" spacing={2} alignItems="center">
+                            <Avatar sx={{ bgcolor: '#E8F5E9', color: '#2E7D32' }}><AccountIcon /></Avatar>
+                            <Box>
+                              <Typography variant="subtitle2" fontWeight={800} color="#000">{item.nama_nasabah}</Typography>
+                              <Typography variant="caption" color="textSecondary">{item.no_gadai}</Typography>
+                            </Box>
+                          </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={700} color="#000">{item.jenis_barang}</Typography>
+                          <Typography variant="caption" color="textSecondary">{item.detail_barang}</Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" fontWeight={900} sx={{ color: '#000' }}>{formatRp(item.taksiran)}</Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="subtitle2" fontWeight={900} sx={{ color: '#000' }}>{formatRp(item.uang_pinjaman)}</Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Stack direction="row" spacing={1} justifyContent="center">
+                            <IconButton onClick={() => navigate(`/approval-hm-gadai-detail/${item.id}`)} sx={{ color: '#000', border: '1px solid #000', borderRadius: '8px' }}><VisibilityIcon fontSize="small" /></IconButton>
+                            <IconButton onClick={() => navigate(`/approval-hm-gadai-edit/${item.id}`)} sx={{ color: '#000', border: '1px solid #000', borderRadius: '8px' }}><EditIcon fontSize="small" /></IconButton>
+                            <Button size="small" variant="contained" color="success" onClick={() => { setCurrentAction({id: item.id, action: 'approve'}); setCatatan(""); setOpenModal(true); }} sx={{ borderRadius: '8px', fontWeight: 700 }}>Approve</Button>
+                            <Button size="small" variant="contained" color="error" onClick={() => { setCurrentAction({id: item.id, action: 'reject'}); setCatatan(""); setOpenModal(true); }} sx={{ borderRadius: '8px', fontWeight: 700 }}>Reject</Button>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Card>
+          )}
+
+          {/* TAMPILAN MOBILE (CARDS) */}
+          {isMobile && (
+            <Stack spacing={2}>
+              {data.map((item) => (
+                <Card key={item.id} sx={{ p: 2, borderRadius: '16px', border: '1px solid #E0EED2' }}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Avatar sx={{ bgcolor: '#E8F5E9', color: '#2E7D32' }}><AccountIcon /></Avatar>
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight={900} color="#000">{item.nama_nasabah}</Typography>
+                        <Typography variant="caption" color="textSecondary">{item.no_gadai}</Typography>
+                      </Box>
+                    </Stack>
+                  </Stack>
+                  
+                  <Box sx={{ bgcolor: '#F8FAF8', p: 1.5, borderRadius: '10px', mb: 2 }}>
+                    <Typography variant="caption" color="textSecondary">Unit: <b>{item.jenis_barang} ({item.detail_barang})</b></Typography>
+                    <Stack direction="row" justifyContent="space-between" mt={1}>
+                      <Typography variant="body2">Taksiran:</Typography>
+                      <Typography variant="body2" fontWeight={900} color="#000">{formatRp(item.taksiran)}</Typography>
+                    </Stack>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2">Pinjaman:</Typography>
+                      <Typography variant="body2" fontWeight={900} color="#000">{formatRp(item.uang_pinjaman)}</Typography>
+                    </Stack>
+                  </Box>
+
+                  <Stack direction="row" spacing={1}>
+                    <Button fullWidth variant="outlined" size="small" onClick={() => navigate(`/approval-hm-gadai-detail/${item.id}`)} sx={{ color: '#000', borderColor: '#000' }}>Detail</Button>
+                    <Button fullWidth variant="outlined" size="small" onClick={() => navigate(`/approval-hm-gadai-edit/${item.id}`)} sx={{ color: '#000', borderColor: '#000' }}>Edit</Button>
+                  </Stack>
+                  <Stack direction="row" spacing={1} mt={1}>
+                    <Button fullWidth variant="contained" color="success" size="small" onClick={() => { setCurrentAction({id: item.id, action: 'approve'}); setCatatan(""); setOpenModal(true); }}>Approve</Button>
+                    <Button fullWidth variant="contained" color="error" size="small" onClick={() => { setCurrentAction({id: item.id, action: 'reject'}); setCatatan(""); setOpenModal(true); }}>Reject</Button>
+                  </Stack>
+                </Card>
+              ))}
+            </Stack>
+          )}
+        </>
       )}
 
-      {/* MODAL & SNACKBAR TETAP SAMA */}
-      <Dialog open={openModal} onClose={handleCloseModal} fullWidth maxWidth="xs">
-        <DialogTitle>{currentAction?.action === "approve" ? "Approve" : "Reject"} Gadai</DialogTitle>
+      {/* Modal & Snackbar tetap sama */}
+      <Dialog open={openModal} onClose={() => setOpenModal(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: '16px' } }}>
+        <DialogTitle sx={{ fontWeight: 900 }}>{currentAction?.action === 'approve' ? 'Approve' : 'Reject'}</DialogTitle>
         <DialogContent>
-          <TextField autoFocus margin="dense" label="Catatan" fullWidth multiline rows={3} value={catatan} onChange={(e) => setCatatan(e.target.value)} />
+          <TextField fullWidth multiline rows={3} autoFocus placeholder="Catatan HM..." value={catatan} onChange={(e) => setCatatan(e.target.value)} sx={{ mt: 1 }} />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseModal}>Batal</Button>
-          <Button variant="contained" color={currentAction?.action === "approve" ? "success" : "error"} onClick={handleApproval}>
-            {currentAction?.action === "approve" ? "Approve" : "Reject"}
-          </Button>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenModal(false)} color="inherit">Batal</Button>
+          <Button variant="contained" color={currentAction?.action === 'approve' ? 'success' : 'error'} onClick={handleApproval}>Simpan</Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={notif.open} autoHideDuration={3000} onClose={() => setNotif({ ...notif, open: false })} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>
-        <Alert severity={notif.type}>{notif.message}</Alert>
+      <Snackbar open={notif.open} autoHideDuration={3000} onClose={() => setNotif({ ...notif, open: false })}>
+        <Alert severity={notif.type} variant="filled" sx={{ width: '100%' }}>{notif.message}</Alert>
       </Snackbar>
     </Box>
   );

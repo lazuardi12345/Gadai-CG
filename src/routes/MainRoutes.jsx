@@ -6,6 +6,7 @@ import Loadable from 'component/Loadable';
 import ProtectedRoute from './ProtectedRoute';
 import { GraphicEqRounded } from '@mui/icons-material';
 import LaporanDetailTransaksiKas from 'views/Admin/LaporanMingguan/exportPDFLaporan';
+import PegawaiListCard from 'views/HM/Employee';
 
 const DashboardDefault = Loadable(lazy(() => import('views/Dashboard/Default')));
 
@@ -62,6 +63,7 @@ const DetailApprovalPage = Loadable(lazy(() => import('views/Approval/DetailAppr
 const EditApprovalPage = Loadable(lazy(() => import('views/Approval/EditApproval')));
 
 const ApprovalHmPage = Loadable(lazy(() => import('views/HM/Approval/index')));
+const HistoryHMPage = Loadable(lazy(() => import('views/HM/Approval/History')));
 const DetailApprovalHMPage = Loadable(lazy(() => import('views/HM/Approval/DetailApprovalHm')));
 const EditApprovalHMPage = Loadable(lazy(() => import('views/HM/Approval/EditApprovalHm')));
 
@@ -111,6 +113,10 @@ const LaporanGudangCetak = Loadable(lazy(() => import('views/gudang/laporanGudan
 const LaporanMingguanDetailAdmin = Loadable(lazy(() => import('views/Admin/LaporanMingguan/LaporanMIngguanDetailAdmin')));
 const LaporanBrankasCetak = Loadable(lazy(() => import('views/Kasir/LaporanKasir')));
 const NotificationHistory = Loadable(lazy(() => import('views/Notifications/NotificationHistory')));
+const KwitansiGadaiCetak = Loadable(lazy(() => import('views/Kwitansi/index')));
+const RiwayatKwitansi = Loadable(lazy(() => import('views/Kwitansi/riwayat')));
+const PenggajianPage = Loadable(lazy(() => import('views/HM/Penggajian/index')));
+const OperasionalPage = Loadable(lazy(() => import('views/HM/Operasional/index')));
 // ==============================|| MAIN ROUTES ||============================== //
 const MainRoutes = {
   path: '/',
@@ -158,6 +164,7 @@ const MainRoutes = {
     { path: '/approval-gadai-detail/:detailGadaiId', element: <DetailApprovalPage/> },
     { path: '/approval-gadai-edit/:detailGadaiId', element: <EditApprovalPage/> },
     { path: '/approval-hm-gadai', element: <ApprovalHmPage/> },
+    { path: '/approval-history-hm', element: <HistoryHMPage/> },
     { path: '/approval-hm-gadai-detail/:detailGadaiId', element: <DetailApprovalHMPage/> },
     { path: '/approval-hm-gadai-edit/:detailGadaiId', element: <EditApprovalHMPage/> },
     { path: '/notifications', element: <NotificationsPage/> },
@@ -194,6 +201,11 @@ const MainRoutes = {
     { path: '/laporan-gudang-cetak', element: <LaporanGudangCetak/> },
     { path: '/laporan-kasir-cetak', element: <LaporanBrankasCetak/> },
     { path: '/histori-notifikasi', element: <NotificationHistory/> },
+    { path: '/cetak-kwitansi', element: <KwitansiGadaiCetak/> },
+    { path: '/riwayat-kwitansi', element: <RiwayatKwitansi/> }, 
+    { path: '/employee', element: <PegawaiListCard/> },
+    { path: '/penggajian', element: <PenggajianPage/> },
+    { path: '/operasional', element: <OperasionalPage/> },
 
 
 

@@ -170,7 +170,7 @@ const GadaiLogamMuliaPage = () => {
 
               <TablePagination
                 component="div"
-                count={totalRecords} // Mengambil dari res.data.pagination.total
+                count={totalRecords} 
                 page={page}
                 rowsPerPage={rowsPerPage}
                 onPageChange={(_, p) => setPage(p)}

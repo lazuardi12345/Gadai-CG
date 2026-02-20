@@ -100,42 +100,55 @@ const EditNasabahPage = () => {
     }
   };
 
-  const handleSave = async () => {
-    if (!nasabah.nama_lengkap || !nasabah.nik) {
-      alert('Nama dan NIK wajib diisi!');
-      return;
+const handleSave = async () => {
+  if (!nasabah.nama_lengkap || !nasabah.nik) {
+    alert('Nama dan NIK wajib diisi!');
+    return;
+  }
+
+  setSaving(true);
+  try {
+    const apiUrl = `${getApiUrl('data-nasabah')}/${id}`;
+    
+    const formData = new FormData();
+    
+
+    formData.append('_method', 'PUT');
+    
+    formData.append('nama_lengkap', nasabah.nama_lengkap);
+    formData.append('nik', nasabah.nik);
+    formData.append('alamat', nasabah.alamat || '');
+    formData.append('no_hp', nasabah.no_hp || '');
+    formData.append('bank', nasabah.bank);
+    formData.append('no_rek', nasabah.no_rek || '');
+    
+    if (nasabah.foto_ktp_file && nasabah.foto_ktp_file instanceof File) {
+      formData.append('foto_ktp', nasabah.foto_ktp_file);
     }
+    const response = await axiosInstance.post(apiUrl, formData, {
+      headers: { 
+        'Content-Type': 'multipart/form-data' 
+      },
+    });
 
-    setSaving(true);
-    try {
-      const apiUrl = `${getApiUrl('data-nasabah')}/${id}`;
-      const formData = new FormData();
-      formData.append('_method', 'PUT');
-      formData.append('nama_lengkap', nasabah.nama_lengkap);
-      formData.append('nik', nasabah.nik);
-      formData.append('alamat', nasabah.alamat || '');
-      formData.append('no_hp', nasabah.no_hp || '');
-      formData.append('bank', nasabah.bank); // Tambahkan Bank
-      formData.append('no_rek', nasabah.no_rek || '');
-      
-      if (nasabah.foto_ktp_file instanceof File) {
-        formData.append('foto_ktp', nasabah.foto_ktp_file);
-      }
-
-      const response = await axiosInstance.post(apiUrl, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      if (response.data.success) {
-        alert('Data berhasil diperbarui!');
-        navigate(role === 'checker' ? '/checker/data-nasabah' : '/data-nasabah');
-      }
-    } catch (err) {
-      alert(err.response?.data?.message || 'Terjadi kesalahan saat menyimpan.');
-    } finally {
-      setSaving(false);
+    if (response.data.success) {
+      alert('Data berhasil diperbarui!');
+      navigate(role === 'checker' ? '/checker/data-nasabah' : '/data-nasabah');
     }
-  };
+  } catch (err) {
+    console.error("Error detail:", err.response?.data);
+    const msg = err.response?.data?.message || 'Terjadi kesalahan saat menyimpan.';
+    const errors = err.response?.data?.errors;
+    if (errors) {
+      const firstError = Object.values(errors)[0];
+      alert(`Gagal: ${firstError}`);
+    } else {
+      alert(msg);
+    }
+  } finally {
+    setSaving(false);
+  }
+};
 
   if (loading) return <Grid container justifyContent="center" alignItems="center" style={{ height: '80vh' }}><CircularProgress /></Grid>;
 

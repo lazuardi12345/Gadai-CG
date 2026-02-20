@@ -217,7 +217,7 @@ const GadaiRetroPage = () => {
           <TablePagination
             rowsPerPageOptions={[5, 10, 25]}
             component="div"
-            count={totalRecords} // Gunakan total dari Backend
+            count={totalRecords} 
             page={page}
             rowsPerPage={rowsPerPage}
             onPageChange={(_, p) => setPage(p)}

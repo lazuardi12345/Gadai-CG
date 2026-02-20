@@ -19,12 +19,14 @@ import { useNavigate } from "react-router-dom";
 const PerpanjanganTempoPage = () => {
   const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm")); // Cek jika layar HP
-
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [totalRows, setTotalRows] = useState(0); 
+  
+  // State Pagination & Filter
   const [searchTerm, setSearchTerm] = useState("");
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(0); 
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [tabValue, setTabValue] = useState(0);
 
@@ -41,27 +43,37 @@ const PerpanjanganTempoPage = () => {
   const apiBaseUrl = userRole === "checker" 
     ? "/checker/perpanjangan-tempo" 
     : (userRole === "petugas" ? "/petugas/perpanjangan-tempo" : "/perpanjangan-tempo");
-
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axiosInstance.get(apiBaseUrl);
-      if (res.data.success) setData(res.data.data);
+      const statusFilter = tabValue === 0 ? "pending" : "lunas";
+      const res = await axiosInstance.get(apiBaseUrl, {
+        params: {
+          page: page + 1, 
+          pageSize: rowsPerPage,
+          search: searchTerm,
+          status: statusFilter
+        }
+      });
+
+      if (res.data.success) {
+        setData(res.data.data);
+        setTotalRows(res.data.total);
+      }
     } catch (err) { 
-      console.error(err); 
+      console.error("Error fetching data:", err); 
     } finally { 
       setLoading(false); 
     }
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, page, rowsPerPage, searchTerm, tabValue]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  const filteredData = data.filter(item => {
-    const matchSearch = item.detail_gadai?.no_gadai?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        item.detail_gadai?.nasabah?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase());
-    const statusFilter = tabValue === 0 ? "pending" : "lunas";
-    return matchSearch && item.status_bayar === statusFilter;
-  });
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setPage(0);
+  };
 
   const handleProsesBayar = async () => {
     setProcessLoading(true);
@@ -87,7 +99,9 @@ const PerpanjanganTempoPage = () => {
     }
   };
 
-  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>;
+  if (loading && data.length === 0) {
+    return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>;
+  }
 
   return (
     <Card sx={{ borderRadius: isMobile ? 0 : 3, boxShadow: isMobile ? 'none' : 3 }}>
@@ -101,7 +115,7 @@ const PerpanjanganTempoPage = () => {
                 size="small" 
                 placeholder="Cari No. Gadai/Nama..." 
                 value={searchTerm} 
-                onChange={e => setSearchTerm(e.target.value)} 
+                onChange={handleSearchChange} 
               />
             )}
             <Button 
@@ -123,7 +137,7 @@ const PerpanjanganTempoPage = () => {
             placeholder="Cari..." 
             InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'action.active' }} /> }}
             value={searchTerm} 
-            onChange={e => setSearchTerm(e.target.value)} 
+            onChange={handleSearchChange} 
           />
         </Box>
       )}
@@ -134,15 +148,14 @@ const PerpanjanganTempoPage = () => {
         variant="fullWidth"
         sx={{ borderBottom: 1, borderColor: 'divider' }}
       >
-        <Tab label={`Pending (${data.filter(i => i.status_bayar === 'pending').length})`} />
-        <Tab label={`Lunas (${data.filter(i => i.status_bayar === 'lunas').length})`} />
+        <Tab label="Pending" />
+        <Tab label="Lunas" />
       </Tabs>
 
       <CardContent sx={{ p: 0 }}>
         {isMobile ? (
-          /* --- MOBILE VIEW: Card List --- */
           <Box sx={{ p: 2, bgcolor: '#f5f5f5' }}>
-            {filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item) => (
+            {data.map((item) => (
               <Card key={item.id} sx={{ mb: 2, borderRadius: 2, border: '1px solid #e0e0e0' }}>
                 <CardContent sx={{ p: 2 }}>
                   <Stack direction="row" justifyContent="space-between" mb={1}>
@@ -159,38 +172,20 @@ const PerpanjanganTempoPage = () => {
                   <Typography variant="subtitle1" fontWeight="bold">
                     {item.detail_gadai?.nasabah?.nama_lengkap}
                   </Typography>
-                  
                   <Divider sx={{ my: 1 }} />
-                  
                   <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="body2" color="text.secondary">Jatuh Tempo Baru:</Typography>
-                    <Typography variant="body2" fontWeight="bold">{item.jatuh_tempo_baru}</Typography>
-                  </Stack>
-                  
-                  <Stack direction="row" justifyContent="space-between" mt={0.5}>
                     <Typography variant="body2" color="text.secondary">Tagihan:</Typography>
                     <Typography variant="body2" fontWeight="bold">
                       Rp {Number(item.nominal_admin).toLocaleString("id-ID")}
                     </Typography>
                   </Stack>
-
                   <Box sx={{ mt: 2 }}>
                     {item.status_bayar === "pending" ? (
-                      <Button 
-                        fullWidth 
-                        variant="contained" 
-                        color="success" 
-                        onClick={() => { setSelectedItem(item); setOpenBayar(true); }}
-                      >
+                      <Button fullWidth variant="contained" color="success" onClick={() => { setSelectedItem(item); setOpenBayar(true); }}>
                         Bayar Sekarang
                       </Button>
                     ) : (
-                      <Button 
-                        fullWidth 
-                        variant="outlined" 
-                        startIcon={<PrintIcon />} 
-                        onClick={() => navigate(`/print-struk-perpanjangan/${item.detail_gadai_id}`)}
-                      >
+                      <Button fullWidth variant="outlined" startIcon={<PrintIcon />} onClick={() => navigate(`/print-struk-perpanjangan/${item.detail_gadai_id}`)}>
                         Lihat Struk
                       </Button>
                     )}
@@ -200,38 +195,36 @@ const PerpanjanganTempoPage = () => {
             ))}
           </Box>
         ) : (
-          /* --- DESKTOP VIEW: Table --- */
           <TableContainer>
             <Table size="small">
               <TableHead sx={{ bgcolor: "#f8f9fa" }}>
                 <TableRow>
-                  {["No", "No Gadai", "Nasabah", "Tgl Perpanjang", "Jatuh Tempo Baru", "Total Tagihan", "Status", "Aksi"].map(h => (
-                    <TableCell key={h} align="center" sx={{ fontWeight: 'bold' }}>{h}</TableCell>
-                  ))}
+                  <TableCell align="center">No</TableCell>
+                  <TableCell align="center">No Gadai</TableCell>
+                  <TableCell>Nasabah</TableCell>
+                  <TableCell align="center">Jatuh Tempo Baru</TableCell>
+                  <TableCell align="right">Total Tagihan</TableCell>
+                  <TableCell align="center">Status</TableCell>
+                  <TableCell align="center">Aksi</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item, index) => (
+                {data.map((item, index) => (
                   <TableRow key={item.id} hover>
-                    <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>
+                    <TableCell align="center">{(page * rowsPerPage) + index + 1}</TableCell>
                     <TableCell align="center"><strong>{item.detail_gadai?.no_gadai}</strong></TableCell>
                     <TableCell>{item.detail_gadai?.nasabah?.nama_lengkap}</TableCell>
-                    <TableCell align="center">
-                      {item.tanggal_perpanjangan ? new Date(item.tanggal_perpanjangan).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
-                    </TableCell>
-                    <TableCell align="center" sx={{ color: 'primary.main', fontWeight: 'bold' }}>{item.jatuh_tempo_baru}</TableCell>
+                    <TableCell align="center">{item.jatuh_tempo_baru ? new Date(item.jatuh_tempo_baru).toLocaleDateString("id-ID") : '-'}</TableCell>
                     <TableCell align="right">Rp {Number(item.nominal_admin).toLocaleString("id-ID")}</TableCell>
                     <TableCell align="center">
                       <Chip label={item.status_bayar.toUpperCase()} color={item.status_bayar === 'lunas' ? 'success' : 'warning'} size="small" />
                     </TableCell>
                     <TableCell align="center">
-                      <Stack direction="row" spacing={1} justifyContent="center">
-                        {item.status_bayar === "pending" ? (
-                          <Button variant="contained" size="small" color="success" onClick={() => { setSelectedItem(item); setOpenBayar(true); }}>Bayar</Button>
-                        ) : (
-                          <Button variant="outlined" size="small" startIcon={<PrintIcon />} onClick={() => navigate(`/print-struk-perpanjangan/${item.detail_gadai_id}`)}>Struk</Button>
-                        )}
-                      </Stack>
+                      {item.status_bayar === "pending" ? (
+                        <Button variant="contained" size="small" color="success" onClick={() => { setSelectedItem(item); setOpenBayar(true); }}>Bayar</Button>
+                      ) : (
+                        <Button variant="outlined" size="small" startIcon={<PrintIcon />} onClick={() => navigate(`/print-struk-perpanjangan/${item.detail_gadai_id}`)}>Struk</Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -242,15 +235,16 @@ const PerpanjanganTempoPage = () => {
         
         <TablePagination 
           component="div" 
-          count={filteredData.length} 
+          count={totalRows} 
           rowsPerPage={rowsPerPage} 
           page={page} 
           onPageChange={(e, p) => setPage(p)} 
-          onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+          onRowsPerPageChange={(e) => { 
+            setRowsPerPage(parseInt(e.target.value, 10)); 
+            setPage(0); 
+          }}
         />
       </CardContent>
-
-      {/* Dialog Konfirmasi Pembayaran */}
       <Dialog open={openBayar} onClose={() => setOpenBayar(false)} fullWidth maxWidth="xs">
         <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>Konfirmasi Pembayaran</DialogTitle>
         <DialogContent>

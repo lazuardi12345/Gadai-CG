@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 const DOKUMEN_SOP_HP = {
   Android: ['body', 'imei', 'about', 'akun', 'admin', 'cam_depan', 'cam_belakang', 'rusak'],
   Samsung: ['body', 'imei', 'about', 'samsung_account', 'admin', 'cam_depan', 'cam_belakang', 'galaxy_store'],
+  // ✅ Fix #1: 'utools' bukan '3utools' — harus match dengan model fillable & controller
   iPhone: ['body', 'imei', 'about', 'icloud', 'battery', 'utools', 'iunlocker', 'cek_pencurian']
 };
 
@@ -54,7 +55,6 @@ const GadaiHpWizardPage = () => {
   });
   const [fotoKtp, setFotoKtp] = useState(null);
 
-  // REVISI: Jatuh tempo sekarang menyimpan angka durasi (default 15)
   const [detail, setDetail] = useState({
     tanggal_gadai: new Date().toISOString().split('T')[0],
     durasi: 15, 
@@ -85,17 +85,16 @@ const GadaiHpWizardPage = () => {
   const [kerusakanList, setKerusakanList] = useState([]);
   const [kelengkapanList, setKelengkapanList] = useState([]);
 
-  // Fungsi pembantu untuk hitung tanggal jatuh tempo di UI
-const getFormattedJatuhTempo = () => {
-  if (!detail.tanggal_gadai) return ""; 
-  const date = new Date(detail.tanggal_gadai);
-  if (isNaN(date.getTime())) return ""; 
-  const durasiHari = parseInt(detail.durasi) || 15;
-  date.setDate(date.getDate() + durasiHari);
-
-  // 4. Baru jalankan toISOString
-  return date.toISOString().split('T')[0];
-};
+  // ✅ Fix #2: durasi - 1 biar konsisten dengan BE (addDays(15-1) = +14 hari = total 15 hari inklusif)
+  // Contoh: tgl 12 Feb + (15-1) = 26 Feb → tenor 15 hari inklusif (12 s/d 26)
+  const getFormattedJatuhTempo = () => {
+    if (!detail.tanggal_gadai) return "";
+    const date = new Date(detail.tanggal_gadai);
+    if (isNaN(date.getTime())) return "";
+    const durasiHari = parseInt(detail.durasi) || 15;
+    date.setDate(date.getDate() + (durasiHari - 1)); // ✅ -1 agar inklusif, match dengan BE
+    return date.toISOString().split('T')[0];
+  };
 
   const normalizeDataArray = (res) => {
     const dataObj = res.data?.data || res.data || res;
@@ -124,7 +123,6 @@ const getFormattedJatuhTempo = () => {
           t.nama_type?.toLowerCase().includes("hp") || 
           t.nama_type?.toLowerCase().includes("handphone")
         );
-        
         if (hpType) {
           setDetail(prev => ({ ...prev, type_id: hpType.id }));
         }
@@ -145,66 +143,55 @@ const getFormattedJatuhTempo = () => {
     }
   }, [barang.merk_hp_id, baseUrl]);
 
-useEffect(() => {
-  if (barang.type_hp_id) {
-    axiosInstance.get(`${baseUrl}/harga-hp/type/${barang.type_hp_id}`)
-      .then(res => {
-
-        const paginatedData = res.data?.data?.data; 
-        
-        if (paginatedData && paginatedData.length > 0) {
-          const firstItem = paginatedData[0];
-          const gradeData = firstItem.grades?.[0] || null;
-          
-          setMasterHarga(gradeData);
-          if (gradeData?.id) {
-            setBarang(prev => ({ ...prev, grade_hp_id: gradeData.id }));
+  useEffect(() => {
+    if (barang.type_hp_id) {
+      axiosInstance.get(`${baseUrl}/harga-hp/type/${barang.type_hp_id}`)
+        .then(res => {
+          const paginatedData = res.data?.data?.data; 
+          if (paginatedData && paginatedData.length > 0) {
+            const firstItem = paginatedData[0];
+            const gradeData = firstItem.grades?.[0] || null;
+            setMasterHarga(gradeData);
+            if (gradeData?.id) {
+              setBarang(prev => ({ ...prev, grade_hp_id: gradeData.id }));
+            }
+          } else {
+            setMasterHarga(null);
           }
-        } else {
+        })
+        .catch(err => {
+          console.error("Gagal ambil harga:", err);
           setMasterHarga(null);
-        }
-      })
-      .catch(err => {
-        console.error("Gagal ambil harga:", err);
-        setMasterHarga(null);
-      });
-  }
-}, [barang.type_hp_id, baseUrl]);
+        });
+    }
+  }, [barang.type_hp_id, baseUrl]);
 
   const handleNasabahChange = (e) => setNasabah(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  const handleDetailChange = (e) => setDetail(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  const handleBarangChange = (e) => setBarang(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleDetailChange  = (e) => setDetail(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleBarangChange  = (e) => setBarang(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
-  const calculateTotalPersenKerusakan = () => {
-    return kerusakanList
+  const calculateTotalPersenKerusakan = () =>
+    kerusakanList
       .filter(k => barang.kerusakan.includes(k.id))
       .reduce((sum, item) => sum + parseFloat(item.persen || 0), 0);
-  };
 
   const getPreviewValues = () => {
     if (!masterHarga || !barang.grade_type) {
-      return { taksiran: 0, pinjaman: 0, basePinjaman: 0, baseTaksiran: 0, totalPersen: 0, nominalPotonganPinjaman: 0, nominalPotonganTaksiran: 0 };
+      return { taksiran: 0, pinjaman: 0, basePinjaman: 0, baseTaksiran: 0, totalPersen: 0, nominalPotonganPinjaman: 0 };
     }
-    const normalizedGrade = barang.grade_type.toLowerCase().replace(/-/g, '_');
-    const colPinjaman = `grade_${normalizedGrade}`;
-    const colTaksiran = `taksiran_${normalizedGrade}`;
-
-    const basePinjaman = parseFloat(masterHarga[colPinjaman] || 0);
-    const baseTaksiran = parseFloat(masterHarga[colTaksiran] || 0);
-    const totalPersen = calculateTotalPersenKerusakan();
-    
-    const potPinjaman = (basePinjaman * totalPersen) / 100;
-    const potTaksiran = (baseTaksiran * totalPersen) / 100;
-    const rawPinjaman = basePinjaman - potPinjaman;
-    const rawTaksiran = baseTaksiran - potTaksiran;
+    const normalizedGrade    = barang.grade_type.toLowerCase().replace(/-/g, '_');
+    const basePinjaman       = parseFloat(masterHarga[`grade_${normalizedGrade}`] || 0);
+    const baseTaksiran       = parseFloat(masterHarga[`taksiran_${normalizedGrade}`] || 0);
+    const totalPersen        = calculateTotalPersenKerusakan();
+    const multiplier         = Math.max(0, Math.min(1, (100 - totalPersen) / 100));
 
     return {
-      basePinjaman, baseTaksiran,
-      nominalPotonganPinjaman: potPinjaman,
-      nominalPotonganTaksiran: potTaksiran,
-      taksiran: Math.floor(rawTaksiran / 1000) * 1000,
-      pinjaman: Math.floor(rawPinjaman / 1000) * 1000,
-      totalPersen
+      basePinjaman,
+      baseTaksiran,
+      totalPersen,
+      pinjaman:               Math.floor((basePinjaman * multiplier) / 1000) * 1000,
+      taksiran:               Math.floor((baseTaksiran * multiplier) / 1000) * 1000,
+      nominalPotonganPinjaman: basePinjaman * (totalPersen / 100),
     };
   };
 
@@ -226,17 +213,20 @@ useEffect(() => {
       formData.append("detail[tanggal_gadai]", detail.tanggal_gadai);
       formData.append("detail[jatuh_tempo]", getFormattedJatuhTempo()); 
       formData.append("detail[type_id]", detail.type_id);
+
       Object.entries(barang).forEach(([k, v]) => {
         if (['dokumen_pendukung', 'kerusakan', 'kelengkapan'].includes(k)) return;
         formData.append(`barang[${k}]`, v);
       });
 
-      barang.kerusakan.forEach((id, i) => formData.append(`barang[kerusakan][${i}]`, id));
+      barang.kerusakan.forEach((id, i)   => formData.append(`barang[kerusakan][${i}]`, id));
       barang.kelengkapan.forEach((id, i) => formData.append(`barang[kelengkapan][${i}]`, id));
 
+      // ✅ Pastikan semua file dokumen pendukung ter-append
       Object.entries(barang.dokumen_pendukung).forEach(([k, f]) => {
-        if (f) formData.append(`barang[dokumen_pendukung][${k}]`, f);
+        if (f instanceof File) formData.append(`barang[dokumen_pendukung][${k}]`, f);
       });
+
       formData.append("barang[merk_name]", barang.nama_barang);
 
       const res = await axiosInstance.post(`${baseUrl}/gadai-wizard`, formData, {
@@ -259,6 +249,7 @@ useEffect(() => {
       <CardHeader title="Gadai HP" subheader={`Step ${step} dari 3`} />
       <CardContent>
         
+        {/* ── STEP 1: DATA NASABAH ── */}
         {step === 1 && (
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}><TextField fullWidth label="Nama Lengkap *" name="nama_lengkap" value={nasabah.nama_lengkap} onChange={handleNasabahChange} required /></Grid>
@@ -276,32 +267,27 @@ useEffect(() => {
               <input type="file" accept="image/*" onChange={e => setFotoKtp(e.target.files[0])} />
             </Grid>
             <Grid item xs={12}>
-              <Button variant="contained" fullWidth onClick={() => setStep(2)} disabled={!nasabah.nama_lengkap || !nasabah.nik}>Lanjut ke Data HP</Button>
+              <Button variant="contained" fullWidth onClick={() => setStep(2)} disabled={!nasabah.nama_lengkap || !nasabah.nik}>
+                Lanjut ke Data HP
+              </Button>
             </Grid>
           </Grid>
         )}
 
+        {/* ── STEP 2: DATA BARANG ── */}
         {step === 2 && (
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
-              <TextField 
-                fullWidth type="date" label="Tanggal Gadai" name="tanggal_gadai" 
-                value={detail.tanggal_gadai} onChange={handleDetailChange} InputLabelProps={{ shrink: true }} 
-              />
+              <TextField fullWidth type="date" label="Tanggal Gadai" name="tanggal_gadai" 
+                value={detail.tanggal_gadai} onChange={handleDetailChange} InputLabelProps={{ shrink: true }} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
                 <InputLabel>Durasi Pinjaman</InputLabel>
-                <Select 
-                  name="durasi" 
-                  value={detail.durasi} 
-                  onChange={handleDetailChange} 
-                  label="Durasi Pinjaman"
-                >
+                <Select name="durasi" value={detail.durasi} onChange={handleDetailChange} label="Durasi Pinjaman">
                   <MenuItem value={15}>15 Hari</MenuItem>
                   <MenuItem value={30}>30 Hari</MenuItem>
                 </Select>
-                {/* Tampilan bantuan tanggal jatuh tempo sesuai pilihan durasi */}
                 <Typography variant="caption" sx={{ mt: 1, ml: 1, color: 'text.secondary' }}>
                   Estimasi Jatuh Tempo: <b>{getFormattedJatuhTempo()}</b>
                 </Typography>
@@ -340,11 +326,9 @@ useEffect(() => {
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Pilih Grade Kondisi: *</Typography>
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
                 {['a_dus', 'a_tanpa_dus', 'b_dus', 'b_tanpa_dus', 'c_dus', 'c_tanpa_dus'].map(g => (
-                  <Button 
-                    key={g} variant={barang.grade_type === g ? "contained" : "outlined"}
+                  <Button key={g} variant={barang.grade_type === g ? "contained" : "outlined"}
                     onClick={() => setBarang(prev => ({ ...prev, grade_type: g }))}
-                    size="small" disabled={!barang.type_hp_id}
-                  >
+                    size="small" disabled={!barang.type_hp_id}>
                     {g.replace(/_/g, ' ').toUpperCase()}
                   </Button>
                 ))}
@@ -356,10 +340,11 @@ useEffect(() => {
                 <Typography variant="subtitle2" color="error">Potongan Kerusakan (%):</Typography>
                 <FormGroup>
                   {kerusakanList.map(k => (
-                    <FormControlLabel 
-                      key={k.id}
+                    <FormControlLabel key={k.id}
                       control={<Checkbox size="small" checked={barang.kerusakan.includes(k.id)} onChange={() => {
-                        const next = barang.kerusakan.includes(k.id) ? barang.kerusakan.filter(id => id !== k.id) : [...barang.kerusakan, k.id];
+                        const next = barang.kerusakan.includes(k.id)
+                          ? barang.kerusakan.filter(id => id !== k.id)
+                          : [...barang.kerusakan, k.id];
                         setBarang(prev => ({ ...prev, kerusakan: next }));
                       }} />}
                       label={`${k.nama_kerusakan} (${k.persen}%)`}
@@ -374,10 +359,11 @@ useEffect(() => {
                 <Typography variant="subtitle2">Kelengkapan:</Typography>
                 <FormGroup>
                   {kelengkapanList.map(k => (
-                    <FormControlLabel 
-                      key={k.id}
+                    <FormControlLabel key={k.id}
                       control={<Checkbox size="small" checked={barang.kelengkapan.includes(k.id)} onChange={() => {
-                        const next = barang.kelengkapan.includes(k.id) ? barang.kelengkapan.filter(id => id !== k.id) : [...barang.kelengkapan, k.id];
+                        const next = barang.kelengkapan.includes(k.id)
+                          ? barang.kelengkapan.filter(id => id !== k.id)
+                          : [...barang.kelengkapan, k.id];
                         setBarang(prev => ({ ...prev, kelengkapan: next }));
                       }} />}
                       label={k.nama_kelengkapan}
@@ -393,8 +379,8 @@ useEffect(() => {
               <Grid container spacing={2}>
                 <Grid item xs={6} sm={3}><TextField fullWidth size="small" label="IMEI" name="imei" value={barang.imei} onChange={handleBarangChange} /></Grid>
                 <Grid item xs={6} sm={3}><TextField fullWidth size="small" label="Warna" name="warna" value={barang.warna} onChange={handleBarangChange} /></Grid>
-                <Grid item xs={6} sm={3}><TextField fullWidth size="small" label="RAM" name="ram" value={barang.ram} onChange={handleBarangChange} /></Grid>
-                <Grid item xs={6} sm={3}><TextField fullWidth size="small" label="ROM" name="rom" value={barang.rom} onChange={handleBarangChange} /></Grid>
+                <Grid item xs={6} sm={3}><TextField fullWidth size="small" label="RAM (GB)" name="ram" value={barang.ram} onChange={handleBarangChange} /></Grid>
+                <Grid item xs={6} sm={3}><TextField fullWidth size="small" label="ROM (GB)" name="rom" value={barang.rom} onChange={handleBarangChange} /></Grid>
                 <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Password HP" name="kunci_password" value={barang.kunci_password} onChange={handleBarangChange} /></Grid>
                 <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="PIN HP" name="kunci_pin" value={barang.kunci_pin} onChange={handleBarangChange} /></Grid>
                 <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Pola HP" name="kunci_pola" value={barang.kunci_pola} onChange={handleBarangChange} /></Grid>
@@ -403,15 +389,26 @@ useEffect(() => {
 
             <Grid item xs={12}>
               <Divider sx={{ my: 2 }} />
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Upload SOP ({barang.nama_barang}):</Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Upload Dokumen SOP ({barang.nama_barang}):
+              </Typography>
               <Grid container spacing={1}>
                 {DOKUMEN_SOP_HP[barang.nama_barang]?.map(d => (
                   <Grid item xs={6} sm={3} key={d}>
                     <Box sx={{ p: 1, border: '1px dashed #ccc', borderRadius: 1 }}>
                       <Typography variant="caption" display="block" fontWeight="bold">{d.toUpperCase()}</Typography>
+                      {/* ✅ Tampilkan preview nama file kalau sudah dipilih */}
+                      {barang.dokumen_pendukung[d] && (
+                        <Typography variant="caption" sx={{ color: 'success.main', display: 'block', fontSize: '9px' }}>
+                          ✓ {barang.dokumen_pendukung[d].name}
+                        </Typography>
+                      )}
                       <input type="file" accept="image/*" style={{ fontSize: '9px' }} onChange={e => {
                         const file = e.target.files[0];
-                        if (file) setBarang(prev => ({ ...prev, dokumen_pendukung: { ...prev.dokumen_pendukung, [d]: file } }));
+                        if (file) setBarang(prev => ({
+                          ...prev,
+                          dokumen_pendukung: { ...prev.dokumen_pendukung, [d]: file }
+                        }));
                       }} />
                     </Box>
                   </Grid>
@@ -422,12 +419,15 @@ useEffect(() => {
             <Grid item xs={12}>
               <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
                 <Button variant="outlined" fullWidth onClick={() => setStep(1)}>Kembali</Button>
-                <Button variant="contained" fullWidth onClick={() => setStep(3)} disabled={!barang.type_hp_id || !barang.grade_type}>Cek Harga</Button>
+                <Button variant="contained" fullWidth onClick={() => setStep(3)} disabled={!barang.type_hp_id || !barang.grade_type}>
+                  Cek Harga
+                </Button>
               </Stack>
             </Grid>
           </Grid>
         )}
 
+        {/* ── STEP 3: RINGKASAN ── */}
         {step === 3 && (
           <Stack spacing={2}>
             <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
@@ -454,6 +454,12 @@ useEffect(() => {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="body2">Taksiran Nilai Barang:</Typography>
                   <Typography variant="body2">Rp {preview.taksiran.toLocaleString('id-ID')}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Dokumen Terupload:</Typography>
+                  <Typography variant="body2" fontWeight="bold">
+                    {Object.keys(barang.dokumen_pendukung).length} file
+                  </Typography>
                 </Box>
               </Stack>
             </Paper>
