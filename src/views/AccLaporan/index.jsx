@@ -1,246 +1,145 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, Table, TableBody, TableCell, TableContainer, TableHead, 
-  TableRow, Paper, Button, Chip, Typography, Card, Stack, CircularProgress,
-  Tabs, Tab, IconButton, TextField, Divider, useTheme, useMediaQuery
+  TableRow, Button, Chip, Typography, Card, Stack, CircularProgress,
+  Tabs, Tab, TextField, Checkbox, IconButton
 } from '@mui/material';
 import { 
-  CheckCircle, 
-  Assignment, 
-  History, 
-  Search,
-  ErrorOutline // Sudah aman sekarang
+  Assignment, ReceiptLong, ErrorOutline, DoneAll, History as HistoryIcon 
 } from '@mui/icons-material';
+import { Link } from 'react-router-dom';
 import axiosInstance from 'api/axiosInstance'; 
 
 const LaporanApproval = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
   const [tabValue, setTabValue] = useState(0); 
   const [data, setData] = useState([]); 
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
-  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setSelectedIds([]); 
     try {
-      let endpoint = '';
-      if (tabValue === 0) {
-        endpoint = `manager/approvals/reports${selectedDate ? `?tanggal=${selectedDate}` : ''}`;
-      } else {
-        endpoint = selectedDate 
-          ? `manager/acc-history?tanggal=${selectedDate}` 
-          : `manager/gadai/list-sbg?status=all`; 
-      }
+      let endpoint = tabValue === 0 
+        ? `manager/approvals/reports?tanggal=${selectedDate}`
+        : `manager/gadai/list-sbg?status=pending`; // Pakai pending sesuai controller
+      
       const res = await axiosInstance.get(endpoint);
-      setData(Array.isArray(res.data?.data) ? res.data.data : []);
+      const result = Array.isArray(res.data?.data) ? res.data.data : [];
+      
+      if (tabValue === 0) {
+        setData(result.filter(item => !item.is_approved));
+      } else {
+        setData(result); 
+      }
     } catch (err) {
-      console.error("Gagal ambil data", err);
+      console.error("Gagal load data", err);
       setData([]);
     } finally {
       setLoading(false);
     }
   }, [tabValue, selectedDate]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
-  const handleApproveAction = async (row) => {
+  const handleApproveAction = async (target) => {
+    const isBulk = Array.isArray(target);
     const isReport = tabValue === 0;
-    const targetId = isReport ? row.doc_id : row.id;
-    const endpoint = isReport 
-      ? `manager/approvals/reports/${targetId}/approve` 
-      : `manager/approve-sbg/${targetId}`;
+    const targetIds = isBulk ? target : [isReport ? target.doc_id : target.id];
 
-    const confirmMsg = isReport 
-      ? `Setujui Laporan ${row.report_type.replace('_', ' ').toUpperCase()}?`
-      : `Setujui Surat Bukti Gadai (SBG) ${row.no_gadai}?`;
+    if (!window.confirm(`Setujui ${targetIds.length} item?`)) return;
+    setActionLoading(isBulk ? 'bulk' : targetIds[0]);
 
-    if (!window.confirm(confirmMsg)) return;
-
-    setActionLoading(targetId);
     try {
-      const res = await axiosInstance.post(endpoint);
-      if (res.data.success) {
-        alert(res.data.message || "Berhasil disetujui");
-        loadData();
+      if (isReport) {
+        await axiosInstance.post(`manager/approvals/reports/approve`, { doc_ids: targetIds });
+      } else {
+        // SBG hit satu-satu atau bulk (Looping FE)
+        await Promise.all(targetIds.map(id => axiosInstance.post(`manager/approve-sbg/${id}`)));
       }
+      alert("Berhasil di-ACC Brader!");
+      loadData();
     } catch (err) {
-      alert(err.response?.data?.message || "Gagal memproses approval");
+      alert("Gagal ACC: " + (err.response?.data?.message || "Server Error"));
     } finally {
       setActionLoading(null);
     }
   };
 
-  const formatRupiah = (val) => 
-    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val || 0);
+  const handleSelectAll = (e) => {
+    setSelectedIds(e.target.checked ? data.map(row => tabValue === 0 ? row.doc_id : row.id) : []);
+  };
+
+  const handleSelectOne = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#fbfbfb', minHeight: '100vh' }}>
-      
-      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={isMobile ? "flex-start" : "center"} spacing={2} sx={{ mb: 4 }}>
-        <Stack spacing={0.5}>
-          <Typography variant={isMobile ? "h5" : "h4"} fontWeight="800" sx={{ color: '#1a202c' }}>
-            {tabValue === 0 ? "Approval Laporan" : "Approval SBG"}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {tabValue === 0 ? "Verifikasi laporan harian audit." : "Persetujuan transaksi gadai."}
-          </Typography>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f4f7f9', minHeight: '100vh' }}>
+      <Stack direction="row" justifyContent="space-between" sx={{ mb: 3 }}>
+        <Box>
+          <Typography variant="h4" fontWeight="900">Manager Approval</Typography>
+          <Typography variant="body2" color="text.secondary">Verifikasi antrian laporan & transaksi</Typography>
+        </Box>
+        <Stack direction="row" spacing={2}>
+          <Button component={Link} to="/laporan-acc-history" variant="outlined" startIcon={<HistoryIcon />}>
+            LIHAT HISTORY
+          </Button>
+          {selectedIds.length > 0 && (
+            <Button variant="contained" color="success" startIcon={<DoneAll />} onClick={() => handleApproveAction(selectedIds)}>
+              ACC MASSAL ({selectedIds.length})
+            </Button>
+          )}
+          {tabValue === 0 && <TextField type="date" size="small" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />}
         </Stack>
-
-        <TextField
-          type="date"
-          fullWidth={isMobile}
-          size="small"
-          label="Filter Tanggal"
-          InputLabelProps={{ shrink: true }}
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          sx={{ bgcolor: 'white', maxWidth: { md: 250 } }}
-        />
       </Stack>
 
-      <Card sx={{ borderRadius: isMobile ? '12px' : '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-        <Tabs 
-          value={tabValue} 
-          onChange={(e, v) => { setTabValue(v); setData([]); }} 
-          variant={isMobile ? "fullWidth" : "standard"}
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
-        >
-          <Tab icon={<Assignment sx={{ fontSize: 18 }} />} iconPosition="start" label="LAPORAN" />
-          <Tab icon={<History sx={{ fontSize: 18 }} />} iconPosition="start" label="SBG" />
+      <Card sx={{ borderRadius: '16px', boxShadow: 3 }}>
+        <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tab icon={<Assignment />} iconPosition="start" label="PENDING AUDIT" />
+          <Tab icon={<ReceiptLong />} iconPosition="start" label="PENDING SBG" />
         </Tabs>
 
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress /></Box>
-        ) : data.length > 0 ? (
-          isMobile ? (
-            <Box sx={{ p: 2, bgcolor: '#f8f9fa' }}>
-              {data.map((row) => {
-                const isApproved = tabValue === 0 ? row.is_approved : row.approval_status === 'approved';
-                const rowId = tabValue === 0 ? row.doc_id : row.id;
-
-                return (
-                  <Card key={rowId} sx={{ mb: 2, borderRadius: '12px', p: 2, border: '1px solid #eee' }}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
-                      <Box>
-                        <Typography variant="caption" color="text.disabled" sx={{ fontWeight: 'bold' }}>
-                          {tabValue === 0 ? row.report_date : row.no_gadai}
-                        </Typography>
-                        <Typography variant="subtitle1" fontWeight="700" sx={{ display: 'block', mt: 0.5 }}>
-                          {tabValue === 0 ? row.report_type?.replace('_', ' ').toUpperCase() : row.nasabah?.nama_lengkap}
-                        </Typography>
-                      </Box>
-                      <Chip 
-                        label={isApproved ? "APPROVED" : "PENDING"} 
-                        color={isApproved ? "success" : "warning"}
-                        size="small"
-                        sx={{ fontSize: '0.65rem', fontWeight: 'bold' }}
-                      />
-                    </Stack>
-                    
-                    <Divider sx={{ my: 1, borderStyle: 'dashed' }} />
-
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Box>
-                        {tabValue === 0 ? (
-                          <Typography variant="body2" color="text.secondary">ID: <code>{row.doc_id}</code></Typography>
-                        ) : (
-                          <Typography variant="body1" fontWeight="800" color="primary.main">{formatRupiah(row.uang_pinjaman)}</Typography>
-                        )}
-                      </Box>
-                      
-                      {isApproved ? (
-                        <CheckCircle color="success" />
+        {loading ? <Box sx={{ py: 10, textAlign: 'center' }}><CircularProgress /></Box> : (
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell padding="checkbox"><Checkbox onChange={handleSelectAll} /></TableCell>
+                  {tabValue === 0 ? (
+                    <><TableCell>TANGGAL</TableCell><TableCell>JENIS</TableCell><TableCell>DOC ID</TableCell></>
+                  ) : (
+                    <><TableCell>NO GADAI</TableCell><TableCell>NASABAH</TableCell><TableCell>PINJAMAN</TableCell></>
+                  )}
+                  <TableCell align="center">AKSI</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {data.map((row) => {
+                  const id = tabValue === 0 ? row.doc_id : row.id;
+                  return (
+                    <TableRow key={id} hover>
+                      <TableCell padding="checkbox">
+                        <Checkbox checked={selectedIds.includes(id)} onChange={() => handleSelectOne(id)} />
+                      </TableCell>
+                      {tabValue === 0 ? (
+                        <><TableCell>{row.report_date}</TableCell><TableCell>{row.report_type}</TableCell><TableCell><code>{row.doc_id}</code></TableCell></>
                       ) : (
-                        <Button 
-                          variant="contained" 
-                          size="small"
-                          onClick={() => handleApproveAction(row)}
-                          disabled={actionLoading === rowId}
-                        >
-                          {actionLoading === rowId ? '...' : 'SETUJUI'}
-                        </Button>
+                        <><TableCell>{row.no_gadai}</TableCell><TableCell>{row.nasabah?.nama_lengkap}</TableCell><TableCell>{row.uang_pinjaman}</TableCell></>
                       )}
-                    </Stack>
-                  </Card>
-                );
-              })}
-            </Box>
-          ) : (
-            <TableContainer>
-              <Table>
-                <TableHead sx={{ bgcolor: '#fafafa' }}>
-                  <TableRow>
-                    {tabValue === 0 ? (
-                      <>
-                        <TableCell><b>TANGGAL</b></TableCell>
-                        <TableCell><b>JENIS LAPORAN</b></TableCell>
-                        <TableCell><b>ID DOKUMEN</b></TableCell>
-                      </>
-                    ) : (
-                      <>
-                        <TableCell><b>NO GADAI</b></TableCell>
-                        <TableCell><b>NASABAH</b></TableCell>
-                        <TableCell align="right"><b>PINJAMAN</b></TableCell>
-                      </>
-                    )}
-                    <TableCell align="center"><b>STATUS</b></TableCell>
-                    <TableCell align="center"><b>AKSI</b></TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {data.map((row) => {
-                    const isApproved = tabValue === 0 ? row.is_approved : row.approval_status === 'approved';
-                    const rowId = tabValue === 0 ? row.doc_id : row.id;
-
-                    return (
-                      <TableRow key={rowId} hover>
-                        {tabValue === 0 ? (
-                          <>
-                            <TableCell>{row.report_date}</TableCell>
-                            <TableCell><Chip label={row.report_type?.replace('_', ' ')} size="small" color="info" variant="outlined" /></TableCell>
-                            <TableCell><code>{row.doc_id}</code></TableCell>
-                          </>
-                        ) : (
-                          <>
-                            <TableCell><b>{row.no_gadai}</b></TableCell>
-                            <TableCell>{row.nasabah?.nama_lengkap}</TableCell>
-                            <TableCell align="right">{formatRupiah(row.uang_pinjaman)}</TableCell>
-                          </>
-                        )}
-                        <TableCell align="center">
-                          <Chip label={isApproved ? "APPROVED" : "PENDING"} color={isApproved ? "success" : "warning"} size="small" />
-                        </TableCell>
-                        <TableCell align="center">
-                          {isApproved ? (
-                            <IconButton disabled><CheckCircle color="success" /></IconButton>
-                          ) : (
-                            <Button 
-                              variant="contained" 
-                              size="small"
-                              onClick={() => handleApproveAction(row)}
-                              disabled={actionLoading === rowId}
-                            >
-                              {actionLoading === rowId ? '...' : 'ACC'}
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )
-        ) : (
-          <Box sx={{ textAlign: 'center', py: 10 }}>
-            <ErrorOutline sx={{ fontSize: 50, color: 'grey.300', mb: 1 }} />
-            <Typography color="text.secondary">Data tidak ditemukan.</Typography>
-          </Box>
+                      <TableCell align="center">
+                        <Button variant="contained" size="small" onClick={() => handleApproveAction(row)} disabled={actionLoading === id}>
+                          {actionLoading === id ? '...' : 'ACC'}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
       </Card>
     </Box>

@@ -73,16 +73,15 @@ const LaporanMutasiGudang = () => {
       if (res.data.success) {
         if (navigator.vibrate) navigator.vibrate(200);
         
-        console.log('📱 Scanned data:', res.data.data);
+        console.log('Scanned data:', res.data.data);
         
-        // Set data barang yang di-scan
+
         setScannedData(res.data.data);
-        
-        // Set daftar user dari response scan (BUKAN dari endpoint terpisah!)
+
         setUsers(res.data.data.list_users || []);
-        console.log('👥 List users:', res.data.data.list_users);
+        console.log(' List users:', res.data.data.list_users);
         
-        setPenerimaId(''); // Reset pilihan
+        setPenerimaId(''); 
         setOpenConfirm(true);
       }
     } catch (err) {
@@ -93,7 +92,6 @@ const LaporanMutasiGudang = () => {
     }
   };
 
-  // --- FINAL SAVE (VERIFIKASI) ---
   const handleFinalVerify = async () => {
     if (!penerimaId) {
       alert("Wajib memilih Nama Penerima!");
@@ -102,12 +100,12 @@ const LaporanMutasiGudang = () => {
 
     try {
       setLoading(true);
-      const res = await axiosInstance.post(`${apiBase}/verifikasi`, {
-        detail_gadai_id: scannedData.detail_gadai_id,
-        jenis_pergerakan: scannedData.aksi,
-        penerima_id: penerimaId,
-        keterangan: `Verifikasi Gudang via Scanner`
-      });
+     const res = await axiosInstance.post(`${apiBase}/verifikasi`, {
+  detail_gadai_id: scannedData.detail_gadai_id,
+  jenis_pergerakan: scannedData.aksi,
+  user_pilihan_id: penerimaId,  
+  keterangan: `Verifikasi Gudang via Scanner`
+});
 
       if (res.data.success) {
         setOpenConfirm(false);
@@ -279,16 +277,71 @@ const LaporanMutasiGudang = () => {
                 <Typography variant="body2">{scannedData.nasabah} ({scannedData.no_gadai})</Typography>
               </Box>
 
-              <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: 1 }}>
-                <Typography variant="caption" color="textSecondary" fontWeight={600}>PENYERAH</Typography>
-                <Typography variant="body1" fontWeight="bold" sx={{ mt: 0.5 }}>
-                  {scannedData.penyerah?.name || user?.name || '-'}
-                </Typography>
-                <Typography variant="caption" color="textSecondary">
-                  ({scannedData.penyerah?.role || '-'})
-                </Typography>
-              </Box>
+             {/* PENYERAH */}
+<Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: 1 }}>
+  <Typography variant="caption" color="textSecondary" fontWeight={600}>PENYERAH</Typography>
+  
+  {scannedData.aksi === 'keluar' ? (
+    // KELUAR → penyerah = user login (fixed/otomatis)
+    <>
+      <Typography variant="body1" fontWeight="bold" sx={{ mt: 0.5 }}>
+        {scannedData.penyerah?.name || user?.name || '-'}
+      </Typography>
+      <Typography variant="caption" color="textSecondary">
+        ({scannedData.penyerah?.role || '-'}) — Otomatis
+      </Typography>
+    </>
+  ) : (
+    // MASUK → penyerah = dipilih (siapapun bisa antar)
+    <TextField
+      select fullWidth label="Pilih Penyerah"
+      value={penerimaId}
+      onChange={(e) => setPenerimaId(e.target.value)}
+      helperText="Pilih siapa yang mengantarkan barang masuk"
+      variant="outlined" required sx={{ mt: 1 }}
+    >
+      {users.map((u) => (
+        <MenuItem key={u.id} value={u.id}>
+          {u.name} <span style={{ color: '#666', fontSize: '0.85em' }}>({u.role_label})</span>
+        </MenuItem>
+      ))}
+    </TextField>
+  )}
+</Box>
 
+<hr style={{ margin: '8px 0', border: 'none', borderTop: '1px solid #ddd' }} />
+
+{/* PENERIMA */}
+<Box>
+  <Typography variant="caption" color="textSecondary" fontWeight={600}>PENERIMA</Typography>
+  
+  {scannedData.aksi === 'masuk' ? (
+    // MASUK → penerima = user login (fixed/otomatis)
+    <>
+      <Typography variant="body1" fontWeight="bold" sx={{ mt: 0.5 }}>
+        {user?.name || '-'}
+      </Typography>
+      <Typography variant="caption" color="textSecondary">
+        (Staff Gudang) — Otomatis
+      </Typography>
+    </>
+  ) : (
+    // KELUAR → penerima = dipilih
+    <TextField
+      select fullWidth label="Pilih Penerima"
+      value={penerimaId}
+      onChange={(e) => setPenerimaId(e.target.value)}
+      helperText="Pilih siapa yang mengambil barang keluar"
+      variant="outlined" required sx={{ mt: 1 }}
+    >
+      {users.map((u) => (
+        <MenuItem key={u.id} value={u.id}>
+          {u.name} <span style={{ color: '#666', fontSize: '0.85em' }}>({u.role_label})</span>
+        </MenuItem>
+      ))}
+    </TextField>
+  )}
+</Box>
               <hr style={{ margin: '8px 0', border: 'none', borderTop: '1px solid #ddd' }} />
 
               {/* DROPDOWN PEMILIHAN PENERIMA */}

@@ -117,6 +117,11 @@ const KwitansiGadaiCetak = Loadable(lazy(() => import('views/Kwitansi/index')));
 const RiwayatKwitansi = Loadable(lazy(() => import('views/Kwitansi/riwayat')));
 const PenggajianPage = Loadable(lazy(() => import('views/HM/Penggajian/index')));
 const OperasionalPage = Loadable(lazy(() => import('views/HM/Operasional/index')));
+const LaporanCashFlow = Loadable(lazy(() => import('views/HM/CashFlow/index')));
+const LaporanHistory = Loadable(lazy(() => import('views/AccLaporan/history')));
+const SuratKuasaPage = Loadable(lazy(() => import('views/SuratKuasa/index')));
+const DaftarNotaKehilangan = Loadable(lazy(() => import('views/NotaKehilangan/index')));
+
 // ==============================|| MAIN ROUTES ||============================== //
 const MainRoutes = {
   path: '/',
@@ -206,6 +211,10 @@ const MainRoutes = {
     { path: '/employee', element: <PegawaiListCard/> },
     { path: '/penggajian', element: <PenggajianPage/> },
     { path: '/operasional', element: <OperasionalPage/> },
+    { path: '/cashflow', element: <LaporanCashFlow/> },
+    { path: '/laporan-acc-history', element: <LaporanHistory/> },
+    { path: '/surat-kuasa', element: <SuratKuasaPage/> },
+    { path: '/nota-kehilangan', element: <DaftarNotaKehilangan/> },
 
 
 

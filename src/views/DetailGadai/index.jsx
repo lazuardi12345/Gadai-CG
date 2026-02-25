@@ -98,7 +98,7 @@ const handleValidasiSelesai = async (status) => {
   const result = await Swal.fire({
     title: isReject ? "Konfirmasi Penolakan" : "Konfirmasi Pengecekan",
     input: "textarea",
-    inputLabel: isReject ? "Alasan Reject" : "Catatan Pengecekan",
+    inputLabel: isReject ? "Alasan Reject / Revisi" : "Catatan Pengecekan",
     inputPlaceholder: "Tulis catatan di sini...",
     showCancelButton: true,
     confirmButtonText: isReject ? "Reject" : "Selesai",
@@ -114,19 +114,30 @@ const handleValidasiSelesai = async (status) => {
   setProcessLoading(true);
 
   try {
-    const res = await axiosInstance.post(`${getApiUrl("approvals")}/${selectedItem.id}`, {
-      status: status,
+    /** * DISINI KUNCINYA BRADERRR: 
+     * Pakai axiosInstance.patch karena routenya PATCH
+     */
+    const res = await axiosInstance.patch(`${getApiUrl("detail-gadai")}/${selectedItem.id}/validasi-selesai`, {
+      keputusan: isReject ? "tolak" : "setuju",
       catatan: result.value,
     });
 
-    // Cek payload atau error property sesuai format backend
-    if (!res.data.error && !res.data.payload?.error) {
+    if (res.data.success) {
       setOpenValidasi(false);
       fetchData(); 
-      Swal.fire({ icon: "success", title: "Berhasil!", text: "Data berhasil diproses ke status SELESAI.", timer: 2000 });
+      Swal.fire({ 
+        icon: isReject ? "warning" : "success", 
+        title: "Berhasil!", 
+        text: res.data.message, 
+        timer: 2000 
+      });
     }
   } catch (err) {
-    Swal.fire({ icon: "error", title: "Gagal", text: err.response?.data?.error || "Terjadi kesalahan." });
+    Swal.fire({ 
+      icon: "error", 
+      title: "Gagal", 
+      text: err.response?.data?.message || "Terjadi kesalahan." 
+    });
   } finally {
     setProcessLoading(false);
   }

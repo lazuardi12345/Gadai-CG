@@ -23,6 +23,10 @@ import AutorenewIcon from '@mui/icons-material/Autorenew';
 // TAMBAHAN ICON BARU
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined';
+import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
+import ReportProblemOutlined from '@mui/icons-material/ReportProblemOutlined';
 
 // daftar icon
 const icons = {
@@ -48,8 +52,12 @@ const icons = {
   AccountBalanceWalletIcon,
   AssessmentOutlinedIcon,
   FactCheckOutlinedIcon,
-  AccountBalanceOutlinedIcon, // Tambahkan ini
-  PaymentsOutlinedIcon // Tambahkan ini
+  AccountBalanceOutlinedIcon, 
+  PaymentsOutlinedIcon,
+  AccountBalanceWalletOutlinedIcon,
+  DescriptionOutlinedIcon, 
+  AssignmentIndOutlinedIcon, 
+  ReportProblemOutlined
 };
 
 // ==============================|| MENU ITEMS ||============================== //
@@ -171,65 +179,63 @@ export default {
               url: '/perpanjangan-tempo',
               icon: icons.TimerOutlinedIcon,
               role: ['checker', 'hm', 'petugas']
-            },
-            {
-              id: 'cetak kwitansi',
-              title: 'Kwitansi',
-              type: 'item',
-              url: '/cetak-kwitansi',
-              icon: icons.TimerOutlinedIcon,
-              role: ['checker', 'hm', 'kasir']
             }
           ]
         }
       ]
     },
 
-    // Group Management Internal
+{
+  id: 'management-internal',
+  title: 'Manajemen Internal',
+  type: 'group',
+  icon: icons.AccountBalanceOutlinedIcon,
+  children: [
     {
-      id: 'management-internal',
-      title: 'Manajemen Internal',
-      type: 'group',
-      icon: icons.AccountBalanceOutlinedIcon,
+      id: 'hr-management',
+      title: 'SDM & Keuangan',
+      type: 'collapse',
+      icon: icons.PeopleAltOutlinedIcon,
+      role: ['hm'],
       children: [
         {
-          id: 'hr-management',
-          title: 'SDM & Keuangan',
-          type: 'collapse',
+          id: 'daftar-pegawai',
+          title: 'Daftar Pegawai',
+          type: 'item',
+          url: '/employee',
           icon: icons.PeopleAltOutlinedIcon,
-          role: ['hm'],
-          children: [
-            {
-              id: 'daftar-pegawai',
-              title: 'Daftar Pegawai',
-              type: 'item',
-              url: '/employee',
-              icon: icons.PeopleAltOutlinedIcon,
-              role: ['hm']
-            },
-            {
-              id: 'data-penggajian',
-              title: 'Penggajian',
-              type: 'item',
-              url: '/penggajian',
-              icon: icons.PaymentsOutlinedIcon,
-              role: ['hm']
-            },
-            {
-              id: 'biaya-operasional',
-              title: 'Operasional',
-              type: 'item',
-              url: '/operasional',
-              icon: icons.AssessmentOutlinedIcon,
-              role: ['hm']
-            }
-          ]
+          role: ['hm']
+        },
+        {
+          id: 'data-penggajian',
+          title: 'Penggajian',
+          type: 'item',
+          url: '/penggajian',
+          icon: icons.PaymentsOutlinedIcon,
+          role: ['hm']
+        },
+        {
+          id: 'biaya-operasional',
+          title: 'Operasional',
+          type: 'item',
+          url: '/operasional',
+          icon: icons.AssessmentOutlinedIcon,
+          role: ['hm']
+        },
+        {
+          id: 'cashflow',
+          title: 'Cashflow',
+          type: 'item',
+          url: '/cashflow',
+          icon: icons.AccountBalanceWalletOutlinedIcon, 
+          role: ['hm']
         }
       ]
-    },
+    }
+  ]
+},
 
-    // Laporan
-    {
+{
       id: 'laporan-group',
       title: 'Laporan',
       type: 'group',
@@ -259,6 +265,39 @@ export default {
           icon: icons.AssessmentOutlinedIcon,
           role: ['hm'],
           badgeKey: 'LAPORAN_TERBARU'
+        },
+        {
+          id: 'surat-menyurat',
+          title: 'Surat Menyurat',
+          type: 'collapse', 
+          icon: icons.DescriptionOutlinedIcon, 
+          role: ['petugas', 'checker', 'hm'], 
+          children: [
+            {
+              id: 'surat-kuasa-pelunasan',
+              title: 'Surat Kuasa Pelunasan',
+              type: 'item',
+              url: '/surat-kuasa',
+              icon: icons.AssignmentIndOutlinedIcon, 
+              role: ['petugas', 'checker', 'hm']
+            },
+            {
+              id: 'cetak kwitansi',
+              title: 'Kwitansi',
+              type: 'item',
+              url: '/cetak-kwitansi',
+              icon: icons.TimerOutlinedIcon,
+              role: ['checker', 'hm', 'kasir']
+            },
+            {
+      id: 'nota-kehilangan',
+      title: 'Nota Kehilangan',
+      type: 'item',
+      url: '/nota-kehilangan',
+      icon: icons.ReportProblemOutlinedIcon, 
+      role: ['petugas', 'checker', 'hm']
+    },
+          ]
         }
       ]
     },
